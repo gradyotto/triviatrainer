@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import LandingPage from './LandingPage'; 
 import './App.css';
 
 function App() {
@@ -432,8 +433,7 @@ function App() {
     setMode(null);
   };
   
-  const handleSignIn = (e) => {
-    e.preventDefault();
+  const handleSignIn = (email, password) => {
     signInWithEmailAndPassword(auth, email, password)
       .then(() => {
         setEmail('');
@@ -442,9 +442,8 @@ function App() {
       })
       .catch(err => setError(err.message));
   };
-  
-  const handleSignUp = (e) => {
-    e.preventDefault();
+
+  const handleSignUp = (email, password) => {
     createUserWithEmailAndPassword(auth, email, password)
       .then(() => {
         setEmail('');
@@ -453,7 +452,7 @@ function App() {
       })
       .catch(err => setError(err.message));
   };
-  
+
   const handleSignOut = () => {
     signOut(auth);
     setQuestions([]);
@@ -492,31 +491,7 @@ function App() {
   };
   
   if (!user) {
-    return (
-      <div className="App">
-        <h1>TriviaTrainer</h1>
-        <h2>Sign In or Sign Up</h2>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <form onSubmit={handleSignIn}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button type="submit">Sign In</button>
-          <button type="button" onClick={handleSignUp}>Sign Up</button>
-        </form>
-      </div>
-    );
+    return <LandingPage onSignIn={handleSignIn} onSignUp={handleSignUp} error={error} />;
   }
   
   if (loading) {
