@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, addDoc } from 'firebase/firestore';
 import LandingPage from './LandingPage'; 
 import './App.css';
 
@@ -53,16 +53,29 @@ function App() {
 
   const fetchUserHistory = async (uid) => {
     try {
-      const historySnapshot = await getDocs(collection(db, `userProgress/${uid}/questions`));
+      const progressSnapshot = await getDocs(collection(db, `userProgress/${uid}/progress`));
+      const attemptsSnapshot = await getDocs(collection(db, `userProgress/${uid}/attempts`));
       const history = {};
-      historySnapshot.forEach(doc => {
+      const attemptsMap = {};
+  
+      attemptsSnapshot.forEach(doc => {
+        const data = doc.data();
+        attemptsMap[data.progressId] = attemptsMap[data.progressId] || [];
+        attemptsMap[data.progressId].push({
+          timestamp: data.timestamp,
+          correct: data.correct
+        });
+      });
+
+      progressSnapshot.forEach(doc => {
         const data = doc.data();
         history[data.questionId] = {
           firstSeen: data.firstSeen,
           lastSeen: data.lastSeen,
-          attemptsHistory: data.attemptsHistory || []
+          attemptsHistory: attemptsMap[data.progressId] || []
         };
       });
+  
       setUserHistory(history);
       console.log('User history loaded from Firestore:', history);
     } catch (e) {
@@ -321,7 +334,7 @@ function App() {
     setMatchingAnswers(prev => ({ ...prev, [key]: value }));
   };
   
-  const updateHistory = (questionId, isCorrect, history) => {
+  const updateHistory = async (questionId, isCorrect, history) => { // Make async
     const now = new Date().toISOString();
     const currentHistory = history[questionId] || { firstSeen: now, lastSeen: now, attemptsHistory: [] };
     
@@ -340,14 +353,44 @@ function App() {
     };
     setUserHistory(updatedHistory);
   
-    setDoc(doc(db, `userProgress/${user.uid}/questions`, String(questionId)), {
-      questionId,
-      firstSeen: currentHistory.firstSeen,
-      lastSeen: now,
-      attemptsHistory: updatedAttempts
-    })
-      .then(() => console.log(`History updated in Firestore for q${questionId}:`, updatedHistory[questionId]))
-      .catch(e => console.error('Error updating history:', e));
+    try {
+      // Check if progress exists
+      const progressQuery = await getDocs(collection(db, `userProgress/${user.uid}/progress`));
+      let progressId = null;
+      progressQuery.forEach(doc => {
+        if (doc.data().questionId === questionId) {
+          progressId = doc.data().progressId;
+        }
+      });
+  
+      if (!progressId) {
+        const progressDoc = await addDoc(collection(db, `userProgress/${user.uid}/progress`), {
+          progressId: Date.now(), // Simple unique ID
+          questionId,
+          firstSeen: currentHistory.firstSeen,
+          lastSeen: now
+        });
+        progressId = (await getDoc(progressDoc)).data().progressId;
+      } else {
+        await setDoc(doc(db, `userProgress/${user.uid}/progress`, String(progressId)), {
+          progressId,
+          questionId,
+          firstSeen: currentHistory.firstSeen,
+          lastSeen: now
+        });
+      }
+  
+      await addDoc(collection(db, `userProgress/${user.uid}/attempts`), {
+        attemptId: Date.now(),
+        progressId,
+        timestamp: now,
+        correct: isCorrect
+      });
+  
+      console.log(`History updated in Firestore for q${questionId}`);
+    } catch (e) {
+      console.error('Error updating history:', e);
+    }
   };
   
   const completeReinforcementAndAdvance = () => {
