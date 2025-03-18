@@ -1,9 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, doc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
 import LandingPage from './LandingPage'; 
 import './App.css';
+
+const normalizeNumber = (input) => {
+  const numMap = {
+    'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+    'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13', 'fourteen': '14',
+    'fifteen': '15', 'sixteen': '16', 'seventeen': '17', 'eighteen': '18', 'nineteen': '19',
+    'twenty': '20', 'twenty-one': '21', 'twenty-two': '22', 'twenty-three': '23', 'twenty-four': '24',
+    'twenty-five': '25', 'twenty-six': '26', 'twenty-seven': '27', 'twenty-eight': '28', 'twenty-nine': '29',
+    'thirty': '30', 'thirty-one': '31', 'thirty-two': '32', 'thirty-three': '33', 'thirty-four': '34',
+    'thirty-five': '35', 'thirty-six': '36', 'thirty-seven': '37', 'thirty-eight': '38', 'thirty-nine': '39',
+    'forty': '40', 'forty-one': '41', 'forty-two': '42', 'forty-three': '43', 'forty-four': '44',
+    'forty-five': '45', 'forty-six': '46', 'forty-seven': '47', 'forty-eight': '48', 'forty-nine': '49',
+    'fifty': '50', 'fifty-one': '51', 'fifty-two': '52', 'fifty-three': '53', 'fifty-four': '54',
+    'fifty-five': '55', 'fifty-six': '56', 'fifty-seven': '57', 'fifty-eight': '58', 'fifty-nine': '59',
+    'sixty': '60', 'sixty-one': '61', 'sixty-two': '62', 'sixty-three': '63', 'sixty-four': '64',
+    'sixty-five': '65', 'sixty-six': '66', 'sixty-seven': '67', 'sixty-eight': '68', 'sixty-nine': '69',
+    'seventy': '70', 'seventy-one': '71', 'seventy-two': '72', 'seventy-three': '73', 'seventy-four': '74',
+    'seventy-five': '75', 'seventy-six': '76', 'seventy-seven': '77', 'seventy-eight': '78', 'seventy-nine': '79',
+    'eighty': '80', 'eighty-one': '81', 'eighty-two': '82', 'eighty-three': '83', 'eighty-four': '84',
+    'eighty-five': '85', 'eighty-six': '86', 'eighty-seven': '87', 'eighty-eight': '88', 'eighty-nine': '89',
+    'ninety': '90', 'ninety-one': '91', 'ninety-two': '92', 'ninety-three': '93', 'ninety-four': '94',
+    'ninety-five': '95', 'ninety-six': '96', 'ninety-seven': '97', 'ninety-eight': '98', 'ninety-nine': '99'
+  };
+  const lowerInput = input.toLowerCase().replace(/\s+/g, '-');
+  return numMap[lowerInput] || input;
+};
+
+const normalizeAnswer = (input) => {
+  return normalizeNumber(
+    input
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, '')
+      .toLowerCase()
+      .trim()
+  );
+};
+
 
 function App() {
   const [questions, setQuestions] = useState([]);
@@ -29,6 +68,7 @@ function App() {
   const [password, setPassword] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [mode, setMode] = useState(null);
+  const [username, setUsername] = useState('');
 
   const quizCategories = [
     { id: 9, name: 'General Knowledge' },
@@ -224,10 +264,11 @@ function App() {
     }
   };
   
-  const handleTrainingSubmit = (answer) => {
+  const handleTrainingSubmit = async (answer) => {
     if (answered) return;
     const currentQuestion = questions[currentQuestionIndex];
     let userAnswer;
+    const isFirstEncounter = !userHistory[currentQuestion.id];
   
     if (currentQuestion.type === 'true-false' || currentQuestion.type === 'multiple-choice') {
       userAnswer = answer;
@@ -241,20 +282,15 @@ function App() {
       }
     }
   
-    const history = { ...userHistory };
-    const isFirstEncounter = !history[currentQuestion.id];
-    console.log('Pre-submit history:', history);
-    console.log('Question has RT:', !!currentQuestion.reinforcementTask);
-    console.log('User answer:', userAnswer);
-    console.log('Attempts:', attempts);
-  
     if (currentQuestion.type === 'matching') {
       const combinedAnswers = { ...currentQuestion.answer, ...matchingAnswers };
       const correctPairs = { ...matchingCorrect };
       let allCorrect = true;
   
       Object.keys(currentQuestion.answer).forEach(key => {
-        const isCorrect = combinedAnswers[key] === currentQuestion.answer[key];
+        const normalizedUserValue = normalizeAnswer(combinedAnswers[key] || '');
+        const normalizedCorrectValue = normalizeAnswer(currentQuestion.answer[key]);
+        const isCorrect = normalizedUserValue === normalizedCorrectValue;
         if (isCorrect) correctPairs[key] = true;
         allCorrect = allCorrect && isCorrect;
       });
@@ -264,7 +300,7 @@ function App() {
         setAnswered(true);
         setFeedback('Correct!');
         setMatchingCorrect(correctPairs);
-        updateHistory(currentQuestion.id, true, history);
+        await updateHistory(currentQuestion.id, true, userHistory);
         const shouldShowRT = currentQuestion.reinforcementTask && (isFirstEncounter || attempts > 0);
         console.log(`Matching RT check - First: ${isFirstEncounter}, Correct: ${allCorrect}, Has RT: ${!!currentQuestion.reinforcementTask}, Result: ${shouldShowRT}`);
         setShowReinforcement(shouldShowRT);
@@ -284,21 +320,24 @@ function App() {
           .map(([key, value]) => `${key} - ${value}`)
           .join(', ');
         setFeedback(`Incorrect, the correct matches are: ${correctText}`);
-        updateHistory(currentQuestion.id, false, history);
+        await updateHistory(currentQuestion.id, false, userHistory);
         const shouldShowRT = currentQuestion.reinforcementTask && attempts > 0;
         console.log(`Matching RT check - First: ${isFirstEncounter}, Correct: ${allCorrect}, Has RT: ${!!currentQuestion.reinforcementTask}, Result: ${shouldShowRT}`);
         setShowReinforcement(shouldShowRT);
       }
     } else {
-      const isCorrect = userAnswer.toLowerCase() === currentQuestion.answer.toLowerCase();
-      console.log('Non-matching correct:', isCorrect, 'Expected:', currentQuestion.answer.toLowerCase());
+      const normalizedUserAnswer = normalizeAnswer(userAnswer);
+      const normalizedCorrectAnswer = normalizeAnswer(currentQuestion.answer);
+      const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
+  
+      console.log('Normalized user answer:', normalizedUserAnswer, 'Expected:', normalizedCorrectAnswer);
   
       if (isCorrect) {
         setAnswered(true);
         setFeedback('Correct!');
         setHint('');
         setExplanation(currentQuestion.explanation || 'No explanation available.');
-        updateHistory(currentQuestion.id, true, history);
+        await updateHistory(currentQuestion.id, true, userHistory);
         const shouldShowRT = currentQuestion.reinforcementTask && (isFirstEncounter || attempts > 0);
         console.log(`RT check - First: ${isFirstEncounter}, Correct: ${isCorrect}, Has RT: ${!!currentQuestion.reinforcementTask}, Result: ${shouldShowRT}`);
         setShowReinforcement(shouldShowRT);
@@ -307,7 +346,7 @@ function App() {
         setFeedback(`Incorrect, the answer is "${currentQuestion.answer}".`);
         setHint('');
         setExplanation(currentQuestion.explanation || 'No explanation available.');
-        updateHistory(currentQuestion.id, false, history);
+        await updateHistory(currentQuestion.id, false, userHistory);
         const shouldShowRT = currentQuestion.reinforcementTask && attempts > 0;
         console.log(`RT check - First: ${isFirstEncounter}, Correct: ${isCorrect}, Has RT: ${!!currentQuestion.reinforcementTask}, Result: ${shouldShowRT}`);
         setShowReinforcement(shouldShowRT);
@@ -322,7 +361,7 @@ function App() {
         setFeedback(`Incorrect, the answer is "${currentQuestion.answer}".`);
         setHint('');
         setExplanation('');
-        updateHistory(currentQuestion.id, false, history);
+        await updateHistory(currentQuestion.id, false, userHistory);
         const shouldShowRT = currentQuestion.reinforcementTask && attempts > 0;
         console.log(`RT check - First: ${isFirstEncounter}, Correct: ${isCorrect}, Has RT: ${!!currentQuestion.reinforcementTask}, Result: ${shouldShowRT}`);
         setShowReinforcement(shouldShowRT);
@@ -395,7 +434,12 @@ function App() {
   
   const completeReinforcementAndAdvance = () => {
     const currentQuestion = questions[currentQuestionIndex];
-    if (reinforcementInput.trim().toLowerCase() === currentQuestion.answer.toLowerCase()) {
+    const normalizedInput = normalizeAnswer(reinforcementInput);
+    const normalizedAnswer = normalizeAnswer(currentQuestion.answer);
+  
+    console.log('Reinforcement - Normalized input:', normalizedInput, 'Expected:', normalizedAnswer);
+  
+    if (normalizedInput === normalizedAnswer) {
       setShowReinforcement(false);
       setReinforcementInput('');
       setFeedback('');
@@ -806,6 +850,6 @@ function App() {
       </div>
     </div>
   );
-  }
-  
-  export default App;
+}
+
+export default App;
