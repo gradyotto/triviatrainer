@@ -1,0 +1,58 @@
+.category-selection {
+    text-align: center;
+  }
+  
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    max-width: 600px;
+    margin: 2rem auto;
+  }
+  
+  .category-button {
+    background: #2e2e2e;
+    color: white;
+    border: none;
+    padding: 1rem;
+    font-size: 1.1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  
+  .category-button:hover {
+    background: #3e3e3e;
+  }
+  
+  .category-button.selected {
+    background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  }
+  
+  .random-category {
+    grid-column: 1 / -1; /* Spans full width for quiz mode */
+  }
+  
+  .start-button {
+    background: linear-gradient(90deg, #6e48aa, #9d50bb);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    font-size: 1.2rem;
+    border-radius: 25px;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .start-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(110, 72, 170, 0.3);
+  }
+  
+  .start-button:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }

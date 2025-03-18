@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
-import LandingPage from './LandingPage'; 
+import LandingPage from './LandingPage';
+import Header from './Header'; // New
+import ModeSelection from './ModeSelection'; // New
+import CategorySelection from './CategorySelection'; // New
+import QuestionScreen from './QuestionScreen'; // New
+import ReinforcementTask from './ReinforcementTask'; // New
+import Profile from './Profile'; // Re-added
 import './App.css';
 
+// Normalization functions
 const normalizeNumber = (input) => {
   const numMap = {
     'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
@@ -43,6 +50,26 @@ const normalizeAnswer = (input) => {
   );
 };
 
+const quizCategories = [
+  { id: 9, name: 'General Knowledge' },
+  { id: 10, name: 'Books' },
+  { id: 11, name: 'Film' },
+  { id: 17, name: 'Science & Nature' },
+  { id: 23, name: 'History' },
+  { id: 21, name: 'Sports' }
+];
+
+const trainingCategories = [
+  { id: 'History', name: 'History' },
+  { id: 'Science', name: 'Science' },
+  { id: 'Literature', name: 'Literature' },
+  { id: 'Geography', name: 'Geography' },
+  { id: 'Sports', name: 'Sports' },
+  { id: 'Entertainment', name: 'Entertainment' },
+  { id: 'Art', name: 'Art' },
+  { id: 'Pop Culture', name: 'Pop Culture' },
+  { id: 'General Knowledge', name: 'General Knowledge' }
+];
 
 function App() {
   const [questions, setQuestions] = useState([]);
@@ -69,27 +96,7 @@ function App() {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [mode, setMode] = useState(null);
   const [username, setUsername] = useState('');
-
-  const quizCategories = [
-    { id: 9, name: 'General Knowledge' },
-    { id: 10, name: 'Books' },
-    { id: 11, name: 'Film' },
-    { id: 17, name: 'Science & Nature' },
-    { id: 23, name: 'History' },
-    { id: 21, name: 'Sports' }
-  ];
-
-  const trainingCategories = [
-    { id: 'History', name: 'History' },
-    { id: 'Science', name: 'Science' },
-    { id: 'Literature', name: 'Literature' },
-    { id: 'Geography', name: 'Geography' },
-    { id: 'Sports', name: 'Sports' },
-    { id: 'Entertainment', name: 'Entertainment' },
-    { id: 'Art', name: 'Art' },
-    { id: 'Pop Culture', name: 'Pop Culture' },
-    { id: 'General Knowledge', name: 'General Knowledge' }
-  ];
+  const [currentScreen, setCurrentScreen] = useState('main'); // Added for routing
 
   const fetchUserHistory = async (uid) => {
     try {
@@ -97,7 +104,7 @@ function App() {
       const attemptsSnapshot = await getDocs(collection(db, `userProgress/${uid}/attempts`));
       const history = {};
       const attemptsMap = {};
-  
+
       attemptsSnapshot.forEach(doc => {
         const data = doc.data();
         attemptsMap[data.progressId] = attemptsMap[data.progressId] || [];
@@ -115,7 +122,7 @@ function App() {
           attemptsHistory: attemptsMap[data.progressId] || []
         };
       });
-  
+
       setUserHistory(history);
       console.log('User history loaded from Firestore:', history);
     } catch (e) {
@@ -123,17 +130,22 @@ function App() {
       setUserHistory({});
     }
   };
-  
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         fetchUserHistory(currentUser.uid);
+        getDoc(doc(db, 'users', currentUser.uid)).then(userDoc => {
+          if (userDoc.exists()) {
+            setUsername(userDoc.data().username || '');
+          }
+        });
       }
     });
     return () => unsubscribe();
   }, []);
-  
+
   useEffect(() => {
     if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
       console.log('Skipping shuffle: questions not ready or index out of bounds', {
@@ -143,16 +155,16 @@ function App() {
       setShuffledAnswers([]);
       return;
     }
-  
+
     const currentQuestion = questions[currentQuestionIndex];
     if (!currentQuestion || !currentQuestion.type) {
       console.log('Invalid currentQuestion:', currentQuestion);
       setShuffledAnswers([]);
       return;
     }
-  
+
     console.log('Shuffling answers for:', currentQuestion);
-  
+
     if (mode === 'quiz') {
       const correctAnswer = currentQuestion.answer;
       const incorrectAnswers = currentQuestion.type === 'true-false' 
@@ -170,29 +182,29 @@ function App() {
       setShuffledAnswers([]);
     }
   }, [questions, currentQuestionIndex, mode]);
-  
+
   const fetchQuestions = async (categories) => {
     console.log('Fetching questions for categories:', categories);
     setLoading(true);
     setCurrentQuestionIndex(0);
-    setQuestions([]); // Clear questions first
+    setQuestions([]);
     try {
       const querySnapshot = await getDocs(collection(db, 'questions'));
       const allQuestions = querySnapshot.docs.map(doc => ({ ...doc.data(), firestoreId: doc.id }));
       console.log('All questions from Firestore:', allQuestions);
-  
+
       const fetchedQuestions = allQuestions.filter(q => 
         !categories || categories.length === 0 || categories.includes(q.category)
       );
       console.log('Fetched questions after filter:', fetchedQuestions);
-  
+
       if (fetchedQuestions.length === 0) {
         console.log('No questions found for categories:', categories);
         setError('No questions available for selected categories.');
         setLoading(false);
         return;
       }
-  
+
       let sortedQuestions = fetchedQuestions;
       if (mode === 'training' && user) {
         const historySnapshot = await getDocs(collection(db, `userProgress/${user.uid}/questions`));
@@ -200,14 +212,14 @@ function App() {
         historySnapshot.forEach(doc => {
           history[doc.data().questionId] = doc.data();
         });
-  
+
         sortedQuestions = fetchedQuestions.sort((a, b) => {
           const aHistory = history[a.id] || { attemptsHistory: [], lastSeen: '1970-01-01T00:00:00Z' };
           const bHistory = history[b.id] || { attemptsHistory: [], lastSeen: '1970-01-01T00:00:00Z' };
-  
+
           const aIncorrect = aHistory.attemptsHistory.filter(attempt => !attempt.correct).length;
           const bIncorrect = bHistory.attemptsHistory.filter(attempt => !attempt.correct).length;
-  
+
           const aDaysSince = Math.min(
             (Date.now() - new Date(aHistory.lastSeen).getTime()) / (1000 * 60 * 60 * 24),
             30
@@ -216,16 +228,16 @@ function App() {
             (Date.now() - new Date(bHistory.lastSeen).getTime()) / (1000 * 60 * 60 * 24),
             30
           );
-  
+
           const aAttempts = aHistory.attemptsHistory.length;
           const bAttempts = bHistory.attemptsHistory.length;
-  
+
           const aScore = (aIncorrect * 2) + (aDaysSince * 2) - (aAttempts * 0.1);
           const bScore = (bIncorrect * 2) + (bDaysSince * 2) - (bAttempts * 0.1);
-  
+
           return bScore - aScore;
         });
-  
+
         console.log('Sorted questions with spaced repetition:', sortedQuestions.map(q => ({
           id: q.id,
           question: q.question,
@@ -241,7 +253,7 @@ function App() {
             : '60 (unseen)'
         })));
       }
-  
+
       setQuestions(sortedQuestions);
       console.log('Questions set:', sortedQuestions);
       setError(null);
@@ -253,7 +265,67 @@ function App() {
       setLoading(false);
     }
   };
-  
+
+  const handleSignIn = (email, password) => {
+    signInWithEmailAndPassword(auth, email, password)
+      .then(() => {
+        setEmail('');
+        setPassword('');
+        setError(null);
+      })
+      .catch(err => setError(err.message));
+  };
+
+  const handleSignUp = (email, password) => {
+    createUserWithEmailAndPassword(auth, email, password)
+      .then(() => {
+        setEmail('');
+        setPassword('');
+        setError(null);
+      })
+      .catch(err => setError(err.message));
+  };
+
+  const handleSignOut = () => {
+    signOut(auth);
+    setQuestions([]);
+    setScore(0);
+    setCurrentQuestionIndex(0);
+    setSelectedCategories([]);
+    setMode(null);
+    setCurrentScreen('main');
+    setUsername('');
+  };
+
+  const handleModeSelect = (selectedMode) => {
+    setMode(selectedMode);
+    setCurrentScreen(selectedMode);
+  };
+
+  const handleCategorySelect = (categoryId) => {
+    console.log('Category selected:', categoryId);
+    setSelectedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId) 
+        : [...prev, categoryId]
+    );
+  };
+
+  const handleStartTraining = () => {
+    if (selectedCategories.length > 0) {
+      console.log('Starting training with categories:', selectedCategories);
+      fetchQuestions(selectedCategories);
+    } else {
+      setError('Please select at least one category.');
+    }
+  };
+
+  const handleRandomCategory = () => {
+    console.log('Selecting random category');
+    setSelectedCategories(['random']);
+    fetchQuestions(trainingCategories.map(cat => cat.id));
+  };
+
   const handleAnswerSelect = (answer) => {
     if (answered) return;
     setSelectedAnswer(answer);
@@ -263,13 +335,13 @@ function App() {
       setScore(score + 1);
     }
   };
-  
+
   const handleTrainingSubmit = async (answer) => {
     if (answered) return;
     const currentQuestion = questions[currentQuestionIndex];
     let userAnswer;
     const isFirstEncounter = !userHistory[currentQuestion.id];
-  
+
     if (currentQuestion.type === 'true-false' || currentQuestion.type === 'multiple-choice') {
       userAnswer = answer;
     } else if (currentQuestion.type === 'matching') {
@@ -281,12 +353,12 @@ function App() {
         return;
       }
     }
-  
+
     if (currentQuestion.type === 'matching') {
       const combinedAnswers = { ...currentQuestion.answer, ...matchingAnswers };
       const correctPairs = { ...matchingCorrect };
       let allCorrect = true;
-  
+
       Object.keys(currentQuestion.answer).forEach(key => {
         const normalizedUserValue = normalizeAnswer(combinedAnswers[key] || '');
         const normalizedCorrectValue = normalizeAnswer(currentQuestion.answer[key]);
@@ -294,7 +366,7 @@ function App() {
         if (isCorrect) correctPairs[key] = true;
         allCorrect = allCorrect && isCorrect;
       });
-  
+
       console.log('Matching correct:', allCorrect);
       if (allCorrect) {
         setAnswered(true);
@@ -329,9 +401,9 @@ function App() {
       const normalizedUserAnswer = normalizeAnswer(userAnswer);
       const normalizedCorrectAnswer = normalizeAnswer(currentQuestion.answer);
       const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
-  
+
       console.log('Normalized user answer:', normalizedUserAnswer, 'Expected:', normalizedCorrectAnswer);
-  
+
       if (isCorrect) {
         setAnswered(true);
         setFeedback('Correct!');
@@ -368,12 +440,12 @@ function App() {
       }
     }
   };
-  
+
   const handleMatchingSelect = (key, value) => {
     setMatchingAnswers(prev => ({ ...prev, [key]: value }));
   };
-  
-  const updateHistory = async (questionId, isCorrect, history) => { // Make async
+
+  const updateHistory = async (questionId, isCorrect, history) => {
     const now = new Date().toISOString();
     const currentHistory = history[questionId] || { firstSeen: now, lastSeen: now, attemptsHistory: [] };
     
@@ -381,7 +453,7 @@ function App() {
       ...currentHistory.attemptsHistory,
       { timestamp: now, correct: isCorrect }
     ];
-  
+
     const updatedHistory = {
       ...history,
       [questionId]: {
@@ -391,9 +463,8 @@ function App() {
       }
     };
     setUserHistory(updatedHistory);
-  
+
     try {
-      // Check if progress exists
       const progressQuery = await getDocs(collection(db, `userProgress/${user.uid}/progress`));
       let progressId = null;
       progressQuery.forEach(doc => {
@@ -401,10 +472,10 @@ function App() {
           progressId = doc.data().progressId;
         }
       });
-  
+
       if (!progressId) {
         const progressDoc = await addDoc(collection(db, `userProgress/${user.uid}/progress`), {
-          progressId: Date.now(), // Simple unique ID
+          progressId: Date.now(),
           questionId,
           firstSeen: currentHistory.firstSeen,
           lastSeen: now
@@ -418,27 +489,27 @@ function App() {
           lastSeen: now
         });
       }
-  
+
       await addDoc(collection(db, `userProgress/${user.uid}/attempts`), {
         attemptId: Date.now(),
         progressId,
         timestamp: now,
         correct: isCorrect
       });
-  
+
       console.log(`History updated in Firestore for q${questionId}`);
     } catch (e) {
       console.error('Error updating history:', e);
     }
   };
-  
+
   const completeReinforcementAndAdvance = () => {
     const currentQuestion = questions[currentQuestionIndex];
     const normalizedInput = normalizeAnswer(reinforcementInput);
     const normalizedAnswer = normalizeAnswer(currentQuestion.answer);
-  
+
     console.log('Reinforcement - Normalized input:', normalizedInput, 'Expected:', normalizedAnswer);
-  
+
     if (normalizedInput === normalizedAnswer) {
       setShowReinforcement(false);
       setReinforcementInput('');
@@ -451,7 +522,7 @@ function App() {
       setAttempts(0);
       setMatchingAnswers({});
       setMatchingCorrect({});
-  
+
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
         console.log('Reinforcement completed, moving to next question:', currentQuestionIndex + 1);
@@ -462,6 +533,7 @@ function App() {
         setQuestions([]);
         setSelectedCategories([]);
         setMode(null);
+        setCurrentScreen('main');
         console.log('Training complete');
       }
     } else {
@@ -469,7 +541,7 @@ function App() {
       console.log('Reinforcement incorrect:', reinforcementInput);
     }
   };
-  
+
   const handleNextQuestion = () => {
     if (showReinforcement) {
       setFeedback('Please complete the reinforcement task.');
@@ -497,10 +569,11 @@ function App() {
       setQuestions([]);
       setSelectedCategories([]);
       setMode(null);
+      setCurrentScreen('main');
       console.log('Training complete');
     }
   };
-  
+
   const handleAbandonQuiz = () => {
     setQuestions([]);
     setCurrentQuestionIndex(0);
@@ -518,335 +591,98 @@ function App() {
     setReinforcementInput('');
     setSelectedCategories([]);
     setMode(null);
-  };
-  
-  const handleSignIn = (email, password) => {
-    signInWithEmailAndPassword(auth, email, password)
-      .then(() => {
-        setEmail('');
-        setPassword('');
-        setError(null);
-      })
-      .catch(err => setError(err.message));
+    setCurrentScreen('main');
   };
 
-  const handleSignUp = (email, password) => {
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(() => {
-        setEmail('');
-        setPassword('');
-        setError(null);
-      })
-      .catch(err => setError(err.message));
-  };
-
-  const handleSignOut = () => {
-    signOut(auth);
-    setQuestions([]);
-    setScore(0);
-    setCurrentQuestionIndex(0);
-    setSelectedCategories([]);
-    setMode(null);
-  };
-  
-  const handleModeSelect = (selectedMode) => {
-    setMode(selectedMode);
-  };
-  
-  const handleCategorySelect = (categoryId) => {
-    console.log('Category selected:', categoryId);
-    setSelectedCategories(prev => 
-      prev.includes(categoryId) 
-        ? prev.filter(id => id !== categoryId) 
-        : [...prev, categoryId]
-    );
-  };
-  
-  const handleStartTraining = () => {
-    if (selectedCategories.length > 0) {
-      console.log('Starting training with categories:', selectedCategories);
-      fetchQuestions(selectedCategories);
-    } else {
-      setError('Please select at least one category.');
-    }
-  };
-  
-  const handleRandomCategory = () => {
-    console.log('Selecting random category');
-    setSelectedCategories(['random']);
-    fetchQuestions(trainingCategories.map(cat => cat.id));
-  };
-  
   if (!user) {
     return <LandingPage onSignIn={handleSignIn} onSignUp={handleSignUp} error={error} />;
   }
-  
-  if (loading) {
-    return <div>Loading questions...</div>;
-  }
-  
-  if (error) {
-    return <div>{error}</div>;
-  }
-  
-  if (!mode) {
-    return (
-      <div className="App">
-        <h1>TriviaTrainer</h1>
-        <p>Welcome, {user.email}!</p>
-        <button onClick={handleSignOut}>Sign Out</button>
-        <h2>Choose Your Mode</h2>
-        <div className="mode-buttons">
-          <button onClick={() => handleModeSelect('training')} className="mode-button">
-            Training Mode
-          </button>
-          <button onClick={() => handleModeSelect('quiz')} className="mode-button">
-            Quiz Mode
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
-  if (mode === 'training' && questions.length === 0) {
-    return (
-      <div className="App">
-        <h1>TriviaTrainer - Training Mode</h1>
-        <p>Welcome, {user.email}!</p>
-        <button onClick={handleSignOut}>Sign Out</button>
-        <h2>Select Categories (choose multiple)</h2>
-        <div className="category-buttons">
-          {trainingCategories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => handleCategorySelect(cat.id)}
-              className={`category-button ${selectedCategories.includes(cat.id) ? 'selected' : ''}`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-        <button onClick={handleStartTraining} disabled={!selectedCategories.length}>
-          Start Training
-        </button>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-      </div>
-    );
-  }
-  
-  if (mode === 'quiz' && !selectedCategories.length) {
-    const categoriesToShow = quizCategories;
-    return (
-      <div className="App">
-        <h1>TriviaTrainer - Quiz Mode</h1>
-        <p>Welcome, {user.email}!</p>
-        <button onClick={handleSignOut}>Sign Out</button>
-        <h2>Select a Category</h2>
-        <div className="category-buttons">
-          <button
-            onClick={handleRandomCategory}
-            className="category-button random-category"
-          >
-            Random Category
-          </button>
-          <div className="specific-categories">
-            {categoriesToShow.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  handleCategorySelect(cat.id);
-                  fetchQuestions([cat.id]);
-                }}
-                className="category-button"
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (questions.length === 0) {
-    return <div>No questions loaded yet.</div>;
-  }
-  
-  const currentQuestion = questions[currentQuestionIndex];
-  const categoryName = mode === 'quiz' 
-    ? (selectedCategories[0] === 'random' ? 'Random' : quizCategories.find(cat => cat.id === selectedCategories[0])?.name)
-    : (selectedCategories.length === trainingCategories.length 
-        ? 'All Categories' 
-        : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', '));
-  
-  if (showReinforcement) {
-    return (
-      <div className="App">
-        <h1>Reinforcement Task</h1>
-        <p>{currentQuestion.reinforcementTask}</p>
-        <input
-          type="text"
-          value={reinforcementInput}
-          onChange={(e) => setReinforcementInput(e.target.value)}
-          placeholder="Type here"
-        />
-        <button onClick={completeReinforcementAndAdvance}>Submit</button>
-        {feedback && (
-          <p className={feedback === 'Correct!' ? 'correct-feedback' : 'incorrect-feedback'}>
-            {feedback}
-          </p>
-        )}
-      </div>
-    );
-  }
-  
+
   return (
     <div className="App">
-      <h1>TriviaTrainer - {mode === 'quiz' ? 'Quiz Mode' : 'Training Mode'}</h1>
-      <p>Welcome, {user.email}!</p>
-      <button onClick={handleSignOut}>Sign Out</button>
-      <p>Category: {categoryName}</p>
-      {mode === 'quiz' && <p>Score: {score} / {questions.length}</p>}
-      <p>Question {currentQuestionIndex + 1} of {questions.length}</p>
-      <div>
-        <h2>Question:</h2>
-        {currentQuestion.type === 'fill-in-the-blank' && mode !== 'quiz' ? (
-          <p>
-            {currentQuestion.question.split('____').map((part, index) => (
-              <span key={index}>
-                {part}
-                {index === 0 && (
-                  <input
-                    type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder="Fill in"
-                    disabled={answered}
-                    className="fill-in-blank"
-                  />
-                )}
-              </span>
-            ))}
-          </p>
+      <Header 
+        user={user}
+        username={username}
+        onSignOut={handleSignOut}
+        onLogoClick={() => {
+          setCurrentScreen('main');
+          setMode(null);               // Reset mode
+          setQuestions([]);            // Clear questions
+          setSelectedCategories([]);   // Clear categories
+          setCurrentQuestionIndex(0);  // Reset index
+          setScore(0);                 // Reset score
+        }}
+        onProfileClick={() => setCurrentScreen('profile')}
+      />
+      <div className="app-content">
+        {loading ? (
+          <div>Loading questions...</div>
+        ) : error ? (
+          <div>{error}</div>
+        ) : currentScreen === 'profile' ? (
+          <Profile user={user} onSignOut={handleSignOut} />
+        ) : currentScreen === 'main' && !mode ? (
+          <ModeSelection onModeSelect={handleModeSelect} />
+        ) : currentScreen === 'training' && questions.length === 0 ? (
+          <CategorySelection
+            mode="training"
+            categories={trainingCategories}
+            selectedCategories={selectedCategories}
+            onCategorySelect={handleCategorySelect}
+            onStart={handleStartTraining}
+            error={error}
+          />
+        ) : currentScreen === 'quiz' && !selectedCategories.length ? (
+          <CategorySelection
+            mode="quiz"
+            categories={quizCategories}
+            selectedCategories={selectedCategories}
+            onCategorySelect={handleCategorySelect}
+            onRandomCategory={handleRandomCategory}
+            fetchQuestions={fetchQuestions}
+          />
+        ) : questions.length === 0 ? (
+          <div>No questions loaded yet.</div>
+        ) : showReinforcement ? (
+          <ReinforcementTask
+            currentQuestion={questions[currentQuestionIndex]}
+            reinforcementInput={reinforcementInput}
+            setReinforcementInput={setReinforcementInput}
+            feedback={feedback}
+            onSubmit={completeReinforcementAndAdvance}
+          />
         ) : (
-          <p dangerouslySetInnerHTML={{ __html: currentQuestion.question }} />
+          <QuestionScreen
+            mode={mode}
+            currentQuestion={questions[currentQuestionIndex]}
+            currentQuestionIndex={currentQuestionIndex}
+            questionsLength={questions.length}
+            score={score}
+            selectedAnswer={selectedAnswer}
+            answered={answered}
+            shuffledAnswers={shuffledAnswers}
+            userInput={userInput}
+            feedback={feedback}
+            hint={hint}
+            explanation={explanation}
+            attempts={attempts}
+            matchingAnswers={matchingAnswers}
+            matchingCorrect={matchingCorrect}
+            categoryName={
+              mode === 'quiz'
+                ? (selectedCategories[0] === 'random' ? 'Random' : quizCategories.find(cat => cat.id === selectedCategories[0])?.name)
+                : (selectedCategories.length === trainingCategories.length 
+                    ? 'All Categories' 
+                    : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', '))
+            }
+            onAnswerSelect={handleAnswerSelect}
+            onTrainingSubmit={handleTrainingSubmit}
+            onMatchingSelect={handleMatchingSelect}
+            setUserInput={setUserInput}
+            onNextQuestion={handleNextQuestion}
+            onAbandonQuiz={handleAbandonQuiz}
+          />
         )}
-        {mode === 'quiz' ? (
-          <>
-            <h3>Options:</h3>
-            <ul>
-              {shuffledAnswers.map((answer, index) => (
-                <li
-                  key={index}
-                  onClick={() => handleAnswerSelect(answer)}
-                  className={
-                    answered
-                      ? answer === currentQuestion.answer
-                        ? 'correct'
-                        : selectedAnswer === answer
-                        ? 'incorrect'
-                        : ''
-                      : ''
-                  }
-                  style={{ cursor: answered ? 'default' : 'pointer' }}
-                  dangerouslySetInnerHTML={{ __html: answer }}
-                />
-              ))}
-            </ul>
-          </>
-        ) : (
-          <div>
-            {currentQuestion.type === 'true-false' ? (
-              <div className="true-false-buttons">
-                <button
-                  onClick={() => handleTrainingSubmit('True')}
-                  disabled={answered}
-                  className="tf-button"
-                >
-                  True
-                </button>
-                <button
-                  onClick={() => handleTrainingSubmit('False')}
-                  disabled={answered}
-                  className="tf-button"
-                >
-                  False
-                </button>
-              </div>
-            ) : currentQuestion.type === 'multiple-choice' ? (
-              <ul>
-                {shuffledAnswers.map((option, index) => (
-                  <li
-                    key={index}
-                    onClick={() => handleTrainingSubmit(option)}
-                    className={answered && option === currentQuestion.answer ? 'correct' : ''}
-                    style={{ cursor: answered ? 'default' : 'pointer' }}
-                  >
-                    {option}
-                  </li>
-                ))}
-              </ul>
-            ) : currentQuestion.type === 'matching' ? (
-              <div className="matching">
-                {Object.keys(currentQuestion.answer).map((key) => (
-                  <div key={key} className="matching-pair">
-                    <span>{key}</span>
-                    {matchingCorrect[key] ? (
-                      <span className="locked-answer">
-                        {currentQuestion.answer[key]}
-                        <span className="correct-feedback">✓</span>
-                      </span>
-                    ) : (
-                      <select
-                        value={matchingAnswers[key] || ''}
-                        onChange={(e) => handleMatchingSelect(key, e.target.value)}
-                        disabled={answered}
-                      >
-                        <option value="">Select</option>
-                        {currentQuestion.options.map((option) => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                ))}
-                {!answered && (
-                  <button onClick={() => handleTrainingSubmit()}>Submit</button>
-                )}
-              </div>
-            ) : (
-              <>
-                {currentQuestion.type !== 'fill-in-the-blank' && (
-                  <input
-                    type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
-                    placeholder="Type your answer"
-                    disabled={answered}
-                  />
-                )}
-                {!answered && (
-                  <button onClick={() => handleTrainingSubmit()}>Submit</button>
-                )}
-              </>
-            )}
-            {feedback && (
-              <p className={feedback === 'Correct!' ? 'correct-feedback' : 'incorrect-feedback'}>
-                {feedback}
-              </p>
-            )}
-            {hint && <p className="hint">Hint: {hint}</p>}
-            {explanation && <p className="explanation">{explanation}</p>}
-          </div>
-        )}
-        {answered && !showReinforcement && (
-          <button onClick={handleNextQuestion}>
-            {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish'}
-          </button>
-        )}
-        <button onClick={handleAbandonQuiz} style={{ backgroundColor: '#dc3545' }}>
-          Abandon {mode === 'quiz' ? 'Quiz' : 'Training'}
-        </button>
       </div>
     </div>
   );
