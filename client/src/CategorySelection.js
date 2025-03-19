@@ -4,7 +4,7 @@ import './CategorySelection.css'; // New CSS file
 const CategorySelection = ({ mode, categories, selectedCategories, onCategorySelect, onStart, onRandomCategory, fetchQuestions, error }) => (
   <div className="category-selection">
     <h1>TriviaTrainer - {mode === 'quiz' ? 'Quiz Mode' : 'Training Mode'}</h1>
-    <h2>{mode === 'quiz' ? 'Select a Category' : 'Select Categories (choose multiple)'}</h2>
+    <h2>{mode === 'quiz' ? 'Select a Category' : 'Select Categories'}</h2>
     <div className="category-grid">
       {mode === 'quiz' && (
         <button onClick={onRandomCategory} className="category-button random-category">

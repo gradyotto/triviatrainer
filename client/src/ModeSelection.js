@@ -1,7 +1,8 @@
 import React from 'react';
+import './ModeSelection.css'; // New CSS file
 
 const ModeSelection = ({ onModeSelect }) => (
-  <div>
+  <div className="mode-selection">
     <h1>TriviaTrainer</h1>
     <h2>Choose Your Mode</h2>
     <div className="mode-buttons">

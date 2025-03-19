@@ -1,0 +1,55 @@
+.mode-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 2rem; /* Space below header */
+    color: white;
+    text-align: center;
+    height: auto; /* Size to content */
+  }
+  
+  .mode-selection h1 {
+    font-size: 3.5rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #6e48aa, #9d50bb);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 1rem;
+  }
+  
+  .mode-selection h2 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .mode-buttons {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .mode-button {
+    background: linear-gradient(90deg, #6e48aa, #9d50bb);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .mode-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(110, 72, 170, 0.3);
+  }
+  
+  /* Scroll only when smaller than standard height */
+  @media (max-height: 768px) {
+    .mode-selection {
+      max-height: calc(100vh - 60px);
+      overflow-y: auto;
+    }
+  }

@@ -1,3 +1,10 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -12,11 +19,10 @@ body {
 }
 
 .App {
+  min-height: 100vh; /* Full viewport height */
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 2rem;
-  min-height: 100vh;
+  background-color: #121212; /* Match profile background */
 }
 
 h1 {
@@ -195,8 +201,9 @@ ul li.incorrect {
 }
 
 .explanation {
+  font-size: 1.1rem;
   color: #ffffff;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
 }
 
 /* Responsive Design */
@@ -237,7 +244,120 @@ ul li.incorrect {
 }
 
 .app-content {
-  margin-top: 80px; /* Adjust based on header height */
+  margin-top: 60px; /* Matches header height */
+  flex: 1 0 auto; /* Grows to fill space, doesn’t shrink below content */
+  overflow-y: auto; /* Enables vertical scrolling */
   padding: 2rem;
+  max-height: calc(100vh - 60px); /* Limits height to viewport minus header */
 }
 
+.question-container {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: 20px;
+}
+
+.question-content {
+  margin-bottom: 20px;
+}
+
+.answer-area {
+  margin-bottom: 20px;
+}
+
+.button-container {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.true-false-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.matching {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.matching-pair {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap; /* Wraps pairs on small screens */
+}
+
+
+.fill-in-the-blank-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.fill-in-the-blank-container p {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.fill-in-blank {
+  font-size: 1.2rem; /* Consistent font size */
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #6e48aa;
+  background: #2e2e2e;
+  color: white;
+  width: 200px; /* Consistent width */
+}
+
+.text-input-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.text-input {
+  font-size: 1.2rem;
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #6e48aa;
+  background: #2e2e2e;
+  color: white;
+  width: 200px;
+}
+
+button {
+  font-size: 1.1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  border: none;
+  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  color: white;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.correct-feedback {
+  color: #adf9ad;
+}
+
+.incorrect-feedback {
+  color: #ff4444;
+}
+
+.explanation {
+  font-size: 1.1rem;
+  color: #ffffff;
+  margin-top: 1rem;
+}
