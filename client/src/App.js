@@ -3,16 +3,14 @@ import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
 import LandingPage from './LandingPage';
-import Header from './Header'; // New
-import ModeSelection from './ModeSelection'; // New
-import CategorySelection from './CategorySelection'; // New
-import QuestionScreen from './QuestionScreen'; // New
-import ReinforcementTask from './ReinforcementTask'; // New
-import Profile from './Profile'; // Re-added
+import Header from './Header';
+import CategorySelection from './CategorySelection';
+import QuestionScreen from './QuestionScreen';
+import ReinforcementTask from './ReinforcementTask';
+import Profile from './Profile';
 import './App.css';
 
 // Normalization functions
-
 const normalizeNumber = (input) => {
   const numMap = {
     'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
@@ -41,7 +39,7 @@ const normalizeNumber = (input) => {
 };
 
 const normalizeAnswer = (input) => {
-  if (!input) return ''; // Handle undefined/null
+  if (!input) return '';
   return normalizeNumber(
     input
       .normalize('NFKD')
@@ -52,15 +50,12 @@ const normalizeAnswer = (input) => {
   );
 };
 
-
-const quizCategories = [
-  { id: 9, name: 'General Knowledge' },
-  { id: 10, name: 'Books' },
-  { id: 11, name: 'Film' },
-  { id: 17, name: 'Science & Nature' },
-  { id: 23, name: 'History' },
-  { id: 21, name: 'Sports' }
-];
+const normalizeOptions = (options) => {
+  if (!options) return [];
+  if (Array.isArray(options)) return options;
+  if (typeof options === 'string') return options.split(',').map(opt => opt.trim());
+  return [];
+};
 
 const trainingCategories = [
   { id: 'History', name: 'History' },
@@ -97,9 +92,9 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [mode, setMode] = useState(null);
+  const [mode, setMode] = useState(null); // Will set to 'training' on login
   const [username, setUsername] = useState('');
-  const [currentScreen, setCurrentScreen] = useState('main'); // Added for routing
+  const [currentScreen, setCurrentScreen] = useState('main');
   const [pendingReinforcement, setPendingReinforcement] = useState(false);
 
   const fetchUserHistory = async (uid) => {
@@ -145,6 +140,12 @@ function App() {
             setUsername(userDoc.data().username || '');
           }
         });
+        // Redirect to Training mode after login
+        setMode('training');
+        setCurrentScreen('training');
+      } else {
+        setMode(null);
+        setCurrentScreen('main');
       }
     });
     return () => unsubscribe();
@@ -169,14 +170,7 @@ function App() {
 
     console.log('Shuffling answers for:', currentQuestion);
 
-    if (mode === 'quiz') {
-      const correctAnswer = currentQuestion.answer;
-      const incorrectAnswers = currentQuestion.type === 'true-false' 
-        ? [correctAnswer === 'True' ? 'False' : 'True']
-        : ['Incorrect 1', 'Incorrect 2', 'Incorrect 3'];
-      const allAnswers = [...incorrectAnswers, correctAnswer];
-      setShuffledAnswers(allAnswers.sort(() => Math.random() - 0.5));
-    } else if (currentQuestion.type === 'multiple-choice') {
+    if (currentQuestion.type === 'multiple-choice') {
       setShuffledAnswers((currentQuestion.options || []).sort(() => Math.random() - 0.5));
     } else if (currentQuestion.type === 'matching') {
       setMatchingAnswers({});
@@ -185,7 +179,7 @@ function App() {
     } else {
       setShuffledAnswers([]);
     }
-  }, [questions, currentQuestionIndex, mode]);
+  }, [questions, currentQuestionIndex]);
 
   const fetchQuestions = async (categories) => {
     console.log('Fetching questions for categories:', categories);
@@ -194,7 +188,11 @@ function App() {
     setQuestions([]);
     try {
       const querySnapshot = await getDocs(collection(db, 'questions'));
-      const allQuestions = querySnapshot.docs.map(doc => ({ ...doc.data(), firestoreId: doc.id }));
+      const allQuestions = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        firestoreId: doc.id,
+        options: normalizeOptions(doc.data().options)
+      }));
       console.log('All questions from Firestore:', allQuestions);
 
       const fetchedQuestions = allQuestions.filter(q => 
@@ -210,7 +208,7 @@ function App() {
       }
 
       let sortedQuestions = fetchedQuestions;
-      if (mode === 'training' && user) {
+      if (user) {
         const historySnapshot = await getDocs(collection(db, `userProgress/${user.uid}/questions`));
         const history = {};
         historySnapshot.forEach(doc => {
@@ -261,8 +259,8 @@ function App() {
       setQuestions(sortedQuestions);
       console.log('Questions set:', sortedQuestions);
       setError(null);
-    } catch (error) {
-      console.error('Error fetching questions:', error);
+    } catch (e) {
+      console.error('Error fetching questions:', e);
       setError('Failed to load questions');
       setQuestions([]);
     } finally {
@@ -301,11 +299,6 @@ function App() {
     setUsername('');
   };
 
-  const handleModeSelect = (selectedMode) => {
-    setMode(selectedMode);
-    setCurrentScreen(selectedMode);
-  };
-
   const handleCategorySelect = (categoryId) => {
     console.log('Category selected:', categoryId);
     setSelectedCategories(prev => 
@@ -324,20 +317,10 @@ function App() {
     }
   };
 
-  const handleRandomCategory = () => {
-    console.log('Selecting random category');
-    setSelectedCategories(['random']);
-    fetchQuestions(trainingCategories.map(cat => cat.id));
-  };
-
   const handleAnswerSelect = (answer) => {
     if (answered) return;
     setSelectedAnswer(answer);
     setAnswered(true);
-    const currentQuestion = questions[currentQuestionIndex];
-    if (mode === 'quiz' && answer === currentQuestion.answer) {
-      setScore(score + 1);
-    }
   };
 
   const handleTrainingSubmit = async (answer) => {
@@ -349,7 +332,7 @@ function App() {
     if (currentQuestion.type === 'true-false' || currentQuestion.type === 'multiple-choice') {
       userAnswer = answer;
     } else if (currentQuestion.type === 'matching') {
-      userAnswer = answer; // Should be matchingAnswers from QuestionScreen
+      userAnswer = answer;
       if (!userAnswer || Object.keys(userAnswer).length === 0) {
         setFeedback('Please select all answers before submitting!');
         return;
@@ -381,8 +364,7 @@ function App() {
         setFeedback('Correct!');
         setMatchingCorrect(correctPairs);
         await updateHistory(currentQuestion.id, true, userHistory);
-        const shouldShowRT = currentQuestion.reinforcementTask && (isFirstEncounter || attempts > 0);
-        setPendingReinforcement(shouldShowRT);
+        setPendingReinforcement(false); // No RT on correct
       } else if (attempts === 0) {
         setAttempts(1);
         setFeedback('Incorrect - Retry the missed ones.');
@@ -392,6 +374,7 @@ function App() {
           Object.keys(correctPairs).forEach(key => delete newAnswers[key]);
           return newAnswers;
         });
+        await updateHistory(currentQuestion.id, false, userHistory); // Record first miss
       } else {
         setAnswered(true);
         setMatchingCorrect(correctPairs);
@@ -399,8 +382,8 @@ function App() {
           .map(([key, value]) => `${key} - ${value}`)
           .join(', ');
         setFeedback(`Incorrect, the correct matches are: ${correctText}`);
-        await updateHistory(currentQuestion.id, false, userHistory);
-        const shouldShowRT = currentQuestion.reinforcementTask && attempts > 0;
+        await updateHistory(currentQuestion.id, false, userHistory); // Record second miss
+        const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1; // RT after second miss
         setPendingReinforcement(shouldShowRT);
       }
     } else {
@@ -408,36 +391,34 @@ function App() {
       const normalizedCorrectAnswer = normalizeAnswer(currentQuestion.answer);
       const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
   
-  
       if (isCorrect) {
         setAnswered(true);
         setFeedback('Correct!');
         setHint('');
         setExplanation(currentQuestion.explanation || 'No explanation available.');
         await updateHistory(currentQuestion.id, true, userHistory);
-        const shouldShowRT = currentQuestion.reinforcementTask && (isFirstEncounter || attempts > 0);
-        setPendingReinforcement(shouldShowRT);
+        setPendingReinforcement(false); // No RT on correct
       } else if (currentQuestion.type === 'true-false') {
         setAnswered(true);
         setFeedback(`Incorrect, the answer is "${currentQuestion.answer}".`);
         setHint('');
         setExplanation(currentQuestion.explanation || 'No explanation available.');
         await updateHistory(currentQuestion.id, false, userHistory);
-        const shouldShowRT = currentQuestion.reinforcementTask && attempts > 0;
-        setPendingReinforcement(shouldShowRT);
+        setPendingReinforcement(currentQuestion.reinforcementTask); // RT for single-attempt types
       } else if (attempts === 0) {
         setAttempts(1);
         setFeedback('Incorrect');
         setHint(currentQuestion.hint || 'No hint available.');
         setExplanation('');
         setUserInput('');
+        await updateHistory(currentQuestion.id, false, userHistory); // Record first miss
       } else {
         setAnswered(true);
         setFeedback(`Incorrect, the answer is "${currentQuestion.answer}".`);
         setHint('');
         setExplanation('');
-        await updateHistory(currentQuestion.id, false, userHistory);
-        const shouldShowRT = currentQuestion.reinforcementTask && attempts > 0;
+        await updateHistory(currentQuestion.id, false, userHistory); // Record second miss
+        const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1; // RT after second miss
         setPendingReinforcement(shouldShowRT);
       }
     }
@@ -509,12 +490,11 @@ function App() {
     const currentQuestion = questions[currentQuestionIndex];
     const normalizedInput = normalizeAnswer(reinforcementInput);
     const normalizedAnswer = normalizeAnswer(currentQuestion.answer);
-  
-  
+
     if (normalizedInput === normalizedAnswer) {
       setShowReinforcement(false);
       setReinforcementInput('');
-      setFeedback(''); // Clear feedback immediately
+      setFeedback('');
       setSelectedAnswer(null);
       setAnswered(false);
       setUserInput('');
@@ -523,12 +503,12 @@ function App() {
       setAttempts(0);
       setMatchingAnswers({});
       setMatchingCorrect({});
-  
+
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
         console.log('Reinforcement completed, moving to next question:', currentQuestionIndex + 1);
       } else {
-        alert(mode === 'quiz' ? `Game Over! Your score: ${score}/${questions.length}` : 'Training Complete!');
+        alert('Training Complete!');
         setCurrentQuestionIndex(0);
         setScore(0);
         setQuestions([]);
@@ -544,8 +524,8 @@ function App() {
   const handleNextQuestion = () => {
     if (pendingReinforcement) {
       setShowReinforcement(true);
-      setPendingReinforcement(false); // Clear the flag
-      setFeedback(''); // Clear feedback for RT screen
+      setPendingReinforcement(false);
+      setFeedback('');
       return;
     }
   
@@ -564,14 +544,14 @@ function App() {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       console.log('Moving to next question:', currentQuestionIndex + 1);
     } else {
-      alert(mode === 'quiz' ? `Game Over! Your score: ${score}/${questions.length}` : 'Training Complete!');
+      alert('Training Complete!');
       setCurrentQuestionIndex(0);
       setScore(0);
       setQuestions([]);
       setSelectedCategories([]);
-      setMode(null);
-      setCurrentScreen('main');
-      console.log('Training complete');
+      setMode('training'); // Keep mode as training
+      setCurrentScreen('training'); // Redirect to category selection
+      console.log('Training complete, returning to category selection');
     }
   };
 
@@ -591,14 +571,15 @@ function App() {
     setShowReinforcement(false);
     setReinforcementInput('');
     setSelectedCategories([]);
-    setMode(null);
-    setCurrentScreen('main');
+    setMode('training'); // Keep mode as training
+    setCurrentScreen('training'); // Redirect to category selection
+    console.log('Training abandoned, returning to category selection');
   };
 
   if (!user) {
     return <LandingPage onSignIn={handleSignIn} onSignUp={handleSignUp} error={error} />;
   }
-
+  
   return (
     <div className="App">
       <Header 
@@ -606,8 +587,8 @@ function App() {
         username={username}
         onSignOut={handleSignOut}
         onLogoClick={() => {
-          setCurrentScreen('main');
-          setMode(null);
+          setCurrentScreen('training'); // Changed from 'main' to 'training'
+          setMode('training');
           setQuestions([]);
           setSelectedCategories([]);
           setCurrentQuestionIndex(0);
@@ -622,8 +603,6 @@ function App() {
           <div>{error}</div>
         ) : currentScreen === 'profile' ? (
           <Profile user={user} onSignOut={handleSignOut} />
-        ) : currentScreen === 'main' && !mode ? (
-          <ModeSelection onModeSelect={handleModeSelect} />
         ) : currentScreen === 'training' && questions.length === 0 ? (
           <CategorySelection
             mode="training"
@@ -633,17 +612,15 @@ function App() {
             onStart={handleStartTraining}
             error={error}
           />
-        ) : currentScreen === 'quiz' && !selectedCategories.length ? (
-          <CategorySelection
-            mode="quiz"
-            categories={quizCategories}
+        ) : questions.length === 0 ? (
+          <CategorySelection // Redirect to category selection instead of message
+            mode="training"
+            categories={trainingCategories}
             selectedCategories={selectedCategories}
             onCategorySelect={handleCategorySelect}
-            onRandomCategory={handleRandomCategory}
-            fetchQuestions={fetchQuestions}
+            onStart={handleStartTraining}
+            error={error}
           />
-        ) : questions.length === 0 ? (
-          <div>No questions loaded yet.</div>
         ) : showReinforcement ? (
           <ReinforcementTask
             currentQuestion={questions[currentQuestionIndex]}
@@ -670,11 +647,9 @@ function App() {
             matchingAnswers={matchingAnswers}
             matchingCorrect={matchingCorrect}
             categoryName={
-              mode === 'quiz'
-                ? (selectedCategories[0] === 'random' ? 'Random' : quizCategories.find(cat => cat.id === selectedCategories[0])?.name)
-                : (selectedCategories.length === trainingCategories.length 
-                    ? 'All Categories' 
-                    : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', '))
+              selectedCategories.length === trainingCategories.length 
+                ? 'All Categories' 
+                : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', ')
             }
             pendingReinforcement={pendingReinforcement}
             onAnswerSelect={handleAnswerSelect}
