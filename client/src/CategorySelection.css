@@ -1,58 +1,98 @@
 .category-selection {
-    text-align: center;
-  }
-  
-  .category-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    max-width: 600px;
-    margin: 2rem auto;
-  }
-  
-  .category-button {
-    background: #2e2e2e;
-    color: white;
-    border: none;
-    padding: 1rem;
-    font-size: 1.1rem;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 0.3s ease;
-  }
-  
-  .category-button:hover {
-    background: #3e3e3e;
-  }
-  
-  .category-button.selected {
-    background: linear-gradient(90deg, #6e48aa, #9d50bb);
-  }
-  
-  .random-category {
-    grid-column: 1 / -1; /* Spans full width for quiz mode */
-  }
-  
-  .start-button {
-    background: linear-gradient(90deg, #6e48aa, #9d50bb);
-    color: white;
-    border: none;
-    padding: 0.8rem 1.5rem;
-    font-size: 1.2rem;
-    border-radius: 25px;
-    cursor: pointer;
-    margin-top: 1rem;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  
-  .start-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 16px rgba(110, 72, 170, 0.3);
-  }
-  
-  .start-button:disabled {
-    background: #555;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
+  text-align: center;
+  padding: 20px;
+}
+
+.categories {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.category-button {
+  background-color: #6b5b95; /* Purple by default */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.category-button:hover {
+  background-color: #8a7db5; /* Lighter purple on hover */
+}
+
+.category-button.selected {
+  background-color: #4a4066; /* Darker purple when selected */
+}
+
+.duration-selection {
+  margin: 20px 0;
+}
+
+.duration-selection h3 {
+  margin-bottom: 10px;
+  color: white; /* White text */
+}
+
+.duration-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Target duration buttons with high specificity */
+.category-selection .duration-buttons button.duration-button {
+  background: #1e1e1e !important; /* Gray by default, override gradient */
+  color: white !important; /* Always white text */
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.3s;
+}
+
+.category-selection .duration-buttons button.duration-button:hover {
+  background: linear-gradient(90deg, #6e48aa, #9d50bb) !important; /* Lighter gray on hover */
+}
+
+.category-selection .duration-buttons button.duration-button.selected {
+  background: linear-gradient(90deg, #6e48aa, #9d50bb) !important; /* Purple when selected */
+}
+
+.category-selection .duration-buttons button.duration-button.selected:hover {
+  background: linear-gradient(90deg, #6e48aa, #9d50bb)!important; /* Lighter purple on hover when selected */
+}
+
+.error {
+  color: red;
+  margin: 10px 0;
+}
+
+.start-button {
+  background-color: #6b5b95;
+  color: white;
+  padding: 10px 30px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background-color 0.3s;
+}
+
+.start-button:hover:not(:disabled) {
+  background-color: #8a7db5;
+}
+
+.start-button:disabled {
+  background-color: #999; /* Gray when disabled */
+  cursor: not-allowed;
+}

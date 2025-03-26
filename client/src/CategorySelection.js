@@ -1,36 +1,56 @@
-import React from 'react';
-import './CategorySelection.css'; // New CSS file
+import React, { useState } from 'react';
+import './CategorySelection.css';
 
-const CategorySelection = ({ mode, categories, selectedCategories, onCategorySelect, onStart, onRandomCategory, fetchQuestions, error }) => (
-  <div className="category-selection">
-    <h1>TriviaTrainer</h1>
-    <h2>{mode === 'quiz' ? 'Select a Category' : 'Select Categories'}</h2>
-    <div className="category-grid">
-      {mode === 'quiz' && (
-        <button onClick={onRandomCategory} className="category-button random-category">
-          Random Category
-        </button>
-      )}
-      {categories.map(cat => (
-        <button
-          key={cat.id}
-          onClick={() => {
-            onCategorySelect(cat.id);
-            if (mode === 'quiz') fetchQuestions([cat.id]);
-          }}
-          className={`category-button ${selectedCategories.includes(cat.id) ? 'selected' : ''}`}
-        >
-          {cat.name}
-        </button>
-      ))}
-    </div>
-    {mode === 'training' && (
-      <button onClick={onStart} disabled={!selectedCategories.length} className="start-button">
-        Start Training
+function CategorySelection({ mode, categories, selectedCategories, onCategorySelect, onStart, error }) {
+  const [duration, setDuration] = useState(null); // No default, forces selection
+  const durationOptions = [5, 10, 15, 20, 25, 30];
+
+  const handleStart = () => {
+    if (selectedCategories.length > 0 && duration !== null) {
+      onStart(duration);
+    }
+  };
+
+  console.log('Current duration:', duration); // Debug: Check duration value
+
+  return (
+    <div className="category-selection">
+      <h2>Choose Your Training Categories</h2>
+      <div className="categories">
+        {categories.map(category => (
+          <button
+            key={category.id}
+            className={`category-button ${selectedCategories.includes(category.id) ? 'selected' : ''}`}
+            onClick={() => onCategorySelect(category.id)}
+          >
+            {category.name}
+          </button>
+        ))}
+      </div>
+      <div className="duration-selection">
+        <h3>How long would you like to train?</h3>
+        <div className="duration-buttons">
+          {durationOptions.map(min => (
+            <button
+              key={min}
+              className={`duration-button ${duration === min ? 'selected' : ''}`}
+              onClick={() => setDuration(min)}
+            >
+              {min} min
+            </button>
+          ))}
+        </div>
+      </div>
+      {error && <p className="error">Oops! {error}</p>}
+      <button
+        className="start-button"
+        onClick={handleStart}
+        disabled={selectedCategories.length === 0 || duration === null}
+      >
+        Begin Training
       </button>
-    )}
-    {error && <p style={{ color: 'red' }}>{error}</p>}
-  </div>
-);
+    </div>
+  );
+}
 
 export default CategorySelection;

@@ -1,4 +1,5 @@
 import React from 'react';
+import './QuestionScreen.css';
 
 const QuestionScreen = ({
   mode,
@@ -18,6 +19,8 @@ const QuestionScreen = ({
   matchingCorrect,
   categoryName,
   pendingReinforcement,
+  timeRemaining,
+  sessionDuration,
   onAnswerSelect,
   onTrainingSubmit,
   onMatchingSelect,
@@ -25,12 +28,25 @@ const QuestionScreen = ({
   onNextQuestion,
   onAbandonQuiz
 }) => {
+  const progressPercentage = sessionDuration ? (((sessionDuration - timeRemaining) / sessionDuration) * 100).toFixed(1) : 0;
+
   return (
     <div className="question-container">
-      <h1>TriviaTrainer - {mode === 'quiz' ? 'Quiz Mode' : 'Training Mode'}</h1>
+      <h1>TriviaTrainer</h1>
       <p>Category: {categoryName}</p>
       {mode === 'quiz' && <p>Score: {score} / {questionsLength}</p>}
       <p>Question {currentQuestionIndex + 1} of {questionsLength}</p>
+      <div className="timer">
+        <div className="progress-bar" style={{ width: '100%', background: '#ddd' }}>
+          <div
+            style={{
+              width: `${progressPercentage}%`,
+              height: '10px',
+              background: 'linear-gradient(90deg, #6e48aa, #9d50bb)'
+            }}
+          ></div>
+        </div>
+      </div>
       <div className="question-content">
         <h2>Question:</h2>
         {currentQuestion.type === 'fill-in-the-blank' && mode !== 'quiz' ? (

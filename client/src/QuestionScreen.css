@@ -1,0 +1,8 @@
+.timer {
+    margin: 10px 0;
+  }
+  .progress-bar {
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+  }

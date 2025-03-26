@@ -92,10 +92,13 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [mode, setMode] = useState(null); // Will set to 'training' on login
+  const [mode, setMode] = useState(null);
   const [username, setUsername] = useState('');
   const [currentScreen, setCurrentScreen] = useState('main');
   const [pendingReinforcement, setPendingReinforcement] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState(null); // In seconds
+  const [timeRemaining, setTimeRemaining] = useState(null); // In seconds
+  const [questionStartTime, setQuestionStartTime] = useState(null); // For tracking
 
   const fetchUserHistory = async (uid) => {
     try {
@@ -140,7 +143,6 @@ function App() {
             setUsername(userDoc.data().username || '');
           }
         });
-        // Redirect to Training mode after login
         setMode('training');
         setCurrentScreen('training');
       } else {
@@ -153,22 +155,17 @@ function App() {
 
   useEffect(() => {
     if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
-      console.log('Skipping shuffle: questions not ready or index out of bounds', {
-        questionsLength: questions.length,
-        currentQuestionIndex
-      });
       setShuffledAnswers([]);
       return;
     }
 
     const currentQuestion = questions[currentQuestionIndex];
     if (!currentQuestion || !currentQuestion.type) {
-      console.log('Invalid currentQuestion:', currentQuestion);
       setShuffledAnswers([]);
       return;
     }
 
-    console.log('Shuffling answers for:', currentQuestion);
+    setQuestionStartTime(Date.now()); // Start timing this question
 
     if (currentQuestion.type === 'multiple-choice') {
       setShuffledAnswers((currentQuestion.options || []).sort(() => Math.random() - 0.5));
@@ -180,6 +177,34 @@ function App() {
       setShuffledAnswers([]);
     }
   }, [questions, currentQuestionIndex]);
+
+  useEffect(() => {
+    if (sessionDuration && timeRemaining !== null && questions.length > 0) {
+      const timer = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 0) {
+            clearInterval(timer);
+            handleSessionEnd();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [sessionDuration, timeRemaining, questions]);
+
+  const handleSessionEnd = () => {
+    alert('Training Session Time Up!');
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setQuestions([]);
+    setSelectedCategories([]);
+    setSessionDuration(null);
+    setTimeRemaining(null);
+    setMode('training');
+    setCurrentScreen('training');
+  };
 
   const fetchQuestions = async (categories) => {
     console.log('Fetching questions for categories:', categories);
@@ -297,10 +322,11 @@ function App() {
     setMode(null);
     setCurrentScreen('main');
     setUsername('');
+    setSessionDuration(null);
+    setTimeRemaining(null);
   };
 
   const handleCategorySelect = (categoryId) => {
-    console.log('Category selected:', categoryId);
     setSelectedCategories(prev => 
       prev.includes(categoryId) 
         ? prev.filter(id => id !== categoryId) 
@@ -308,12 +334,13 @@ function App() {
     );
   };
 
-  const handleStartTraining = () => {
+  const handleStartTraining = (duration) => {
     if (selectedCategories.length > 0) {
-      console.log('Starting training with categories:', selectedCategories);
+      setSessionDuration(duration * 60); // Convert minutes to seconds
+      setTimeRemaining(duration * 60);
       fetchQuestions(selectedCategories);
     } else {
-      setError('Please select at least one category.');
+      setError('Pick at least one category to start training!');
     }
   };
 
@@ -430,11 +457,12 @@ function App() {
 
   const updateHistory = async (questionId, isCorrect, history) => {
     const now = new Date().toISOString();
+    const timeSpent = questionStartTime ? Math.round((Date.now() - questionStartTime) / 1000) : 0; // Seconds
     const currentHistory = history[questionId] || { firstSeen: now, lastSeen: now, attemptsHistory: [] };
     
     const updatedAttempts = [
       ...currentHistory.attemptsHistory,
-      { timestamp: now, correct: isCorrect }
+      { timestamp: now, correct: isCorrect, timeSpent }
     ];
 
     const updatedHistory = {
@@ -477,10 +505,11 @@ function App() {
         attemptId: Date.now(),
         progressId,
         timestamp: now,
-        correct: isCorrect
+        correct: isCorrect,
+        timeSpent
       });
 
-      console.log(`History updated in Firestore for q${questionId}`);
+      console.log(`History updated for q${questionId} with timeSpent: ${timeSpent}s`);
     } catch (e) {
       console.error('Error updating history:', e);
     }
@@ -528,7 +557,7 @@ function App() {
       setFeedback('');
       return;
     }
-  
+
     setSelectedAnswer(null);
     setAnswered(false);
     setUserInput('');
@@ -542,16 +571,16 @@ function App() {
     setReinforcementInput('');
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      console.log('Moving to next question:', currentQuestionIndex + 1);
     } else {
       alert('Training Complete!');
       setCurrentQuestionIndex(0);
       setScore(0);
       setQuestions([]);
       setSelectedCategories([]);
-      setMode('training'); // Keep mode as training
-      setCurrentScreen('training'); // Redirect to category selection
-      console.log('Training complete, returning to category selection');
+      setSessionDuration(null);
+      setTimeRemaining(null);
+      setMode('training');
+      setCurrentScreen('training');
     }
   };
 
@@ -571,15 +600,16 @@ function App() {
     setShowReinforcement(false);
     setReinforcementInput('');
     setSelectedCategories([]);
-    setMode('training'); // Keep mode as training
-    setCurrentScreen('training'); // Redirect to category selection
-    console.log('Training abandoned, returning to category selection');
+    setSessionDuration(null);
+    setTimeRemaining(null);
+    setMode('training');
+    setCurrentScreen('training');
   };
 
   if (!user) {
     return <LandingPage onSignIn={handleSignIn} onSignUp={handleSignUp} error={error} />;
   }
-  
+
   return (
     <div className="App">
       <Header 
@@ -587,12 +617,14 @@ function App() {
         username={username}
         onSignOut={handleSignOut}
         onLogoClick={() => {
-          setCurrentScreen('training'); // Changed from 'main' to 'training'
+          setCurrentScreen('training');
           setMode('training');
           setQuestions([]);
           setSelectedCategories([]);
           setCurrentQuestionIndex(0);
           setScore(0);
+          setSessionDuration(null);
+          setTimeRemaining(null);
         }}
         onProfileClick={() => setCurrentScreen('profile')}
       />
@@ -613,7 +645,7 @@ function App() {
             error={error}
           />
         ) : questions.length === 0 ? (
-          <CategorySelection // Redirect to category selection instead of message
+          <CategorySelection
             mode="training"
             categories={trainingCategories}
             selectedCategories={selectedCategories}
@@ -652,6 +684,8 @@ function App() {
                 : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', ')
             }
             pendingReinforcement={pendingReinforcement}
+            timeRemaining={timeRemaining}
+            sessionDuration={sessionDuration}
             onAnswerSelect={handleAnswerSelect}
             onTrainingSubmit={handleTrainingSubmit}
             onMatchingSelect={handleMatchingSelect}
