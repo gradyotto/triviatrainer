@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
 import LandingPage from './LandingPage';
 import Header from './Header';
@@ -303,14 +303,18 @@ function App() {
       .catch(err => setError(err.message));
   };
 
-  const handleSignUp = (email, password) => {
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(() => {
-        setEmail('');
-        setPassword('');
-        setError(null);
-      })
-      .catch(err => setError(err.message));
+  const handleSignUp = async (email, password) => {
+    try {
+      const { user } = await createUserWithEmailAndPassword(auth, email, password);
+      await sendEmailVerification(user);
+      console.log('Verification email sent—check your inbox!');
+      setEmail('');
+      setPassword('');
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      console.error('Sign-up error:', err.message);
+    }
   };
 
   const handleSignOut = () => {

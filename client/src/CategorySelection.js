@@ -11,8 +11,6 @@ function CategorySelection({ mode, categories, selectedCategories, onCategorySel
     }
   };
 
-  console.log('Current duration:', duration); // Debug: Check duration value
-
   return (
     <div className="category-selection">
       <h2>Choose Your Training Categories</h2>
