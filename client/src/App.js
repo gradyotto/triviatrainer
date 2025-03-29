@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from './firebase';
+import { auth, db, app } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import LandingPage from './LandingPage';
 import Header from './Header';
 import CategorySelection from './CategorySelection';
@@ -9,6 +10,8 @@ import QuestionScreen from './QuestionScreen';
 import ReinforcementTask from './ReinforcementTask';
 import Profile from './Profile';
 import './App.css';
+
+const functions = getFunctions(app);
 
 // Normalization functions
 const normalizeNumber = (input) => {
@@ -167,12 +170,23 @@ function App() {
 
     setQuestionStartTime(Date.now()); // Start timing this question
 
+    // Ensure options is always an array
+    const ensureOptionsArray = (options) => {
+      if (!options) return [];
+      if (Array.isArray(options)) return options;
+      if (typeof options === 'string') return options.split(',').map(opt => opt.trim());
+      if (typeof options === 'object') return Object.values(options);
+      return [];
+    };
+
     if (currentQuestion.type === 'multiple-choice') {
-      setShuffledAnswers((currentQuestion.options || []).sort(() => Math.random() - 0.5));
+      const optionsArray = ensureOptionsArray(currentQuestion.options);
+      setShuffledAnswers(optionsArray.sort(() => Math.random() - 0.5));
     } else if (currentQuestion.type === 'matching') {
       setMatchingAnswers({});
       setMatchingCorrect({});
-      setShuffledAnswers((currentQuestion.options || []).sort(() => Math.random() - 0.5));
+      const optionsArray = ensureOptionsArray(currentQuestion.options);
+      setShuffledAnswers(optionsArray.sort(() => Math.random() - 0.5));
     } else {
       setShuffledAnswers([]);
     }
@@ -212,26 +226,23 @@ function App() {
     setCurrentQuestionIndex(0);
     setQuestions([]);
     try {
-      const querySnapshot = await getDocs(collection(db, 'questions'));
-      const allQuestions = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        firestoreId: doc.id,
-        options: normalizeOptions(doc.data().options)
-      }));
-      console.log('All questions from Firestore:', allQuestions);
-
-      const fetchedQuestions = allQuestions.filter(q => 
-        !categories || categories.length === 0 || categories.includes(q.category)
-      );
-      console.log('Fetched questions after filter:', fetchedQuestions);
-
-      if (fetchedQuestions.length === 0) {
+      const getQuestions = httpsCallable(functions, 'getQuestions');
+      const result = await getQuestions({ 
+        categories, 
+        maxQuestions: 200  // Request up to 200 questions
+      });
+      const fetchedQuestions = result.data.data;
+      
+      console.log('Received questions from cloud function:', fetchedQuestions);
+  
+      if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
         console.log('No questions found for categories:', categories);
         setError('No questions available for selected categories.');
         setLoading(false);
         return;
       }
-
+  
+      // Apply your sorting logic client-side if needed
       let sortedQuestions = fetchedQuestions;
       if (user) {
         const historySnapshot = await getDocs(collection(db, `userProgress/${user.uid}/questions`));
@@ -239,14 +250,12 @@ function App() {
         historySnapshot.forEach(doc => {
           history[doc.data().questionId] = doc.data();
         });
-
+  
         sortedQuestions = fetchedQuestions.sort((a, b) => {
           const aHistory = history[a.id] || { attemptsHistory: [], lastSeen: '1970-01-01T00:00:00Z' };
           const bHistory = history[b.id] || { attemptsHistory: [], lastSeen: '1970-01-01T00:00:00Z' };
-
           const aIncorrect = aHistory.attemptsHistory.filter(attempt => !attempt.correct).length;
           const bIncorrect = bHistory.attemptsHistory.filter(attempt => !attempt.correct).length;
-
           const aDaysSince = Math.min(
             (Date.now() - new Date(aHistory.lastSeen).getTime()) / (1000 * 60 * 60 * 24),
             30
@@ -255,43 +264,42 @@ function App() {
             (Date.now() - new Date(bHistory.lastSeen).getTime()) / (1000 * 60 * 60 * 24),
             30
           );
-
           const aAttempts = aHistory.attemptsHistory.length;
           const bAttempts = bHistory.attemptsHistory.length;
-
           const aScore = (aIncorrect * 2) + (aDaysSince * 2) - (aAttempts * 0.1);
           const bScore = (bIncorrect * 2) + (bDaysSince * 2) - (bAttempts * 0.1);
-
           return bScore - aScore;
         });
-
-        console.log('Sorted questions with spaced repetition:', sortedQuestions.map(q => ({
-          id: q.id,
-          question: q.question,
-          incorrectCount: history[q.id]?.attemptsHistory.filter(a => !a.correct).length || 0,
-          daysSinceLastSeen: history[q.id] 
-            ? ((Date.now() - new Date(history[q.id].lastSeen).getTime()) / (1000 * 60 * 60 * 24)).toFixed(2)
-            : '30 (unseen)',
-          totalAttempts: history[q.id]?.attemptsHistory.length || 0,
-          score: history[q.id] 
-            ? ((history[q.id].attemptsHistory.filter(a => !a.correct).length * 2) + 
-               ((Date.now() - new Date(history[q.id].lastSeen).getTime()) / (1000 * 60 * 60 * 24) * 2) - 
-               (history[q.id].attemptsHistory.length * 0.1)).toFixed(2)
-            : '60 (unseen)'
-        })));
       }
-
+  
       setQuestions(sortedQuestions);
       console.log('Questions set:', sortedQuestions);
       setError(null);
     } catch (e) {
       console.error('Error fetching questions:', e);
-      setError('Failed to load questions');
+      
+      // Extract and format the error message
+      let errorMessage = 'Failed to load questions';
+      
+      if (e.message) {
+        if (e.message.includes('Rate limit exceeded')) {
+          errorMessage = 'Rate limit exceeded. Please wait a minute before trying again.';
+        } else if (e.details) {
+          // Firebase Functions sometimes provides error details in this format
+          errorMessage = e.details;
+        } else {
+          errorMessage = e.message;
+        }
+      }
+      
+      console.log('Setting error message:', errorMessage);
+      setError(errorMessage);
       setQuestions([]);
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleSignIn = (email, password) => {
     signInWithEmailAndPassword(auth, email, password)

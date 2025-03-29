@@ -148,9 +148,14 @@ const QuestionScreen = ({
                           disabled={answered}
                         >
                           <option value="">Select</option>
-                          {currentQuestion.options.map((option) => (
-                            <option key={option} value={option}>{option}</option>
-                          ))}
+                          {Array.isArray(currentQuestion.options) ? 
+                            currentQuestion.options.map((option) => (
+                              <option key={option} value={option}>{option}</option>
+                            )) : 
+                            Object.values(currentQuestion.options || {}).map((option) => (
+                              <option key={option} value={option}>{option}</option>
+                            ))
+                          }
                         </select>
                       )}
                     </div>

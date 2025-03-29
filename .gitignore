@@ -1,1 +1,4 @@
+.firebase/
+client/build/
 node_modules/
+*.log
