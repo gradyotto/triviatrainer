@@ -223,77 +223,38 @@ function App() {
   const fetchQuestions = async (categories) => {
     console.log('Fetching questions for categories:', categories);
     setLoading(true);
-    setCurrentQuestionIndex(0);
-    setQuestions([]);
     try {
+      const cacheKey = `questions_${categories.join(',')}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const fetchedQuestions = JSON.parse(cached);
+        console.log('Loaded from cache:', fetchedQuestions);
+        setQuestions(fetchedQuestions);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+  
       const getQuestions = httpsCallable(functions, 'getQuestions');
-      const result = await getQuestions({ 
-        categories, 
-        maxQuestions: 200  // Request up to 200 questions
-      });
+      const result = await getQuestions({ categories, maxQuestions: 200 });
       const fetchedQuestions = result.data.data;
-      
       console.log('Received questions from cloud function:', fetchedQuestions);
   
       if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
         console.log('No questions found for categories:', categories);
         setError('No questions available for selected categories.');
-        setLoading(false);
+        setQuestions([]);
         return;
       }
   
-      // Apply your sorting logic client-side if needed
-      let sortedQuestions = fetchedQuestions;
-      if (user) {
-        const historySnapshot = await getDocs(collection(db, `userProgress/${user.uid}/questions`));
-        const history = {};
-        historySnapshot.forEach(doc => {
-          history[doc.data().questionId] = doc.data();
-        });
-  
-        sortedQuestions = fetchedQuestions.sort((a, b) => {
-          const aHistory = history[a.id] || { attemptsHistory: [], lastSeen: '1970-01-01T00:00:00Z' };
-          const bHistory = history[b.id] || { attemptsHistory: [], lastSeen: '1970-01-01T00:00:00Z' };
-          const aIncorrect = aHistory.attemptsHistory.filter(attempt => !attempt.correct).length;
-          const bIncorrect = bHistory.attemptsHistory.filter(attempt => !attempt.correct).length;
-          const aDaysSince = Math.min(
-            (Date.now() - new Date(aHistory.lastSeen).getTime()) / (1000 * 60 * 60 * 24),
-            30
-          );
-          const bDaysSince = Math.min(
-            (Date.now() - new Date(bHistory.lastSeen).getTime()) / (1000 * 60 * 60 * 24),
-            30
-          );
-          const aAttempts = aHistory.attemptsHistory.length;
-          const bAttempts = bHistory.attemptsHistory.length;
-          const aScore = (aIncorrect * 2) + (aDaysSince * 2) - (aAttempts * 0.1);
-          const bScore = (bIncorrect * 2) + (bDaysSince * 2) - (bAttempts * 0.1);
-          return bScore - aScore;
-        });
-      }
-  
-      setQuestions(sortedQuestions);
-      console.log('Questions set:', sortedQuestions);
+      localStorage.setItem(cacheKey, JSON.stringify(fetchedQuestions));
+      setQuestions(fetchedQuestions);
       setError(null);
     } catch (e) {
-      console.error('Error fetching questions:', e);
-      
-      // Extract and format the error message
-      let errorMessage = 'Failed to load questions';
-      
-      if (e.message) {
-        if (e.message.includes('Rate limit exceeded')) {
-          errorMessage = 'Rate limit exceeded. Please wait a minute before trying again.';
-        } else if (e.details) {
-          // Firebase Functions sometimes provides error details in this format
-          errorMessage = e.details;
-        } else {
-          errorMessage = e.message;
-        }
-      }
-      
-      console.log('Setting error message:', errorMessage);
-      setError(errorMessage);
+      console.error('Error fetching questions:', e.message);
+      setError(e.message === 'Rate limit exceeded. Please try again later.'
+        ? 'Rate limit exceeded. Please wait a minute.'
+        : 'Failed to load questions');
       setQuestions([]);
     } finally {
       setLoading(false);
