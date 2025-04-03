@@ -100,13 +100,27 @@ const LandingPage = ({ onSignUp }) => {
 
         const fact = getUniqueFact(recentFacts);
         const lane = getNextLane();
-        const leftPosition = (lane * (100 / LANES)) + 5;
+        
+        // Calculate base position
+        let leftPosition = (lane * (100 / LANES)) + 5;
+        
+        // If it's the rightmost lane (lane 4), adjust position to prevent cutoff
+        if (lane === 4) {
+          // Calculate approximate width of text (rough estimate based on character count)
+          const textWidth = fact.length * 0.6; // Assuming each character is roughly 0.6% of viewport width
+          const rightEdge = leftPosition + textWidth;
+          
+          // If the text would extend beyond viewport, adjust leftPosition
+          if (rightEdge > 95) { // Leave 5% margin from right edge
+            leftPosition = Math.max(5, 95 - textWidth); // Ensure it doesn't go too far left
+          }
+        }
 
         const newTrivia = {
           id: Date.now(),
           text: fact,
           left: leftPosition,
-          duration: 20, // Fixed duration for more consistent spacing
+          duration: 20,
           key: Date.now()
         };
 
