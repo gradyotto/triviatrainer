@@ -2,8 +2,8 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 
-
-initializeApp();
+const app = initializeApp();
+const db = getFirestore(app);
 
 exports.getQuestions = onCall(
   { timeoutSeconds: 60, memory: "256MiB" },
@@ -14,7 +14,6 @@ exports.getQuestions = onCall(
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
 
-    const db = getFirestore();
     const uid = request.auth.uid;
     const categories = Array.isArray(request.data.categories) ? request.data.categories : [];
     const maxQuestions = request.data.maxQuestions || 50;
@@ -95,30 +94,27 @@ exports.getQuestions = onCall(
 );
 
 exports.checkUsername = onCall(async (request) => {
-    const db = getFirestore();
     const username = request.data.username.toLowerCase();
     if (!username || username.length < 3) {
-      throw new HttpsError('invalid-argument', 'Username must be at least 3 characters');
+      throw new HttpsError("invalid-argument", "Username must be at least 3 characters");
     }
-    const snapshot = await db.collection('usernames').doc(username).get();
-    return { available: !snapshot.exists };
+    const snapshot = await db.collection("users").where("username", "==", username).limit(1).get();
+    console.log(`Checking username: ${username}, found: ${!snapshot.empty}`);
+    return { available: snapshot.empty };
   });
-  
+
   exports.createUser = onCall(async (request) => {
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in');
+      throw new HttpsError("unauthenticated", "Must be signed in");
     }
-    const db = getFirestore();
     const uid = request.auth.uid;
     const username = request.data.username.toLowerCase();
     await db.runTransaction(async (transaction) => {
-      const usernameRef = db.collection('usernames').doc(username);
-      const userRef = db.collection('users').doc(uid);
-      const usernameDoc = await transaction.get(usernameRef);
-      if (usernameDoc.exists) {
-        throw new HttpsError('already-exists', 'Username taken');
+      const userQuery = await db.collection("users").where("username", "==", username).limit(1).get();
+      if (!userQuery.empty) {
+        throw new HttpsError("already-exists", "Username taken");
       }
-      transaction.set(usernameRef, { uid });
+      const userRef = db.collection("users").doc(uid);
       transaction.set(userRef, { username, email: request.auth.token.email });
     });
   });

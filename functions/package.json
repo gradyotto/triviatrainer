@@ -18,8 +18,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "firebase-admin": "^11.11.1",
-    "firebase-functions": "^5.1.0",
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2",
+    "jsonwebtoken": "^9.0.2",
     "yallist": "^5.0.0"
   }
 }
