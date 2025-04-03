@@ -35,7 +35,6 @@ const QuestionScreen = ({
       <h1>TriviaTrainer</h1>
       <p>Category: {categoryName}</p>
       {mode === 'quiz' && <p>Score: {score} / {questionsLength}</p>}
-      <p>Question {currentQuestionIndex + 1} of {questionsLength}</p>
       <div className="timer">
         <div className="progress-bar" style={{ width: '100%', background: '#ddd' }}>
           <div

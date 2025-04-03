@@ -8,6 +8,7 @@ import {
   setTokenAutoRefreshEnabled, 
   onTokenChanged 
 } from 'firebase/app-check';
+import { getFunctions } from 'firebase/functions';
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -33,6 +34,7 @@ const isDevelopment =
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
 // Configure App Check based on environment
 let appCheck;
@@ -60,4 +62,4 @@ try {
   // Continue app operation even if App Check fails
 }
 
-export { auth, db, app };
+export { auth, db, app, functions };

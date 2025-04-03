@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { auth } from './firebase'; // Adjust path as needed
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import './LandingPage.css';
 
 const triviaFacts = [
-"The Great Wall of China is not visible from space with the naked eye",
+  "The Great Wall of China is not visible from space with the naked eye",
   "A group of flamingos is called a flamboyance",
   "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old",
   "Octopuses have three hearts",
@@ -31,115 +33,151 @@ const triviaFacts = [
   "There are more stars in the universe than grains of sand on all the Earth's beaches",
   "A hummingbird weighs less than a penny",
   "The shortest bone in the human body is in the ear, called the stapes",
-  "The shortest war in history lasted 38 minutes",
-  "The shortest war in history lasted 38 minutes", // (removing this duplicate below)
   "A group of crows is called a murder",
-  "The shortest war in history lasted 38 minutes", // Replacing duplicate with new fact
   "The Vatican, Disney World, and Russia all have their own official calendars",
-  "A blue whale’s tongue weighs as much as an elephant",
-  "The shortest war in history lasted 38 minutes", // Replacing duplicate with new fact
+  "A blue whale's tongue weighs as much as an elephant",
   "The inventor of the frisbee was turned into a frisbee after he died",
   "Wombat poop is cube-shaped",
-  "The first oranges weren’t orange—they were green",
+  "The first oranges weren't orange—they were green",
   "A group of pandas is called an embarrassment",
-  "The unicorn is Scotland’s national animal",
-  "There’s a species of spider called the Hobo Spider",
+  "The unicorn is Scotland's national animal",
+  "There's a species of spider called the Hobo Spider",
   "A snail can sleep for three years",
   "The smell of rain is caused by bacteria in the soil",
   "The longest place name in the world has 85 letters",
   "A group of porcupines is called a prickle",
   "The first computer mouse was made of wood",
   "A crocodile cannot stick its tongue out",
-  "The world’s largest desert isn’t the Sahara—it’s Antarctica",
+  "The world's largest desert isn't the Sahara—it's Antarctica",
   "A group of rhinos is called a crash",
   "The first alarm clock could only ring at 4 a.m.",
-  "A cat’s nose print is unique, like a human fingerprint",
+  "A cat's nose print is unique, like a human fingerprint",
   "The deepest part of the ocean is over 36,000 feet deep",
   "A group of jellyfish is called a smack",
   "The first email was sent in 1971",
-  "A shrimp’s heart is in its head"
+  "A shrimp's heart is in its head"
 ];
 
-const MAX_RECENT_FACTS = 10; // Limit how many recent facts to track
-const LANES = 5; // Number of horizontal lanes to spread facts across
+const MAX_RECENT_FACTS = 10;
+const MAX_VISIBLE_FACTS = 7;
+const LANES = 5;
 
-const LandingPage = ({ onSignIn, onSignUp, error }) => {
+const LandingPage = ({ onSignUp }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [triviaElements, setTriviaElements] = useState([]);
   const [recentFacts, setRecentFacts] = useState([]);
+  const [localError, setLocalError] = useState('');
+  const [isVisible, setIsVisible] = useState(true);
+  const timeoutRef = useRef(null);
+  const containerRef = useRef(null);
+  const lastLaneRef = useRef(-1); // Track the last used lane
 
   useEffect(() => {
-    // Initialize with spread-out facts
-    const initialFacts = [];
-    for (let i = 0; i < 10; i++) {
-      const fact = getUniqueFact();
-      const lane = i % LANES;
-      initialFacts.push({
-        id: Date.now() + i,
-        text: fact,
-        left: (lane * (100 / LANES)) + (Math.random() * (100 / LANES) * 0.5), // Spread within lane
-        top: Math.random() * 80, // Start at random height up to 80vh
-        duration: 15 + Math.random() * 10,
-        key: Date.now() + i
-      });
-    }
-    setTriviaElements(initialFacts);
+    const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
+
+    const getUniqueFact = (currentRecent) => {
+      const availableFacts = triviaFacts.filter(f => !currentRecent.includes(f));
+      if (availableFacts.length === 0) {
+        return triviaFacts[Math.floor(Math.random() * triviaFacts.length)];
+      }
+      return availableFacts[Math.floor(Math.random() * availableFacts.length)];
+    };
+
+    // Get next lane in alternating pattern
+    const getNextLane = () => {
+      // Pattern: 0 -> 4 -> 2 -> 3 -> 1 -> repeat
+      const pattern = [0, 4, 2, 3, 1];
+      lastLaneRef.current = (lastLaneRef.current + 1) % pattern.length;
+      return pattern[lastLaneRef.current];
+    };
 
     const addTrivia = () => {
-      const fact = getUniqueFact();
-      const lane = Math.floor(Math.random() * LANES);
-      const newTrivia = {
-        id: Date.now(),
-        text: fact,
-        left: (lane * (100 / LANES)) + (Math.random() * (100 / LANES) * 0.5),
-        duration: 15 + Math.random() * 10,
-        key: Date.now()
-      };
-
+      if (!isVisible) return;
+      
       setTriviaElements(prev => {
-        // Filter out facts that have fallen off screen
-        const active = prev.filter(t => {
-          const elapsed = (Date.now() - t.id) / 1000;
-          return elapsed < t.duration;
-        });
-        return [...active, newTrivia];
-      });
+        if (prev.length >= MAX_VISIBLE_FACTS) return prev;
 
-      setRecentFacts(prev => {
-        const newRecent = [...prev, fact].slice(-MAX_RECENT_FACTS);
-        return newRecent;
+        const fact = getUniqueFact(recentFacts);
+        const lane = getNextLane();
+        const leftPosition = (lane * (100 / LANES)) + 5;
+
+        const newTrivia = {
+          id: Date.now(),
+          text: fact,
+          left: leftPosition,
+          duration: 20, // Fixed duration for more consistent spacing
+          key: Date.now()
+        };
+
+        setRecentFacts(prevRecent => [...prevRecent, fact].slice(-MAX_RECENT_FACTS));
+        
+        return [...prev, newTrivia];
       });
     };
 
-    const interval = setInterval(addTrivia, 2000); // Slower spawn rate
-    return () => clearInterval(interval);
-  }, []);
+    const handleVisibilityChange = () => {
+      const visible = !document.hidden;
+      setIsVisible(visible);
+      if (!visible) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      } else if (!timeoutRef.current) {
+        timeoutRef.current = setTimeout(() => {
+          addTrivia();
+          timeoutRef.current = setInterval(addTrivia, 3000); // Increased interval for better spacing
+        }, 500);
+      }
+    };
 
-  const getUniqueFact = () => {
-    const availableFacts = triviaFacts.filter(f => !recentFacts.includes(f));
-    if (availableFacts.length === 0) {
-      setRecentFacts([]); // Reset if we've used all facts
-      return triviaFacts[Math.floor(Math.random() * triviaFacts.length)];
+    // Start with initial facts
+    timeoutRef.current = setTimeout(() => {
+      addTrivia(); // Add first fact
+      timeoutRef.current = setInterval(addTrivia, 3000); // Start regular interval
+    }, 500);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timeoutRef.current);
+      clearInterval(timeoutRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isVisible]);
+
+  const handleAnimationEnd = (id) => {
+    setTriviaElements((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleEmailSignUp = async (e) => {
+    e.preventDefault();
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      onSignUp(userCredential.user);
+    } catch (err) {
+      setLocalError(err.message);
     }
-    return availableFacts[Math.floor(Math.random() * availableFacts.length)];
   };
 
-  const handleSignIn = (e) => {
-    e.preventDefault();
-    onSignIn(email, password);
+  const handleGoogleSignUp = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      onSignUp(result.user);
+    } catch (err) {
+      setLocalError(err.message);
+    }
   };
 
-  const handleSignUp = (e) => {
-    e.preventDefault();
-    onSignUp(email, password);
+  const handleSignInLink = () => {
+    console.log('Navigate to sign-in page'); // Replace with your navigation logic
   };
 
   return (
-    <div className="landing-container">
+    <div className="landing-container" ref={containerRef}>
       <h1>TriviaTrainer</h1>
       <p className="tagline">Sharpen your mind. Master your knowledge.</p>
-      <form className="auth-form" onSubmit={handleSignIn}>
+      <form className="auth-form" onSubmit={handleEmailSignUp}>
         <input
           type="email"
           placeholder="Email"
@@ -155,22 +193,31 @@ const LandingPage = ({ onSignIn, onSignUp, error }) => {
           required
         />
         <div className="auth-buttons">
-          <button type="submit" className="cta-button">Sign In</button>
-          <button type="button" className="cta-button" onClick={handleSignUp}>Sign Up</button>
+          <button type="submit" className="cta-button">Sign Up</button>
+          <button type="button" className="cta-button" onClick={handleGoogleSignUp}>
+            Sign Up with Google
+          </button>
         </div>
-        {error && <p className="error">{error}</p>}
+        {localError && <p className="error">{localError}</p>}
       </form>
+      <p>
+        Already have an account?{' '}
+        <span onClick={handleSignInLink} className="link" style={{ cursor: 'pointer', color: '#007bff' }}>
+          Sign in
+        </span>
+      </p>
       <button className="cta-button start-button" disabled>Start Training</button>
-      {triviaElements.map(trivia => (
+      {triviaElements.map((trivia) => (
         <div
           key={trivia.key}
-          className="background-trivia"
+          id={`trivia-${trivia.id}`}
+          className={isVisible ? 'background-trivia' : 'background-trivia paused'}
           style={{
             left: `${trivia.left}%`,
-            top: trivia.top ? `${trivia.top}vh` : '-100px',
-            animationDuration: `${trivia.duration}s`,
-            animationDelay: trivia.top ? `-${(trivia.top / 100) * trivia.duration}s` : '0s'
+            top: '-100px',
+            animation: `fall ${trivia.duration}s linear`
           }}
+          onAnimationEnd={() => handleAnimationEnd(trivia.id)}
         >
           {trivia.text}
         </div>

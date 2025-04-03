@@ -22,6 +22,10 @@
     height: 100vh;
     z-index: 10;
     position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100vw;
+    padding: 0 20px;
   }
   
   .landing-container h1 {
@@ -89,28 +93,38 @@
     margin-top: 1rem;
   }
   
-/* ... (keep all existing styles up to .error unchanged) */
-
 .background-trivia {
-    position: absolute;
-    color: rgba(255, 255, 255, 0.15); /* Slightly more visible */
-    font-size: 1.1rem;
-    white-space: nowrap;
-    z-index: 1;
-    pointer-events: none;
-    animation: fall linear infinite;
-    top: -100px;
-    padding: 0.5rem; /* Add padding for readability */
+  position: absolute;
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 1.1rem;
+  white-space: nowrap;
+  pointer-events: none;
+  transform-origin: left center;
+  padding: 10px;
+  transition: opacity 0.5s ease;
+}
+
+.background-trivia.paused {
+  animation-play-state: paused;
+}
+
+@keyframes fall {
+  from {
+    transform: translateY(-50px) scale(1);
+    opacity: 0;
   }
-  
-  @keyframes fall {
-    0% {
-      transform: translateY(0);
-    }
-    100% {
-      transform: translateY(calc(100vh + 100px));
-    }
+  5% {
+    opacity: 1;
   }
+  95% {
+    opacity: 1;
+    transform: translateY(calc(100vh - 50px)) scale(1);
+  }
+  to {
+    transform: translateY(calc(100vh)) scale(1);
+    opacity: 0;
+  }
+}
   
   @media (max-width: 768px) {
     .landing-container h1 {
@@ -127,6 +141,6 @@
       width: 200px;
     }
     .background-trivia {
-      font-size: 0.9rem; /* Smaller on mobile */
+      font-size: 0.9rem;
     }
   }
