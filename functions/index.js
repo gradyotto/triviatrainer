@@ -2,6 +2,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 
+
 initializeApp();
 
 exports.getQuestions = onCall(
@@ -92,3 +93,32 @@ exports.getQuestions = onCall(
     return { status: "success", data: formattedQuestions };
   }
 );
+
+exports.checkUsername = onCall(async (request) => {
+    const db = getFirestore();
+    const username = request.data.username.toLowerCase();
+    if (!username || username.length < 3) {
+      throw new HttpsError('invalid-argument', 'Username must be at least 3 characters');
+    }
+    const snapshot = await db.collection('usernames').doc(username).get();
+    return { available: !snapshot.exists };
+  });
+  
+  exports.createUser = onCall(async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in');
+    }
+    const db = getFirestore();
+    const uid = request.auth.uid;
+    const username = request.data.username.toLowerCase();
+    await db.runTransaction(async (transaction) => {
+      const usernameRef = db.collection('usernames').doc(username);
+      const userRef = db.collection('users').doc(uid);
+      const usernameDoc = await transaction.get(usernameRef);
+      if (usernameDoc.exists) {
+        throw new HttpsError('already-exists', 'Username taken');
+      }
+      transaction.set(usernameRef, { uid });
+      transaction.set(userRef, { username, email: request.auth.token.email });
+    });
+  });
