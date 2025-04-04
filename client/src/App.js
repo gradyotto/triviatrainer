@@ -262,27 +262,99 @@ function App() {
   };
 
 
-  const handleSignIn = (email, password) => {
-    signInWithEmailAndPassword(auth, email, password)
-      .then(() => {
-        setEmail('');
-        setPassword('');
-        setError(null);
-      })
-      .catch(err => setError(err.message));
-  };
-
-  const handleSignUp = async (email, password) => {
+  const handleSignIn = async (email, password) => {
+    console.log("App.js handleSignIn called with email and password");
+    
     try {
-      const { user } = await createUserWithEmailAndPassword(auth, email, password);
-      await sendEmailVerification(user);
-      console.log('Verification email sent—check your inbox!');
+      if (!email || !password) {
+        console.log("Email or password missing");
+        setError('Email and password are required');
+        return;
+      }
+
+      const emailStr = typeof email === 'string' ? email.trim() : String(email).trim();
+      const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+      
+      console.log("Processed email:", emailStr);
+      console.log("Processed password length:", passwordStr.length);
+
+      if (emailStr.length === 0 || passwordStr.length === 0) {
+        console.log("Empty email or password after trimming");
+        setError('Email and password cannot be empty');
+        return;
+      }
+
+      console.log("Attempting sign in with Firebase auth");
+      const userCredential = await signInWithEmailAndPassword(auth, emailStr, passwordStr);
+      console.log("Sign in successful:", userCredential.user.uid);
+      
       setEmail('');
       setPassword('');
       setError(null);
     } catch (err) {
-      setError(err.message);
-      console.error('Sign-up error:', err.message);
+      console.error("Sign-in error:", err);
+      console.error("Error code:", err.code);
+      console.error("Error message:", err.message);
+      setError(err.message || 'An error occurred during sign in');
+    }
+  };
+
+  const handleSignUp = async (email, password, username) => {
+    console.log("App.js handleSignUp called with email and password");
+    console.log("Username provided:", username || "None");
+    
+    try {
+      if (!email || !password) {
+        console.log("Email or password missing");
+        setError('Email and password are required');
+        return;
+      }
+
+      const emailStr = typeof email === 'string' ? email.trim() : String(email).trim();
+      const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+      
+      console.log("Processed email:", emailStr);
+      console.log("Processed password length:", passwordStr.length);
+
+      if (emailStr.length === 0 || passwordStr.length === 0) {
+        console.log("Empty email or password after trimming");
+        setError('Email and password cannot be empty');
+        return;
+      }
+
+      console.log("Attempting to create user with Firebase auth");
+      const { user } = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
+      console.log("User created:", user.uid);
+      
+      try {
+        console.log("Sending verification email");
+        await sendEmailVerification(user);
+        console.log('Verification email sent—check your inbox!');
+      } catch (verifyError) {
+        console.error("Error sending verification email:", verifyError);
+      }
+      
+      // Create user profile if username provided
+      if (username) {
+        try {
+          console.log("Creating user profile with username:", username);
+          const createUser = httpsCallable(functions, 'createUser');
+          const result = await createUser({ username });
+          console.log("Profile creation result:", result);
+        } catch (profileError) {
+          console.error("Error creating user profile:", profileError);
+          // Continue even if profile creation fails
+        }
+      }
+      
+      setEmail('');
+      setPassword('');
+      setError(null);
+    } catch (err) {
+      console.error("Sign-up error:", err);
+      console.error("Error code:", err.code);
+      console.error("Error message:", err.message);
+      setError(err.message || 'An error occurred during sign up');
     }
   };
 
@@ -580,7 +652,13 @@ function App() {
   };
 
   if (!user) {
-    return <LandingPage onSignIn={handleSignIn} onSignUp={handleSignUp} error={error} />;
+    return (
+      <LandingPage 
+        onSignIn={handleSignIn} 
+        onSignUp={handleSignUp} 
+        error={error} 
+      />
+    );
   }
 
   return (

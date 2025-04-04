@@ -147,3 +147,14 @@
       font-size: 0.9rem;
     }
   }
+
+  .success {
+    color: green;
+    font-size: 0.9em;
+    margin: 5px 0;
+  }
+  .error {
+    color: red;
+    font-size: 0.9em;
+    margin: 5px 0;
+  }

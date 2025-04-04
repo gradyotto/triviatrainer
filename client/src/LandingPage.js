@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth } from './firebase'; // Adjust path as needed
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { auth, functions } from './firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider 
+} from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import './LandingPage.css';
 
 const triviaFacts = [
@@ -26,7 +32,7 @@ const triviaFacts = [
   "The shortest commercial flight in the world takes just 1.7 minutes",
   "A jiffy is an actual unit of time: 1/100th of a second",
   "The human body contains about 0.2 milligrams of gold, most of it in the blood",
-  "Cleopatra lived closer in time to the moon landing than to the building of the Great Pyramid",
+  "Cleopatra lived closer in time to the moon landing than to the building of the Great Pyramids",
   "A single cloud can weigh more than a million pounds",
   "Sharks possess an acute sense of smell, detecting blood in the water from miles away",
   "The first computer 'bug' was an actual insect stuck in a relay",
@@ -62,20 +68,24 @@ const MAX_RECENT_FACTS = 10;
 const MAX_VISIBLE_FACTS = 7;
 const LANES = 5;
 
-const LandingPage = ({ onSignUp }) => {
+const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [isSignIn, setIsSignIn] = useState(true);
   const [triviaElements, setTriviaElements] = useState([]);
   const [recentFacts, setRecentFacts] = useState([]);
   const [localError, setLocalError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [isUsernameAvailable, setIsUsernameAvailable] = useState(null);
   const [isVisible, setIsVisible] = useState(true);
   const timeoutRef = useRef(null);
   const containerRef = useRef(null);
-  const lastLaneRef = useRef(-1); // Track the last used lane
+  const lastLaneRef = useRef(-1);
+
+  const checkUsername = httpsCallable(functions, 'checkUsername');
 
   useEffect(() => {
-    const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
-
     const getUniqueFact = (currentRecent) => {
       const availableFacts = triviaFacts.filter(f => !currentRecent.includes(f));
       if (availableFacts.length === 0) {
@@ -84,9 +94,7 @@ const LandingPage = ({ onSignUp }) => {
       return availableFacts[Math.floor(Math.random() * availableFacts.length)];
     };
 
-    // Get next lane in alternating pattern
     const getNextLane = () => {
-      // Pattern: 0 -> 4 -> 2 -> 3 -> 1 -> repeat
       const pattern = [0, 4, 2, 3, 1];
       lastLaneRef.current = (lastLaneRef.current + 1) % pattern.length;
       return pattern[lastLaneRef.current];
@@ -101,18 +109,13 @@ const LandingPage = ({ onSignUp }) => {
         const fact = getUniqueFact(recentFacts);
         const lane = getNextLane();
         
-        // Calculate base position
         let leftPosition = (lane * (100 / LANES)) + 5;
         
-        // If it's the rightmost lane (lane 4), adjust position to prevent cutoff
         if (lane === 4) {
-          // Calculate approximate width of text (rough estimate based on character count)
-          const textWidth = fact.length * 0.6; // Assuming each character is roughly 0.6% of viewport width
+          const textWidth = fact.length * 0.6;
           const rightEdge = leftPosition + textWidth;
-          
-          // If the text would extend beyond viewport, adjust leftPosition
-          if (rightEdge > 95) { // Leave 5% margin from right edge
-            leftPosition = Math.max(5, 95 - textWidth); // Ensure it doesn't go too far left
+          if (rightEdge > 95) {
+            leftPosition = Math.max(5, 95 - textWidth);
           }
         }
 
@@ -125,7 +128,6 @@ const LandingPage = ({ onSignUp }) => {
         };
 
         setRecentFacts(prevRecent => [...prevRecent, fact].slice(-MAX_RECENT_FACTS));
-        
         return [...prev, newTrivia];
       });
     };
@@ -139,15 +141,14 @@ const LandingPage = ({ onSignUp }) => {
       } else if (!timeoutRef.current) {
         timeoutRef.current = setTimeout(() => {
           addTrivia();
-          timeoutRef.current = setInterval(addTrivia, 3000); // Increased interval for better spacing
+          timeoutRef.current = setInterval(addTrivia, 5000); // Increased to 5 seconds
         }, 500);
       }
     };
 
-    // Start with initial facts
     timeoutRef.current = setTimeout(() => {
-      addTrivia(); // Add first fact
-      timeoutRef.current = setInterval(addTrivia, 3000); // Start regular interval
+      addTrivia();
+      timeoutRef.current = setInterval(addTrivia, 5000); // Increased to 5 seconds
     }, 500);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -159,39 +160,140 @@ const LandingPage = ({ onSignUp }) => {
     };
   }, [isVisible]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkUsernameAvailability = async () => {
+      if (username.length < 3) {
+        if (isMounted) {
+          setUsernameError('Username must be at least 3 characters');
+          setIsUsernameAvailable(null);
+        }
+        return;
+      }
+
+      try {
+        const result = await checkUsername({ username });
+        if (isMounted) {
+          setIsUsernameAvailable(result.data.available);
+          setUsernameError(result.data.available ? 'Username available' : 'Username taken');
+        }
+      } catch (err) {
+        if (isMounted) {
+          setUsernameError('Error checking username');
+          setIsUsernameAvailable(null);
+        }
+      }
+    };
+
+    const debounce = setTimeout(() => {
+      if (username && !isSignIn) checkUsernameAvailability();
+    }, 500);
+
+    return () => {
+      clearTimeout(debounce);
+      isMounted = false;
+    };
+  }, [username, isSignIn, checkUsername]);
+
   const handleAnimationEnd = (id) => {
     setTriviaElements((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleEmailSignUp = async (e) => {
+  const handleEmailAuth = async (e) => {
     e.preventDefault();
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      onSignUp(userCredential.user);
-    } catch (err) {
-      setLocalError(err.message);
+    console.log("Form submitted");
+    setLocalError('');
+    
+    if (!email || !password) {
+      console.log("Email or password missing");
+      setLocalError('Email and password are required');
+      return;
+    }
+
+    console.log("Email type:", typeof email, "Value:", email);
+    console.log("Password type:", typeof password, "Value:", "****");
+
+    const emailStr = typeof email === 'string' ? email.trim() : String(email).trim();
+    const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+    
+    console.log("Processed email type:", typeof emailStr, "Value:", emailStr);
+    console.log("Processed password type:", typeof passwordStr, "Value:", "****");
+
+    if (emailStr.length === 0 || passwordStr.length === 0) {
+      console.log("Empty email or password after trimming");
+      setLocalError('Email and password cannot be empty');
+      return;
+    }
+
+    if (isSignIn) {
+      console.log("Calling onSignIn with email and password");
+      try {
+        await onSignIn(emailStr, passwordStr);
+        console.log("onSignIn call complete");
+        setEmail('');
+        setPassword('');
+      } catch (error) {
+        console.error("Error from onSignIn:", error);
+        setLocalError(error.message || "Error signing in");
+      }
+    } else {
+      if (!isUsernameAvailable) {
+        console.log("Username not available");
+        setLocalError('Please choose an available username');
+        return;
+      }
+      
+      console.log("Calling onSignUp with email, password, and username");
+      try {
+        await onSignUp(emailStr, passwordStr, username);
+        console.log("onSignUp call complete");
+        setEmail('');
+        setPassword('');
+        setUsername('');
+      } catch (error) {
+        console.error("Error from onSignUp:", error);
+        setLocalError(error.message || "Error signing up");
+      }
     }
   };
 
   const handleGoogleSignUp = async () => {
-    const provider = new GoogleAuthProvider();
     try {
+      const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      onSignUp(result.user);
+      
+      try {
+        const createUser = httpsCallable(functions, 'createUser');
+        await createUser({ username: result.user.displayName || result.user.email.split('@')[0] });
+      } catch (profileError) {
+        console.error('Error creating user profile:', profileError);
+      }
+
+      setEmail('');
+      setPassword('');
+      setUsername('');
     } catch (err) {
-      setLocalError(err.message);
+      console.error('Google authentication error:', err);
+      setLocalError(err.message || 'An error occurred during Google authentication');
     }
   };
 
-  const handleSignInLink = () => {
-    console.log('Navigate to sign-in page'); // Replace with your navigation logic
+  const toggleAuthMode = () => {
+    setIsSignIn(!isSignIn);
+    setLocalError('');
+    setUsernameError('');
+    setIsUsernameAvailable(null);
+    setEmail('');
+    setPassword('');
+    setUsername('');
   };
 
   return (
     <div className="landing-container" ref={containerRef}>
       <h1>TriviaTrainer</h1>
       <p className="tagline">Sharpen your mind. Master your knowledge.</p>
-      <form className="auth-form" onSubmit={handleEmailSignUp}>
+      <form className="auth-form" onSubmit={handleEmailAuth}>
         <input
           type="email"
           placeholder="Email"
@@ -206,18 +308,40 @@ const LandingPage = ({ onSignUp }) => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+        {!isSignIn && (
+          <div>
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+            {usernameError && (
+              <p className={isUsernameAvailable ? 'success' : 'error'}>
+                {usernameError}
+              </p>
+            )}
+          </div>
+        )}
         <div className="auth-buttons">
-          <button type="submit" className="cta-button">Sign Up</button>
-          <button type="button" className="cta-button" onClick={handleGoogleSignUp}>
-            Sign Up with Google
+          <button type="submit" className="cta-button">
+            {isSignIn ? 'Sign In' : 'Sign Up'}
           </button>
+          {!isSignIn && (
+            <button type="button" className="cta-button" onClick={handleGoogleSignUp}>
+              Sign Up with Google
+            </button>
+          )}
         </div>
-        {localError && <p className="error">{localError}</p>}
+        {(localError || parentError) && (
+          <p className="error">{localError || parentError}</p>
+        )}
       </form>
       <p>
-        Already have an account?{' '}
-        <span onClick={handleSignInLink} className="link" style={{ cursor: 'pointer', color: '#007bff' }}>
-          Sign in
+        {isSignIn ? "Don't have an account?" : "Already have an account?"}{' '}
+        <span onClick={toggleAuthMode} className="link" style={{ cursor: 'pointer', color: '#007bff' }}>
+          {isSignIn ? 'Sign up' : 'Sign in'}
         </span>
       </p>
       <button className="cta-button start-button" disabled>Start Training</button>
