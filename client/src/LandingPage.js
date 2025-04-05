@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, functions } from './firebase';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider 
-} from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import './LandingPage.css';
 
@@ -108,9 +103,7 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
 
         const fact = getUniqueFact(recentFacts);
         const lane = getNextLane();
-        
         let leftPosition = (lane * (100 / LANES)) + 5;
-        
         if (lane === 4) {
           const textWidth = fact.length * 0.6;
           const rightEdge = leftPosition + textWidth;
@@ -141,14 +134,14 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
       } else if (!timeoutRef.current) {
         timeoutRef.current = setTimeout(() => {
           addTrivia();
-          timeoutRef.current = setInterval(addTrivia, 5000); // Increased to 5 seconds
+          timeoutRef.current = setInterval(addTrivia, 5000);
         }, 500);
       }
     };
 
     timeoutRef.current = setTimeout(() => {
       addTrivia();
-      timeoutRef.current = setInterval(addTrivia, 5000); // Increased to 5 seconds
+      timeoutRef.current = setInterval(addTrivia, 5000);
     }, 500);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -158,6 +151,7 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
       clearInterval(timeoutRef.current);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVisible]);
 
   useEffect(() => {
@@ -262,20 +256,33 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      
       try {
         const createUser = httpsCallable(functions, 'createUser');
         await createUser({ username: result.user.displayName || result.user.email.split('@')[0] });
       } catch (profileError) {
         console.error('Error creating user profile:', profileError);
       }
-
+      await onSignUp(result.user.email, null, result.user.displayName || result.user.email.split('@')[0]);
       setEmail('');
       setPassword('');
       setUsername('');
     } catch (err) {
       console.error('Google authentication error:', err);
       setLocalError(err.message || 'An error occurred during Google authentication');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      await onSignIn(result.user); // Pass user object
+      setEmail('');
+      setPassword('');
+      setUsername('');
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      setLocalError(err.message || 'An error occurred during Google sign-in');
     }
   };
 
@@ -328,7 +335,11 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
           <button type="submit" className="cta-button">
             {isSignIn ? 'Sign In' : 'Sign Up'}
           </button>
-          {!isSignIn && (
+          {isSignIn ? (
+            <button type="button" className="cta-button" onClick={handleGoogleSignIn}>
+              Sign In with Google
+            </button>
+          ) : (
             <button type="button" className="cta-button" onClick={handleGoogleSignUp}>
               Sign Up with Google
             </button>
@@ -344,7 +355,6 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
           {isSignIn ? 'Sign up' : 'Sign in'}
         </span>
       </p>
-      <button className="cta-button start-button" disabled>Start Training</button>
       {triviaElements.map((trivia) => (
         <div
           key={trivia.key}

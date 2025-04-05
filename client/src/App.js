@@ -13,11 +13,10 @@ import './App.css';
 
 const functions = getFunctions(app);
 
-// Normalization functions
 const normalizeNumber = (input) => {
   const numMap = {
     'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
-    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', // Fixed 'six'
     'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13', 'fourteen': '14',
     'fifteen': '15', 'sixteen': '16', 'seventeen': '17', 'eighteen': '18', 'nineteen': '19',
     'twenty': '20', 'twenty-one': '21', 'twenty-two': '22', 'twenty-three': '23', 'twenty-four': '24',
@@ -53,13 +52,6 @@ const normalizeAnswer = (input) => {
   );
 };
 
-const normalizeOptions = (options) => {
-  if (!options) return [];
-  if (Array.isArray(options)) return options;
-  if (typeof options === 'string') return options.split(',').map(opt => opt.trim());
-  return [];
-};
-
 const trainingCategories = [
   { id: 'History', name: 'History' },
   { id: 'Science', name: 'Science' },
@@ -92,16 +84,14 @@ function App() {
   const [reinforcementInput, setReinforcementInput] = useState('');
   const [userHistory, setUserHistory] = useState({});
   const [user, setUser] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [mode, setMode] = useState(null);
   const [username, setUsername] = useState('');
   const [currentScreen, setCurrentScreen] = useState('main');
   const [pendingReinforcement, setPendingReinforcement] = useState(false);
-  const [sessionDuration, setSessionDuration] = useState(null); // In seconds
-  const [timeRemaining, setTimeRemaining] = useState(null); // In seconds
-  const [questionStartTime, setQuestionStartTime] = useState(null); // For tracking
+  const [sessionDuration, setSessionDuration] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [questionStartTime, setQuestionStartTime] = useState(null);
 
   const fetchUserHistory = async (uid) => {
     try {
@@ -168,9 +158,8 @@ function App() {
       return;
     }
 
-    setQuestionStartTime(Date.now()); // Start timing this question
+    setQuestionStartTime(Date.now());
 
-    // Ensure options is always an array
     const ensureOptionsArray = (options) => {
       if (!options) return [];
       if (Array.isArray(options)) return options;
@@ -261,40 +250,40 @@ function App() {
     }
   };
 
-
-  const handleSignIn = async (email, password) => {
-    console.log("App.js handleSignIn called with email and password");
+  const handleSignIn = async (emailOrUser, password) => {
+    console.log("App.js handleSignIn called");
     
     try {
-      if (!email || !password) {
-        console.log("Email or password missing");
-        setError('Email and password are required');
-        return;
+      if (typeof emailOrUser === 'object' && emailOrUser.uid) {
+        console.log("Google Sign-In detected, user:", emailOrUser.uid);
+        setUser(emailOrUser);
+        setError(null);
+      } else {
+        if (!emailOrUser || !password) {
+          console.log("Email or password missing");
+          setError('Email and password are required');
+          return;
+        }
+
+        const emailStr = typeof emailOrUser === 'string' ? emailOrUser.trim() : String(emailOrUser).trim();
+        const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+        
+        console.log("Processed email:", emailStr);
+        console.log("Processed password length:", passwordStr.length);
+
+        if (emailStr.length === 0 || passwordStr.length === 0) {
+          console.log("Empty email or password after trimming");
+          setError('Email and password cannot be empty');
+          return;
+        }
+
+        console.log("Attempting sign in with Firebase auth");
+        const userCredential = await signInWithEmailAndPassword(auth, emailStr, passwordStr);
+        console.log("Sign in successful:", userCredential.user.uid);
+        setError(null);
       }
-
-      const emailStr = typeof email === 'string' ? email.trim() : String(email).trim();
-      const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
-      
-      console.log("Processed email:", emailStr);
-      console.log("Processed password length:", passwordStr.length);
-
-      if (emailStr.length === 0 || passwordStr.length === 0) {
-        console.log("Empty email or password after trimming");
-        setError('Email and password cannot be empty');
-        return;
-      }
-
-      console.log("Attempting sign in with Firebase auth");
-      const userCredential = await signInWithEmailAndPassword(auth, emailStr, passwordStr);
-      console.log("Sign in successful:", userCredential.user.uid);
-      
-      setEmail('');
-      setPassword('');
-      setError(null);
     } catch (err) {
       console.error("Sign-in error:", err);
-      console.error("Error code:", err.code);
-      console.error("Error message:", err.message);
       setError(err.message || 'An error occurred during sign in');
     }
   };
@@ -334,7 +323,6 @@ function App() {
         console.error("Error sending verification email:", verifyError);
       }
       
-      // Create user profile if username provided
       if (username) {
         try {
           console.log("Creating user profile with username:", username);
@@ -343,17 +331,12 @@ function App() {
           console.log("Profile creation result:", result);
         } catch (profileError) {
           console.error("Error creating user profile:", profileError);
-          // Continue even if profile creation fails
         }
       }
       
-      setEmail('');
-      setPassword('');
       setError(null);
     } catch (err) {
       console.error("Sign-up error:", err);
-      console.error("Error code:", err.code);
-      console.error("Error message:", err.message);
       setError(err.message || 'An error occurred during sign up');
     }
   };
@@ -381,7 +364,7 @@ function App() {
 
   const handleStartTraining = (duration) => {
     if (selectedCategories.length > 0) {
-      setSessionDuration(duration * 60); // Convert minutes to seconds
+      setSessionDuration(duration * 60);
       setTimeRemaining(duration * 60);
       fetchQuestions(selectedCategories);
     } else {
@@ -399,8 +382,7 @@ function App() {
     if (answered) return;
     const currentQuestion = questions[currentQuestionIndex];
     let userAnswer;
-    const isFirstEncounter = !userHistory[currentQuestion.id];
-  
+    
     if (currentQuestion.type === 'true-false' || currentQuestion.type === 'multiple-choice') {
       userAnswer = answer;
     } else if (currentQuestion.type === 'matching') {
@@ -436,7 +418,7 @@ function App() {
         setFeedback('Correct!');
         setMatchingCorrect(correctPairs);
         await updateHistory(currentQuestion.id, true, userHistory);
-        setPendingReinforcement(false); // No RT on correct
+        setPendingReinforcement(false);
       } else if (attempts === 0) {
         setAttempts(1);
         setFeedback('Incorrect - Retry the missed ones.');
@@ -446,7 +428,7 @@ function App() {
           Object.keys(correctPairs).forEach(key => delete newAnswers[key]);
           return newAnswers;
         });
-        await updateHistory(currentQuestion.id, false, userHistory); // Record first miss
+        await updateHistory(currentQuestion.id, false, userHistory);
       } else {
         setAnswered(true);
         setMatchingCorrect(correctPairs);
@@ -454,8 +436,8 @@ function App() {
           .map(([key, value]) => `${key} - ${value}`)
           .join(', ');
         setFeedback(`Incorrect, the correct matches are: ${correctText}`);
-        await updateHistory(currentQuestion.id, false, userHistory); // Record second miss
-        const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1; // RT after second miss
+        await updateHistory(currentQuestion.id, false, userHistory);
+        const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1;
         setPendingReinforcement(shouldShowRT);
       }
     } else {
@@ -469,28 +451,28 @@ function App() {
         setHint('');
         setExplanation(currentQuestion.explanation || 'No explanation available.');
         await updateHistory(currentQuestion.id, true, userHistory);
-        setPendingReinforcement(false); // No RT on correct
+        setPendingReinforcement(false);
       } else if (currentQuestion.type === 'true-false') {
         setAnswered(true);
         setFeedback(`Incorrect, the answer is "${currentQuestion.answer}".`);
         setHint('');
         setExplanation(currentQuestion.explanation || 'No explanation available.');
         await updateHistory(currentQuestion.id, false, userHistory);
-        setPendingReinforcement(currentQuestion.reinforcementTask); // RT for single-attempt types
+        setPendingReinforcement(currentQuestion.reinforcementTask);
       } else if (attempts === 0) {
         setAttempts(1);
         setFeedback('Incorrect');
         setHint(currentQuestion.hint || 'No hint available.');
         setExplanation('');
         setUserInput('');
-        await updateHistory(currentQuestion.id, false, userHistory); // Record first miss
+        await updateHistory(currentQuestion.id, false, userHistory);
       } else {
         setAnswered(true);
         setFeedback(`Incorrect, the answer is "${currentQuestion.answer}".`);
         setHint('');
         setExplanation('');
-        await updateHistory(currentQuestion.id, false, userHistory); // Record second miss
-        const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1; // RT after second miss
+        await updateHistory(currentQuestion.id, false, userHistory);
+        const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1;
         setPendingReinforcement(shouldShowRT);
       }
     }
@@ -502,7 +484,7 @@ function App() {
 
   const updateHistory = async (questionId, isCorrect, history) => {
     const now = new Date().toISOString();
-    const timeSpent = questionStartTime ? Math.round((Date.now() - questionStartTime) / 1000) : 0; // Seconds
+    const timeSpent = questionStartTime ? Math.round((Date.now() - questionStartTime) / 1000) : 0;
     const currentHistory = history[questionId] || { firstSeen: now, lastSeen: now, attemptsHistory: [] };
     
     const updatedAttempts = [
