@@ -63,7 +63,7 @@ const MAX_RECENT_FACTS = 10;
 const MAX_VISIBLE_FACTS = 7;
 const LANES = 5;
 
-const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
+const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsername }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -77,8 +77,9 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
   const timeoutRef = useRef(null);
   const containerRef = useRef(null);
   const lastLaneRef = useRef(-1);
-
   const checkUsername = httpsCallable(functions, 'checkUsername');
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false); // Added for Google flow
+  const [googleUser, setGoogleUser] = useState(null); // Added for Google flow
 
   useEffect(() => {
     const getUniqueFact = (currentRecent) => {
@@ -256,19 +257,15 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      try {
-        const createUser = httpsCallable(functions, 'createUser');
-        await createUser({ username: result.user.displayName || result.user.email.split('@')[0] });
-      } catch (profileError) {
-        console.error('Error creating user profile:', profileError);
-      }
-      await onSignUp(result.user.email, null, result.user.displayName || result.user.email.split('@')[0]);
-      setEmail('');
-      setPassword('');
-      setUsername('');
+      console.log('Google sign-up success, user:', result.user.uid);
+      setGoogleUser(result.user);
+      setShowUsernamePrompt(true);
+      setIsSettingUsername(true); // Prevent redirect
+      console.log('showUsernamePrompt set to true, googleUser:', result.user.uid);
     } catch (err) {
-      console.error('Google authentication error:', err);
-      setLocalError(err.message || 'An error occurred during Google authentication');
+      console.error('Google sign-up error:', err);
+      setLocalError(err.message || 'An error occurred during Google sign-up');
+      setIsSettingUsername(false);
     }
   };
 
@@ -286,6 +283,36 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
     }
   };
 
+  const handleUsernameSubmit = async (e) => {
+    e.preventDefault();
+    setLocalError('');
+    setUsernameError('');
+    if (!username.trim()) {
+      setUsernameError('Username is required');
+      return;
+    }
+    if (username.length < 3) {
+      setUsernameError('Username must be at least 3 characters');
+      return;
+    }
+    try {
+      const { data } = await checkUsername({ username: username.trim() });
+      if (!data.available) {
+        setUsernameError('Username is already taken');
+        setIsUsernameAvailable(false);
+        return;
+      }
+      await onSignUp(googleUser, null, username.trim());
+      setShowUsernamePrompt(false);
+      setGoogleUser(null);
+      setUsername('');
+    } catch (err) {
+      console.error('Username submission error:', err);
+      setLocalError(err.message || 'Failed to set username');
+      setIsSettingUsername(false);
+    }
+  };
+
   const toggleAuthMode = () => {
     setIsSignIn(!isSignIn);
     setLocalError('');
@@ -295,6 +322,32 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
     setPassword('');
     setUsername('');
   };
+
+  if (showUsernamePrompt) {
+    return (
+      <div className="landing-container">
+        <h1>TriviaTrainer</h1>
+        <p className="tagline">Set Your Username</p>
+        <form className="auth-form" onSubmit={handleUsernameSubmit}>
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            maxLength={20}
+          />
+          <button type="submit" className="cta-button">Submit</button>
+          {usernameError && (
+            <p className={isUsernameAvailable ? 'success' : 'error'}>
+              {usernameError}
+            </p>
+          )}
+          {localError && <p className="error">{localError}</p>}
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="landing-container" ref={containerRef}>

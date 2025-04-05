@@ -16,7 +16,7 @@ const functions = getFunctions(app);
 const normalizeNumber = (input) => {
   const numMap = {
     'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
-    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', // Fixed 'six'
+    'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
     'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13', 'fourteen': '14',
     'fifteen': '15', 'sixteen': '16', 'seventeen': '17', 'eighteen': '18', 'nineteen': '19',
     'twenty': '20', 'twenty-one': '21', 'twenty-two': '22', 'twenty-three': '23', 'twenty-four': '24',
@@ -92,6 +92,7 @@ function App() {
   const [sessionDuration, setSessionDuration] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
+  const [isSettingUsername, setIsSettingUsername] = useState(false); // Added state
 
   const fetchUserHistory = async (uid) => {
     try {
@@ -129,7 +130,7 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
+      if (currentUser && !isSettingUsername) { // Only redirect if not setting username
         fetchUserHistory(currentUser.uid);
         getDoc(doc(db, 'users', currentUser.uid)).then(userDoc => {
           if (userDoc.exists()) {
@@ -138,13 +139,13 @@ function App() {
         });
         setMode('training');
         setCurrentScreen('training');
-      } else {
+      } else if (!currentUser) {
         setMode(null);
         setCurrentScreen('main');
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, []); // Removed isSettingUsername from dependencies
 
   useEffect(() => {
     if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
@@ -288,56 +289,68 @@ function App() {
     }
   };
 
-  const handleSignUp = async (email, password, username) => {
-    console.log("App.js handleSignUp called with email and password");
+  const handleSignUp = async (emailOrUser, password, username) => {
+    console.log("App.js handleSignUp called");
     console.log("Username provided:", username || "None");
     
     try {
-      if (!email || !password) {
-        console.log("Email or password missing");
-        setError('Email and password are required');
-        return;
-      }
-
-      const emailStr = typeof email === 'string' ? email.trim() : String(email).trim();
-      const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
-      
-      console.log("Processed email:", emailStr);
-      console.log("Processed password length:", passwordStr.length);
-
-      if (emailStr.length === 0 || passwordStr.length === 0) {
-        console.log("Empty email or password after trimming");
-        setError('Email and password cannot be empty');
-        return;
-      }
-
-      console.log("Attempting to create user with Firebase auth");
-      const { user } = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
-      console.log("User created:", user.uid);
-      
-      try {
-        console.log("Sending verification email");
-        await sendEmailVerification(user);
-        console.log('Verification email sent—check your inbox!');
-      } catch (verifyError) {
-        console.error("Error sending verification email:", verifyError);
-      }
-      
-      if (username) {
+      let user;
+      let email;
+      if (typeof emailOrUser === 'object' && emailOrUser.uid) {
+        console.log("Google Sign-Up detected, user:", emailOrUser.uid);
+        user = emailOrUser;
+        email = user.email;
+      } else {
+        if (!emailOrUser || !password) {
+          console.log("Email or password missing");
+          setError('Email and password are required');
+          return;
+        }
+        const emailStr = typeof emailOrUser === 'string' ? emailOrUser.trim() : String(emailOrUser).trim();
+        const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+        if (emailStr.length === 0 || passwordStr.length === 0) {
+          console.log("Empty email or password after trimming");
+          setError('Email and password cannot be empty');
+          return;
+        }
+        console.log("Attempting to create user with Firebase auth");
+        const userCredential = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
+        user = userCredential.user;
+        email = emailStr;
+        console.log("User created:", user.uid);
         try {
-          console.log("Creating user profile with username:", username);
-          const createUser = httpsCallable(functions, 'createUser');
-          const result = await createUser({ username });
-          console.log("Profile creation result:", result);
-        } catch (profileError) {
-          console.error("Error creating user profile:", profileError);
+          console.log("Sending verification email");
+          await sendEmailVerification(user);
+          console.log('Verification email sent—check your inbox!');
+        } catch (verifyError) {
+          console.error("Error sending verification email:", verifyError);
         }
       }
-      
+
+      if (!username) {
+        setError('Username is required');
+        return;
+      }
+
+      try {
+        console.log("Creating user profile with username:", username, "and email:", email);
+        const createUser = httpsCallable(functions, 'createUser');
+        const result = await createUser({ username: username.trim(), email });
+        console.log("Profile creation result:", result);
+        setUsername(username.trim());
+        setIsSettingUsername(false); // Allow redirect after username is set
+      } catch (profileError) {
+        console.error("Error creating user profile:", profileError);
+        setError('Failed to create user profile');
+        setIsSettingUsername(false);
+        return;
+      }
+
       setError(null);
     } catch (err) {
       console.error("Sign-up error:", err);
       setError(err.message || 'An error occurred during sign up');
+      setIsSettingUsername(false);
     }
   };
 
@@ -633,12 +646,13 @@ function App() {
     setCurrentScreen('training');
   };
 
-  if (!user) {
+  if (!user || isSettingUsername) { // Keep LandingPage if setting username
     return (
       <LandingPage 
         onSignIn={handleSignIn} 
         onSignUp={handleSignUp} 
         error={error} 
+        setIsSettingUsername={setIsSettingUsername} // Pass callback
       />
     );
   }
