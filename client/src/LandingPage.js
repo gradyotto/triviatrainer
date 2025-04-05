@@ -351,7 +351,7 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError }) => {
       </form>
       <p>
         {isSignIn ? "Don't have an account?" : "Already have an account?"}{' '}
-        <span onClick={toggleAuthMode} className="link" style={{ cursor: 'pointer', color: '#007bff' }}>
+        <span onClick={toggleAuthMode} className="link" style={{ cursor: 'pointer', color: '#9d50bb' }}>
           {isSignIn ? 'Sign up' : 'Sign in'}
         </span>
       </p>

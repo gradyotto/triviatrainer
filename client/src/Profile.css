@@ -99,6 +99,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  color: white;
 }
 
 .month-navigation button {
@@ -107,6 +108,7 @@
   border-radius: 4px;
   padding: 0.25rem 0.75rem;
   cursor: pointer;
+  color: white;
 }
 
 .month-navigation button:disabled {
@@ -114,51 +116,33 @@
   cursor: not-allowed;
 }
 
-.day-labels {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  text-align: center;
-  font-size: 0.8rem;
-  color: #666;
-  margin-bottom: 0.5rem;
-}
-
 .activity-graph {
+  display: flex;
+  justify-content: center; /* Center the grid */
   margin-top: 1rem;
 }
 
 .weeks-container {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px; /* Increased gap for larger squares */
 }
 
 .week {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  display: flex;
+  flex-direction: row;
+  gap: 4px; /* Increased gap for larger squares */
 }
 
 .activity-square {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 20px; /* Larger size to fill the box */
+  height: 20px;
+  border-radius: 3px; /* Slightly larger radius */
+  background-color: #f2f0f7; /* Default for empty */
 }
 
 .activity-square.empty {
-  background: transparent;
-}
-
-.day-number {
-  font-size: 0.7rem;
-  color: #555;
-  position: absolute;
-  top: 2px;
-  left: 2px;
+  background-color: transparent;
 }
 
 .intensity-0 {
@@ -181,29 +165,28 @@
   background-color: #6e48aa;
 }
 
-.legend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.legend-square {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-}
-
 .activity-square.future {
   opacity: 0.5;
 }
 
 .activity-square.today {
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+  border: 1px solid #ffffff;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px; /* Slightly larger gap for readability */
+  margin-top: 1rem;
+  font-size: 0.9rem; /* Slightly larger text */
+  color: #666;
+}
+
+.legend-square {
+  width: 14px; /* Slightly larger to match squares */
+  height: 14px;
+  border-radius: 2px;
 }
 
 @media (max-width: 768px) {
@@ -212,7 +195,20 @@
   }
   
   .activity-square {
-    width: 24px;
-    height: 24px;
+    width: 16px; /* Slightly smaller on mobile */
+    height: 16px;
+  }
+  
+  .week {
+    gap: 3px;
+  }
+  
+  .weeks-container {
+    gap: 3px;
+  }
+  
+  .legend-square {
+    width: 12px;
+    height: 12px;
   }
 }
