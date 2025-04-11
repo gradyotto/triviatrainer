@@ -92,9 +92,17 @@ function App() {
   const [sessionDuration, setSessionDuration] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [questionStartTime, setQuestionStartTime] = useState(null);
-  const [isSettingUsername, setIsSettingUsername] = useState(false); // Added state
+  const [isSettingUsername, setIsSettingUsername] = useState(false);
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const fetchUserHistory = async (uid) => {
+    if (!auth.currentUser) {
+      console.log('No authenticated user, skipping fetchUserHistory');
+      setUserHistory({});
+      return;
+    }
     try {
       const progressSnapshot = await getDocs(collection(db, `userProgress/${uid}/progress`));
       const attemptsSnapshot = await getDocs(collection(db, `userProgress/${uid}/attempts`));
@@ -128,24 +136,103 @@ function App() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    if (awaitingVerification && pendingCredentials) {
+      setIsVerifying(true);
+      const { email, password, username } = pendingCredentials;
+      let user = null;
+
+      // Sign in once at the start of verification
+      const initializeVerification = async () => {
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          user = userCredential.user;
+        } catch (err) {
+          console.error('Error signing in for verification:', err);
+          setAwaitingVerification(false);
+          setPendingCredentials(null);
+          setIsVerifying(false);
+          setError('Failed to initialize verification. Please sign up again.');
+        }
+      };
+
+      initializeVerification();
+
+      const checkVerification = async () => {
+        if (!user) return; // Wait until user is initialized
+        try {
+          await user.reload();
+          if (user.emailVerified) {
+            // Create user profile in Firestore after verification
+            try {
+              console.log("Creating user profile with username:", username, "and email:", email);
+              const createUser = httpsCallable(functions, 'createUser');
+              const result = await createUser({ username: username.trim(), email });
+              console.log("Profile creation result:", result);
+              setUsername(username.trim());
+            } catch (profileError) {
+              console.error("Error creating user profile:", profileError);
+              setError('Failed to create user profile');
+              await signOut(auth);
+              setAwaitingVerification(false);
+              setPendingCredentials(null);
+              setIsVerifying(false);
+              return;
+            }
+            setAwaitingVerification(false);
+            setPendingCredentials(null);
+            setIsVerifying(false);
+            setMode('training');
+            setCurrentScreen('training');
+          }
+        } catch (err) {
+          console.error('Error checking verification:', err);
+          if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+            setAwaitingVerification(false);
+            setPendingCredentials(null);
+            setIsVerifying(false);
+            setError('User not found. Please sign up again.');
+          }
+        }
+      };
+
+      const interval = setInterval(checkVerification, 5000);
+      return () => {
+        clearInterval(interval);
+        setIsVerifying(false);
+      };
+    }
+  }, [awaitingVerification, pendingCredentials]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log('onAuthStateChanged triggered, currentUser:', currentUser?.uid, 'isVerifying:', isVerifying, 'awaitingVerification:', awaitingVerification);
       setUser(currentUser);
-      if (currentUser && !isSettingUsername) { // Only redirect if not setting username
-        fetchUserHistory(currentUser.uid);
-        getDoc(doc(db, 'users', currentUser.uid)).then(userDoc => {
+      if (currentUser && !isSettingUsername && !isVerifying && !awaitingVerification) {
+        try {
+          await fetchUserHistory(currentUser.uid);
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             setUsername(userDoc.data().username || '');
+          } else {
+            console.error('User document not found in Firestore for UID:', currentUser.uid);
+            setUsername('');
           }
-        });
-        setMode('training');
-        setCurrentScreen('training');
+          setMode('training');
+          setCurrentScreen('training');
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+          setUsername('');
+          setMode('training');
+          setCurrentScreen('training');
+        }
       } else if (!currentUser) {
         setMode(null);
         setCurrentScreen('main');
+        setUsername('');
       }
     });
     return () => unsubscribe();
-  }, []); // Removed isSettingUsername from dependencies
+  }, [isSettingUsername, isVerifying, awaitingVerification]);
 
   useEffect(() => {
     if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
@@ -300,6 +387,23 @@ function App() {
         console.log("Google Sign-Up detected, user:", emailOrUser.uid);
         user = emailOrUser;
         email = user.email;
+        if (!username) {
+          setError('Username is required');
+          return;
+        }
+        try {
+          console.log("Creating user profile with username:", username, "and email:", email);
+          const createUser = httpsCallable(functions, 'createUser');
+          const result = await createUser({ username: username.trim(), email });
+          console.log("Profile creation result:", result);
+          setUsername(username.trim());
+          setIsSettingUsername(false);
+        } catch (profileError) {
+          console.error("Error creating user profile:", profileError);
+          setError('Failed to create user profile');
+          setIsSettingUsername(false);
+          return;
+        }
       } else {
         if (!emailOrUser || !password) {
           console.log("Email or password missing");
@@ -313,6 +417,10 @@ function App() {
           setError('Email and password cannot be empty');
           return;
         }
+        if (!username) {
+          setError('Username is required');
+          return;
+        }
         console.log("Attempting to create user with Firebase auth");
         const userCredential = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
         user = userCredential.user;
@@ -322,28 +430,16 @@ function App() {
           console.log("Sending verification email");
           await sendEmailVerification(user);
           console.log('Verification email sent—check your inbox!');
+          await signOut(auth);
+          setAwaitingVerification(true);
+          setPendingCredentials({ email: emailStr, password: passwordStr, username });
+          setError(null);
+          return;
         } catch (verifyError) {
           console.error("Error sending verification email:", verifyError);
+          setError('Failed to send verification email');
+          return;
         }
-      }
-
-      if (!username) {
-        setError('Username is required');
-        return;
-      }
-
-      try {
-        console.log("Creating user profile with username:", username, "and email:", email);
-        const createUser = httpsCallable(functions, 'createUser');
-        const result = await createUser({ username: username.trim(), email });
-        console.log("Profile creation result:", result);
-        setUsername(username.trim());
-        setIsSettingUsername(false); // Allow redirect after username is set
-      } catch (profileError) {
-        console.error("Error creating user profile:", profileError);
-        setError('Failed to create user profile');
-        setIsSettingUsername(false);
-        return;
       }
 
       setError(null);
@@ -351,6 +447,8 @@ function App() {
       console.error("Sign-up error:", err);
       setError(err.message || 'An error occurred during sign up');
       setIsSettingUsername(false);
+      setAwaitingVerification(false);
+      setIsVerifying(false);
     }
   };
 
@@ -657,6 +755,40 @@ function App() {
     );
   }
 
+  if (awaitingVerification || isVerifying) {
+    return (
+      <div className="verification-screen">
+        <h2>Verify Your Email</h2>
+        <p>We’ve sent a verification email to {pendingCredentials?.email}. Please click the link in the email to verify your account.</p>
+        <button onClick={async () => {
+          try {
+            const userCredential = await signInWithEmailAndPassword(auth, pendingCredentials.email, pendingCredentials.password);
+            await sendEmailVerification(userCredential.user);
+            await signOut(auth);
+            alert('Verification email resent—check your inbox!');
+          } catch (err) {
+            console.error('Error resending verification email:', err);
+            setError('Failed to resend verification email');
+          }
+        }}>
+          Resend Email
+        </button>
+        {error && <p className="error">{error}</p>}
+      </div>
+    );
+  }
+
+  if (!user || isSettingUsername) {
+    return (
+      <LandingPage 
+        onSignIn={handleSignIn} 
+        onSignUp={handleSignUp} 
+        error={error} 
+        setIsSettingUsername={setIsSettingUsername}
+      />
+    );
+  }
+
   return (
     <div className="App">
       <Header 
@@ -681,7 +813,7 @@ function App() {
         ) : error ? (
           <div>{error}</div>
         ) : currentScreen === 'profile' ? (
-          <Profile user={user} onSignOut={handleSignOut} />
+          <Profile user={user} username={username} onSignOut={handleSignOut} />
         ) : currentScreen === 'training' && questions.length === 0 ? (
           <CategorySelection
             mode="training"

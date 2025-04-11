@@ -8,8 +8,8 @@ const bannedWords = [
   'nigger', 'fag', 'slut', 'whore', 'prick', 'twat', 'arse', 'jerk', 'crap', 'wank'
 ];
 
-const Profile = ({ user, onSignOut }) => {
-  const [username, setUsername] = useState('');
+const Profile = ({ user, username: parentUsername, onSignOut }) => {
+  const [username, setUsername] = useState(parentUsername || '');
   const [newUsername, setNewUsername] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState(null);
@@ -21,13 +21,12 @@ const Profile = ({ user, onSignOut }) => {
     : 'Unknown';
 
   useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setUsername(userDoc.data().username || '');
-        }
+    setUsername(parentUsername || ''); // Sync with parent username
+  }, [parentUsername]);
 
+  useEffect(() => {
+    const fetchActivityData = async () => {
+      try {
         const attemptsSnapshot = await getDocs(collection(db, `userProgress/${user.uid}/attempts`));
         const attempts = attemptsSnapshot.docs.map(doc => {
           const timestamp = doc.data().timestamp;
@@ -48,11 +47,11 @@ const Profile = ({ user, onSignOut }) => {
         console.log('Activity data:', activity);
         setActivityData(activity);
       } catch (e) {
-        console.error('Error fetching profile data:', e);
-        setError('Failed to load profile data');
+        console.error('Error fetching activity data:', e);
+        setError('Failed to load activity data');
       }
     };
-    fetchProfileData();
+    fetchActivityData();
   }, [user.uid]);
 
   const isUsernameValid = (name) => {
