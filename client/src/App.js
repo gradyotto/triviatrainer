@@ -135,40 +135,71 @@ function App() {
     }
   };
 
+  const fetchUsernameWithRetry = async (uid, retries = 3, delay = 1000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        if (userDoc.exists()) {
+          return userDoc.data().username || '';
+        }
+        console.error('User document not found in Firestore for UID:', uid);
+        return '';
+      } catch (err) {
+        console.error(`Error fetching username (attempt ${i + 1}/${retries}):`, err);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw err;
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log('onAuthStateChanged triggered, currentUser:', currentUser?.uid, 'isVerifying:', isVerifying, 'awaitingVerification:', awaitingVerification);
+      setUser(currentUser);
+      if (currentUser && !isSettingUsername && !isVerifying && !awaitingVerification) {
+        try {
+          await fetchUserHistory(currentUser.uid);
+          const fetchedUsername = await fetchUsernameWithRetry(currentUser.uid);
+          setUsername(fetchedUsername);
+          setMode('training');
+          setCurrentScreen('training');
+        } catch (err) {
+          console.error('Error fetching user data:', err);
+          setUsername('');
+          setMode('training');
+          setCurrentScreen('training');
+        }
+      } else if (!currentUser && !isVerifying && !awaitingVerification) {
+        setMode(null);
+        setCurrentScreen('main');
+        setUsername('');
+      }
+    });
+    return () => unsubscribe();
+  }, [isSettingUsername, isVerifying, awaitingVerification]);
+
   useEffect(() => {
     if (awaitingVerification && pendingCredentials) {
       setIsVerifying(true);
-      const { email, password, username } = pendingCredentials;
-      let user = null;
-
-      // Sign in once at the start of verification
-      const initializeVerification = async () => {
-        try {
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          user = userCredential.user;
-        } catch (err) {
-          console.error('Error signing in for verification:', err);
-          setAwaitingVerification(false);
-          setPendingCredentials(null);
-          setIsVerifying(false);
-          setError('Failed to initialize verification. Please sign up again.');
-        }
-      };
-
-      initializeVerification();
+      const { email, password, username, uid } = pendingCredentials;
 
       const checkVerification = async () => {
-        if (!user) return; // Wait until user is initialized
         try {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
           await user.reload();
           if (user.emailVerified) {
-            // Create user profile in Firestore after verification
+            await user.getIdToken(true);
             try {
               console.log("Creating user profile with username:", username, "and email:", email);
               const createUser = httpsCallable(functions, 'createUser');
               const result = await createUser({ username: username.trim(), email });
               console.log("Profile creation result:", result);
-              setUsername(username.trim());
+              const fetchedUsername = await fetchUsernameWithRetry(user.uid);
+              setUsername(fetchedUsername);
             } catch (profileError) {
               console.error("Error creating user profile:", profileError);
               setError('Failed to create user profile');
@@ -183,6 +214,8 @@ function App() {
             setIsVerifying(false);
             setMode('training');
             setCurrentScreen('training');
+          } else {
+            await signOut(auth);
           }
         } catch (err) {
           console.error('Error checking verification:', err);
@@ -202,37 +235,6 @@ function App() {
       };
     }
   }, [awaitingVerification, pendingCredentials]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('onAuthStateChanged triggered, currentUser:', currentUser?.uid, 'isVerifying:', isVerifying, 'awaitingVerification:', awaitingVerification);
-      setUser(currentUser);
-      if (currentUser && !isSettingUsername && !isVerifying && !awaitingVerification) {
-        try {
-          await fetchUserHistory(currentUser.uid);
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            setUsername(userDoc.data().username || '');
-          } else {
-            console.error('User document not found in Firestore for UID:', currentUser.uid);
-            setUsername('');
-          }
-          setMode('training');
-          setCurrentScreen('training');
-        } catch (err) {
-          console.error('Error fetching user data:', err);
-          setUsername('');
-          setMode('training');
-          setCurrentScreen('training');
-        }
-      } else if (!currentUser) {
-        setMode(null);
-        setCurrentScreen('main');
-        setUsername('');
-      }
-    });
-    return () => unsubscribe();
-  }, [isSettingUsername, isVerifying, awaitingVerification]);
 
   useEffect(() => {
     if (!questions || questions.length === 0 || currentQuestionIndex >= questions.length) {
@@ -338,44 +340,6 @@ function App() {
     }
   };
 
-  const handleSignIn = async (emailOrUser, password) => {
-    console.log("App.js handleSignIn called");
-    
-    try {
-      if (typeof emailOrUser === 'object' && emailOrUser.uid) {
-        console.log("Google Sign-In detected, user:", emailOrUser.uid);
-        setUser(emailOrUser);
-        setError(null);
-      } else {
-        if (!emailOrUser || !password) {
-          console.log("Email or password missing");
-          setError('Email and password are required');
-          return;
-        }
-
-        const emailStr = typeof emailOrUser === 'string' ? emailOrUser.trim() : String(emailOrUser).trim();
-        const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
-        
-        console.log("Processed email:", emailStr);
-        console.log("Processed password length:", passwordStr.length);
-
-        if (emailStr.length === 0 || passwordStr.length === 0) {
-          console.log("Empty email or password after trimming");
-          setError('Email and password cannot be empty');
-          return;
-        }
-
-        console.log("Attempting sign in with Firebase auth");
-        const userCredential = await signInWithEmailAndPassword(auth, emailStr, passwordStr);
-        console.log("Sign in successful:", userCredential.user.uid);
-        setError(null);
-      }
-    } catch (err) {
-      console.error("Sign-in error:", err);
-      setError(err.message || 'An error occurred during sign in');
-    }
-  };
-
   const handleSignUp = async (emailOrUser, password, username) => {
     console.log("App.js handleSignUp called");
     console.log("Username provided:", username || "None");
@@ -383,10 +347,12 @@ function App() {
     try {
       let user;
       let email;
+      let uid;
       if (typeof emailOrUser === 'object' && emailOrUser.uid) {
         console.log("Google Sign-Up detected, user:", emailOrUser.uid);
         user = emailOrUser;
         email = user.email;
+        uid = user.uid;
         if (!username) {
           setError('Username is required');
           return;
@@ -425,6 +391,7 @@ function App() {
         const userCredential = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
         user = userCredential.user;
         email = emailStr;
+        uid = user.uid;
         console.log("User created:", user.uid);
         try {
           console.log("Sending verification email");
@@ -432,12 +399,14 @@ function App() {
           console.log('Verification email sent—check your inbox!');
           await signOut(auth);
           setAwaitingVerification(true);
-          setPendingCredentials({ email: emailStr, password: passwordStr, username });
+          setPendingCredentials({ email: emailStr, password: passwordStr, username, uid });
           setError(null);
           return;
         } catch (verifyError) {
           console.error("Error sending verification email:", verifyError);
           setError('Failed to send verification email');
+          setAwaitingVerification(false);
+          setPendingCredentials(null);
           return;
         }
       }
@@ -448,7 +417,53 @@ function App() {
       setError(err.message || 'An error occurred during sign up');
       setIsSettingUsername(false);
       setAwaitingVerification(false);
-      setIsVerifying(false);
+      setPendingCredentials(null);
+    }
+  };
+
+  const handleSignIn = async (emailOrUser, password) => {
+    console.log("App.js handleSignIn called");
+    
+    try {
+      if (typeof emailOrUser === 'object' && emailOrUser.uid) {
+        console.log("Google Sign-In detected, user:", emailOrUser.uid);
+        setUser(emailOrUser);
+        setError(null);
+      } else {
+        if (!emailOrUser || !password) {
+          console.log("Email or password missing");
+          setError('Email and password are required');
+          return;
+        }
+
+        const emailStr = typeof emailOrUser === 'string' ? emailOrUser.trim() : String(emailOrUser).trim();
+        const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+        
+        console.log("Processed email:", emailStr);
+        console.log("Processed password length:", passwordStr.length);
+
+        if (emailStr.length === 0 || passwordStr.length === 0) {
+          console.log("Empty email or password after trimming");
+          setError('Email and password cannot be empty');
+          return;
+        }
+
+        console.log("Attempting sign in with Firebase auth");
+        const userCredential = await signInWithEmailAndPassword(auth, emailStr, passwordStr);
+        const user = userCredential.user;
+        if (!user.emailVerified) {
+          await signOut(auth);
+          setAwaitingVerification(true);
+          setPendingCredentials({ email: emailStr, password: passwordStr, username: '', uid: user.uid });
+          setError('Please verify your email before signing in.');
+          return;
+        }
+        console.log("Sign in successful:", user.uid);
+        setError(null);
+      }
+    } catch (err) {
+      console.error("Sign-in error:", err);
+      setError(err.message || 'An error occurred during sign in');
     }
   };
 
@@ -743,17 +758,6 @@ function App() {
     setMode('training');
     setCurrentScreen('training');
   };
-
-  if (!user || isSettingUsername) { // Keep LandingPage if setting username
-    return (
-      <LandingPage 
-        onSignIn={handleSignIn} 
-        onSignUp={handleSignUp} 
-        error={error} 
-        setIsSettingUsername={setIsSettingUsername} // Pass callback
-      />
-    );
-  }
 
   if (awaitingVerification || isVerifying) {
     return (
