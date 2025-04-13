@@ -63,7 +63,14 @@ const MAX_RECENT_FACTS = 10;
 const MAX_VISIBLE_FACTS = 7;
 const LANES = 5;
 
-const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsername }) => {
+const LandingPage = ({ 
+  onSignIn, 
+  onSignUp, 
+  error: parentError, 
+  setIsSettingUsername,
+  showUsernamePrompt,
+  pendingCredentials
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -78,8 +85,11 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
   const containerRef = useRef(null);
   const lastLaneRef = useRef(-1);
   const checkUsername = httpsCallable(functions, 'checkUsername');
-  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false); // Added for Google flow
-  const [googleUser, setGoogleUser] = useState(null); // Added for Google flow
+  const [localShowUsernamePrompt, setLocalShowUsernamePrompt] = useState(false); 
+  const [googleUser, setGoogleUser] = useState(null);
+
+  // Use either internal or external state for username prompt
+  const effectiveShowUsernamePrompt = showUsernamePrompt || localShowUsernamePrompt;
 
   useEffect(() => {
     const getUniqueFact = (currentRecent) => {
@@ -168,13 +178,15 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
       }
 
       try {
+        console.log("Checking username availability:", username);
         const result = await checkUsername({ username });
         if (isMounted) {
           setIsUsernameAvailable(result.data.available);
-          setUsernameError(result.data.available ? 'Username available' : 'Username taken');
+          setUsernameError(result.data.available ? 'Username available!' : 'Username already taken');
         }
       } catch (err) {
         if (isMounted) {
+          console.error("Error checking username:", err);
           setUsernameError('Error checking username');
           setIsUsernameAvailable(null);
         }
@@ -182,14 +194,14 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
     };
 
     const debounce = setTimeout(() => {
-      if (username && !isSignIn) checkUsernameAvailability();
+      if (username && effectiveShowUsernamePrompt) checkUsernameAvailability();
     }, 500);
 
     return () => {
-      clearTimeout(debounce);
       isMounted = false;
+      clearTimeout(debounce);
     };
-  }, [username, isSignIn, checkUsername]);
+  }, [username, effectiveShowUsernamePrompt, checkUsername]);
 
   const handleAnimationEnd = (id) => {
     setTriviaElements((prev) => prev.filter((t) => t.id !== id));
@@ -233,19 +245,12 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
         setLocalError(error.message || "Error signing in");
       }
     } else {
-      if (!isUsernameAvailable) {
-        console.log("Username not available");
-        setLocalError('Please choose an available username');
-        return;
-      }
-      
-      console.log("Calling onSignUp with email, password, and username");
+      console.log("Calling onSignUp with email and password");
       try {
-        await onSignUp(emailStr, passwordStr, username);
+        await onSignUp(emailStr, passwordStr);
         console.log("onSignUp call complete");
         setEmail('');
         setPassword('');
-        setUsername('');
       } catch (error) {
         console.error("Error from onSignUp:", error);
         setLocalError(error.message || "Error signing up");
@@ -259,7 +264,7 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
       const result = await signInWithPopup(auth, provider);
       console.log('Google sign-up success, user:', result.user.uid);
       setGoogleUser(result.user);
-      setShowUsernamePrompt(true);
+      setLocalShowUsernamePrompt(true);
       setIsSettingUsername(true); // Prevent redirect
       console.log('showUsernamePrompt set to true, googleUser:', result.user.uid);
     } catch (err) {
@@ -285,27 +290,74 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
 
   const handleUsernameSubmit = async (e) => {
     e.preventDefault();
+    console.log("Username form submitted");
     setLocalError('');
-    setUsernameError('');
-    if (!username.trim()) {
+    
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) {
       setUsernameError('Username is required');
       return;
     }
-    if (username.length < 3) {
+    if (trimmedUsername.length < 3) {
       setUsernameError('Username must be at least 3 characters');
       return;
     }
+    
+    // Only proceed if the username is available
+    if (!isUsernameAvailable) {
+      setUsernameError('Please choose an available username');
+      return;
+    }
+    
+    console.log("Username validated, proceeding with signup");
+
     try {
-      const { data } = await checkUsername({ username: username.trim() });
-      if (!data.available) {
-        setUsernameError('Username is already taken');
-        setIsUsernameAvailable(false);
+      // For Google Sign up
+      if (googleUser) {
+        console.log("Submitting username for Google user:", googleUser.uid);
+        try {
+          await onSignUp(googleUser, null, trimmedUsername);
+          console.log("Google user signup complete");
+          setLocalShowUsernamePrompt(false);
+          setGoogleUser(null);
+        } catch (err) {
+          console.error("Error during Google user signup:", err);
+          setLocalError(err.message || "Failed to complete signup");
+          return;
+        }
+      } 
+      // For Email Sign up (after verification)
+      else if (pendingCredentials) {
+        console.log("Submitting username for verified email user:", pendingCredentials.email);
+        try {
+          // For already verified users who logged in without a username set
+          if (pendingCredentials.uid && !pendingCredentials.password) {
+            console.log("User already logged in, just setting username");
+            // Current user is already signed in
+            await onSignUp(pendingCredentials.email, null, trimmedUsername);
+          } else {
+            console.log("Setting username after email verification");
+            // Normal flow after email verification
+            await onSignUp(pendingCredentials.email, pendingCredentials.password, trimmedUsername);
+          }
+          console.log("Email user signup/username update complete");
+        } catch (err) {
+          console.error("Error during email user signup:", err);
+          setLocalError(err.message || "Failed to complete signup");
+          return;
+        }
+      } else {
+        console.error("No user context found for username submission");
+        setLocalError("Could not determine user for username submission");
         return;
       }
-      await onSignUp(googleUser, null, username.trim());
-      setShowUsernamePrompt(false);
-      setGoogleUser(null);
+      
+      // Clear form state
       setUsername('');
+      console.log("Clearing form state and redirecting");
+      
+      // Clear UI state to allow redirect
+      setIsSettingUsername(false);
     } catch (err) {
       console.error('Username submission error:', err);
       setLocalError(err.message || 'Failed to set username');
@@ -323,26 +375,55 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
     setUsername('');
   };
 
-  if (showUsernamePrompt) {
+  if (effectiveShowUsernamePrompt) {
     return (
       <div className="landing-container">
         <h1>TriviaTrainer</h1>
         <p className="tagline">Set Your Username</p>
         <form className="auth-form" onSubmit={handleUsernameSubmit}>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            maxLength={20}
-          />
-          <button type="submit" className="cta-button">Submit</button>
+          <div className="username-input-container" style={{ position: 'relative', width: '100%' }}>
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              maxLength={20}
+              style={{ 
+                width: '100%',
+                borderColor: isUsernameAvailable === true ? '#4cd964' : 
+                           isUsernameAvailable === false ? '#ff4444' : 
+                           '#6e48aa'
+              }}
+            />
+            {username.length >= 3 && (
+              <span 
+                style={{ 
+                  position: 'absolute', 
+                  right: '10px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: isUsernameAvailable ? '#4cd964' : '#ff4444',
+                  fontSize: '1.2rem'
+                }}
+              >
+                {isUsernameAvailable === true ? '✓' : 
+                 isUsernameAvailable === false ? '✗' : ''}
+              </span>
+            )}
+          </div>
           {usernameError && (
             <p className={isUsernameAvailable ? 'success' : 'error'}>
               {usernameError}
             </p>
           )}
+          <button 
+            type="submit" 
+            className="cta-button"
+            disabled={!isUsernameAvailable && username.length >= 3}
+          >
+            Submit
+          </button>
           {localError && <p className="error">{localError}</p>}
         </form>
       </div>
@@ -368,22 +449,6 @@ const LandingPage = ({ onSignIn, onSignUp, error: parentError, setIsSettingUsern
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        {!isSignIn && (
-          <div>
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-            {usernameError && (
-              <p className={isUsernameAvailable ? 'success' : 'error'}>
-                {usernameError}
-              </p>
-            )}
-          </div>
-        )}
         <div className="auth-buttons">
           <button type="submit" className="cta-button">
             {isSignIn ? 'Sign In' : 'Sign Up'}

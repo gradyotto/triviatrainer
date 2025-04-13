@@ -245,7 +245,7 @@ ul li.incorrect {
 
 .app-content {
   margin-top: 60px; /* Matches header height */
-  flex: 1 0 auto; /* Grows to fill space, doesn’t shrink below content */
+  flex: 1 0 auto; /* Grows to fill space, doesn't shrink below content */
   overflow-y: auto; /* Enables vertical scrolling */
   padding: 2rem;
   max-height: calc(100vh - 60px); /* Limits height to viewport minus header */
@@ -377,4 +377,75 @@ button:disabled {
 .loading-screen h2 {
   font-size: 2rem;
   margin-bottom: 1rem;
+}
+
+/* Add styles for the verification screen */
+.verification-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  text-align: center;
+  background-color: #121212;
+  color: white;
+}
+
+.verification-screen h2 {
+  font-size: 3rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.verification-screen p {
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+  max-width: 600px;
+}
+
+.verification-screen .error {
+  color: #ff4444;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 15px;
+}
+
+.verification-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 20px;
+}
+
+.verification-actions button {
+  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.verification-actions button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(110, 72, 170, 0.3);
+}
+
+.check-verification-button {
+  background: linear-gradient(90deg, #6e48aa, #9d50bb) !important;
+}
+
+.resend-email-button {
+  background: linear-gradient(90deg, #6e48aa, #9d50bb) !important;
 }

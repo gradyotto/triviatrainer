@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, app } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
@@ -96,6 +96,10 @@ function App() {
   const [awaitingVerification, setAwaitingVerification] = useState(false);
   const [pendingCredentials, setPendingCredentials] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
+  
+  // Refs
+  const verificationIntervalRef = useRef(null);
 
   const fetchUserHistory = async (uid) => {
     if (!auth.currentUser) {
@@ -158,21 +162,60 @@ function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log('onAuthStateChanged triggered, currentUser:', currentUser?.uid, 'isVerifying:', isVerifying, 'awaitingVerification:', awaitingVerification);
+      
+      // Update user state regardless
       setUser(currentUser);
-      if (currentUser && !isSettingUsername && !isVerifying && !awaitingVerification) {
+      
+      // Skip additional processing if we're in special states
+      if (isVerifying || awaitingVerification || isSettingUsername) {
+        console.log('Skipping auth state processing due to special state');
+        return;
+      }
+      
+      if (currentUser) {
         try {
+          // Check if the user has a username in Firestore
+          console.log("Checking if user has a username in Firestore");
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          
+          // If user document doesn't exist or doesn't have a username, redirect to username creation
+          if (!userDoc.exists() || !userDoc.data().username) {
+            console.log('User needs to set a username');
+            setIsSettingUsername(true);
+            setShowUsernamePrompt(true);
+            setPendingCredentials({ 
+              email: currentUser.email, 
+              uid: currentUser.uid 
+            });
+            return;
+          }
+          
+          // User has a username, proceed normally
+          console.log("User has a username, proceeding to fetch history");
           await fetchUserHistory(currentUser.uid);
           const fetchedUsername = await fetchUsernameWithRetry(currentUser.uid);
+          console.log("Username fetched:", fetchedUsername);
           setUsername(fetchedUsername);
           setMode('training');
           setCurrentScreen('training');
         } catch (err) {
           console.error('Error fetching user data:', err);
+          if (err.message.includes('Missing or insufficient permissions')) {
+            console.log('Permission error, user may need to set username');
+            setIsSettingUsername(true);
+            setShowUsernamePrompt(true);
+            setPendingCredentials({ 
+              email: currentUser.email, 
+              uid: currentUser.uid 
+            });
+            return;
+          }
+          // Default fallback if permission error isn't detected
           setUsername('');
           setMode('training');
           setCurrentScreen('training');
         }
-      } else if (!currentUser && !isVerifying && !awaitingVerification) {
+      } else {
         setMode(null);
         setCurrentScreen('main');
         setUsername('');
@@ -184,37 +227,43 @@ function App() {
   useEffect(() => {
     if (awaitingVerification && pendingCredentials) {
       setIsVerifying(true);
-      const { email, password, username, uid } = pendingCredentials;
+      const { email, password } = pendingCredentials;
 
       const checkVerification = async () => {
         try {
+          console.log("Checking email verification for:", email);
+          // First sign out to ensure clean state
+          await signOut(auth);
+          
+          // Try to sign in
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
           const user = userCredential.user;
+          
+          // Force reload user data
           await user.reload();
+          
           if (user.emailVerified) {
-            await user.getIdToken(true);
-            try {
-              console.log("Creating user profile with username:", username, "and email:", email);
-              const createUser = httpsCallable(functions, 'createUser');
-              const result = await createUser({ username: username.trim(), email });
-              console.log("Profile creation result:", result);
-              const fetchedUsername = await fetchUsernameWithRetry(user.uid);
-              setUsername(fetchedUsername);
-            } catch (profileError) {
-              console.error("Error creating user profile:", profileError);
-              setError('Failed to create user profile');
-              await signOut(auth);
-              setAwaitingVerification(false);
-              setPendingCredentials(null);
-              setIsVerifying(false);
-              return;
+            console.log("Email verified, transitioning to username setup");
+            // Temporarily prevent onAuthStateChanged from interfering
+            setIsVerifying(true); 
+            
+            // Update state to show username prompt
+            setShowUsernamePrompt(true);
+            setIsSettingUsername(true);
+            
+            // Clear interval early to prevent race conditions
+            if (verificationIntervalRef.current) {
+              clearInterval(verificationIntervalRef.current);
+              verificationIntervalRef.current = null;
             }
-            setAwaitingVerification(false);
-            setPendingCredentials(null);
-            setIsVerifying(false);
-            setMode('training');
-            setCurrentScreen('training');
+            
+            // Give UI time to update before changing verification state
+            setTimeout(() => {
+              setIsVerifying(false);
+              setAwaitingVerification(false);
+            }, 500);
           } else {
+            console.log("Email not yet verified, signing out");
             await signOut(auth);
           }
         } catch (err) {
@@ -228,9 +277,17 @@ function App() {
         }
       };
 
-      const interval = setInterval(checkVerification, 5000);
+      // Create ref to store interval ID
+      verificationIntervalRef.current = setInterval(checkVerification, 5000);
+      
+      // Run check immediately
+      checkVerification();
+      
       return () => {
-        clearInterval(interval);
+        if (verificationIntervalRef.current) {
+          clearInterval(verificationIntervalRef.current);
+          verificationIntervalRef.current = null;
+        }
         setIsVerifying(false);
       };
     }
@@ -348,6 +405,8 @@ function App() {
       let user;
       let email;
       let uid;
+      
+      // Google Sign-Up flow - unchanged
       if (typeof emailOrUser === 'object' && emailOrUser.uid) {
         console.log("Google Sign-Up detected, user:", emailOrUser.uid);
         user = emailOrUser;
@@ -364,47 +423,104 @@ function App() {
           console.log("Profile creation result:", result);
           setUsername(username.trim());
           setIsSettingUsername(false);
+          setShowUsernamePrompt(false);
+          setMode('training');
+          setCurrentScreen('training');
         } catch (profileError) {
           console.error("Error creating user profile:", profileError);
           setError('Failed to create user profile');
           setIsSettingUsername(false);
           return;
         }
-      } else {
+      } 
+      // Email Sign-Up flow - modified
+      else {
         if (!emailOrUser || !password) {
           console.log("Email or password missing");
           setError('Email and password are required');
           return;
         }
+        
         const emailStr = typeof emailOrUser === 'string' ? emailOrUser.trim() : String(emailOrUser).trim();
         const passwordStr = typeof password === 'string' ? password.trim() : String(password).trim();
+        
         if (emailStr.length === 0 || passwordStr.length === 0) {
           console.log("Empty email or password after trimming");
           setError('Email and password cannot be empty');
           return;
         }
-        if (!username) {
-          setError('Username is required');
-          return;
+        
+        // If username is provided, it means we're in the post-verification username setup phase
+        if (username) {
+          console.log("Setting username for verified email user:", emailStr);
+          try {
+            // Make sure we're signed in before creating the profile
+            let currentUid;
+            if (auth.currentUser) {
+              console.log("User already signed in, using current user");
+              currentUid = auth.currentUser.uid;
+            } else if (pendingCredentials?.uid) {
+              console.log("Using uid from pendingCredentials");
+              currentUid = pendingCredentials.uid;
+              
+              // Try to sign in if needed
+              if (pendingCredentials.password) {
+                console.log("Need to sign in user first");
+                const userCredential = await signInWithEmailAndPassword(auth, emailStr, pendingCredentials.password);
+                currentUid = userCredential.user.uid;
+              }
+            } else {
+              throw new Error("No user is signed in and no pendingCredentials.uid is available");
+            }
+            
+            console.log("Creating user profile with username:", username, "for uid:", currentUid);
+            const createUser = httpsCallable(functions, 'createUser');
+            const result = await createUser({ username: username.trim(), email: emailStr });
+            console.log("Profile creation result:", result);
+            
+            // Update local state
+            setUsername(username.trim());
+            setIsSettingUsername(false);
+            setShowUsernamePrompt(false);
+            setAwaitingVerification(false);
+            setPendingCredentials(null);
+            
+            // Redirect to training screen
+            setMode('training');
+            setCurrentScreen('training');
+            return;
+          } catch (profileError) {
+            console.error("Error creating user profile:", profileError);
+            setError('Failed to create user profile: ' + profileError.message);
+            setIsSettingUsername(false);
+            return;
+          }
         }
+        
+        // Initial sign up with email/password only
         console.log("Attempting to create user with Firebase auth");
-        const userCredential = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
-        user = userCredential.user;
-        email = emailStr;
-        uid = user.uid;
-        console.log("User created:", user.uid);
         try {
+          const userCredential = await createUserWithEmailAndPassword(auth, emailStr, passwordStr);
+          user = userCredential.user;
+          email = emailStr;
+          uid = user.uid;
+          console.log("User created:", user.uid);
+          
           console.log("Sending verification email");
           await sendEmailVerification(user);
           console.log('Verification email sent—check your inbox!');
+          
+          // Sign out to ensure clean state
           await signOut(auth);
+          
+          // Update state
           setAwaitingVerification(true);
-          setPendingCredentials({ email: emailStr, password: passwordStr, username, uid });
+          setPendingCredentials({ email: emailStr, password: passwordStr, uid });
           setError(null);
           return;
-        } catch (verifyError) {
-          console.error("Error sending verification email:", verifyError);
-          setError('Failed to send verification email');
+        } catch (authError) {
+          console.error("Auth error:", authError);
+          setError('Authentication error: ' + authError.message);
           setAwaitingVerification(false);
           setPendingCredentials(null);
           return;
@@ -454,7 +570,7 @@ function App() {
         if (!user.emailVerified) {
           await signOut(auth);
           setAwaitingVerification(true);
-          setPendingCredentials({ email: emailStr, password: passwordStr, username: '', uid: user.uid });
+          setPendingCredentials({ email: emailStr, password: passwordStr, uid: user.uid });
           setError('Please verify your email before signing in.');
           return;
         }
@@ -763,20 +879,82 @@ function App() {
     return (
       <div className="verification-screen">
         <h2>Verify Your Email</h2>
-        <p>We’ve sent a verification email to {pendingCredentials?.email}. Please click the link in the email to verify your account.</p>
-        <button onClick={async () => {
-          try {
-            const userCredential = await signInWithEmailAndPassword(auth, pendingCredentials.email, pendingCredentials.password);
-            await sendEmailVerification(userCredential.user);
-            await signOut(auth);
-            alert('Verification email resent—check your inbox!');
-          } catch (err) {
-            console.error('Error resending verification email:', err);
-            setError('Failed to resend verification email');
-          }
-        }}>
-          Resend Email
-        </button>
+        <p>We've sent a verification email to {pendingCredentials?.email}. Please click the link in the email to verify your account.</p>
+        <p>Once verified, you'll be able to set up your username.</p>
+        <div className="verification-actions">
+          <button 
+            className="check-verification-button"
+            onClick={async () => {
+              try {
+                console.log("Manually checking if email has been verified");
+                if (!pendingCredentials?.email || !pendingCredentials?.password) {
+                  setError('Missing credentials for verification. Please try signing up again.');
+                  return;
+                }
+                
+                // Try to sign in
+                const userCredential = await signInWithEmailAndPassword(auth, pendingCredentials.email, pendingCredentials.password);
+                const user = userCredential.user;
+                
+                // Force reload to get fresh verification status
+                await user.reload();
+                
+                if (user.emailVerified) {
+                  console.log("Email verified! Proceeding to username setup");
+                  // First sign out to clear state
+                  await signOut(auth);
+                  
+                  // Update state to show username prompt
+                  setIsVerifying(false);
+                  setAwaitingVerification(false);
+                  setIsSettingUsername(true);
+                  setShowUsernamePrompt(true);
+                } else {
+                  console.log("Email not yet verified");
+                  await signOut(auth);
+                  setError("Email not yet verified. Please check your inbox and click the verification link.");
+                }
+              } catch (err) {
+                console.error('Error checking verification status:', err);
+                setError(`Failed to check verification status: ${err.message}`);
+              }
+            }}
+          >
+            I've Verified My Email
+          </button>
+          
+          <button 
+            className="resend-email-button"
+            onClick={async () => {
+              try {
+                console.log("Attempting to resend verification email to:", pendingCredentials?.email);
+                if (!pendingCredentials?.email || !pendingCredentials?.password) {
+                  setError('Missing credentials for verification. Please try signing up again.');
+                  return;
+                }
+                const userCredential = await signInWithEmailAndPassword(auth, pendingCredentials.email, pendingCredentials.password);
+                const user = userCredential.user;
+                if (user.emailVerified) {
+                  console.log("User already verified, redirecting to username setup");
+                  setIsVerifying(false);
+                  setAwaitingVerification(false);
+                  setIsSettingUsername(true);
+                  setShowUsernamePrompt(true);
+                  return;
+                }
+                await sendEmailVerification(user);
+                await signOut(auth);
+                console.log("Verification email resent successfully");
+                alert('Verification email resent—check your inbox!');
+              } catch (err) {
+                console.error('Error resending verification email:', err);
+                setError(`Failed to resend verification email: ${err.message}`);
+              }
+            }}
+          >
+            Resend Email
+          </button>
+        </div>
         {error && <p className="error">{error}</p>}
       </div>
     );
@@ -789,6 +967,8 @@ function App() {
         onSignUp={handleSignUp} 
         error={error} 
         setIsSettingUsername={setIsSettingUsername}
+        showUsernamePrompt={showUsernamePrompt}
+        pendingCredentials={pendingCredentials}
       />
     );
   }
