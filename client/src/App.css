@@ -417,6 +417,29 @@ button:disabled {
   margin-top: 15px;
 }
 
+.verification-message {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: rgba(0, 0, 0, 0.2);
+  animation: fadeIn 0.5s ease-in;
+}
+
+.verification-message.success {
+  color: #4ade80;
+  border-left: 4px solid #4ade80;
+}
+
+.verification-message.error {
+  color: #ff4444;
+  border-left: 4px solid #ff4444;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .verification-actions {
   display: flex;
   flex-direction: column;
@@ -448,4 +471,76 @@ button:disabled {
 
 .resend-email-button {
   background: linear-gradient(90deg, #6e48aa, #9d50bb) !important;
+}
+
+/* Success Message Styles */
+.success-message {
+  background-color: rgba(76, 217, 100, 0.15);
+  border-left: 4px solid #4cd964;
+  color: #4cd964;
+  padding: 15px 20px;
+  margin: 15px 0;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  animation: fadeInUp 0.5s ease-out;
+  font-weight: 500;
+}
+
+.success-message::before {
+  content: "✓";
+  margin-right: 12px;
+  font-size: 1.2rem;
+  background: #4cd964;
+  color: #1e1e1e;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-message.hide {
+  animation: fadeOutDown 0.5s ease-out forwards;
+}
+
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+    display: none;
+  }
+}
+
+/* Media query for mobile devices */
+@media (max-width: 480px) {
+  .success-message {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+  }
+  
+  .success-message::before {
+    width: 20px;
+    height: 20px;
+    font-size: 1rem;
+    margin-right: 10px;
+  }
 }

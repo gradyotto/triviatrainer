@@ -51,16 +51,21 @@
     align-items: center;
     gap: 1rem;
     margin-bottom: 2rem;
+    width: 100%;
+    max-width: 350px;
+    padding: 20px;
+    background-color: rgba(30, 30, 30, 0.7);
+    border-radius: 8px;
   }
   
   .auth-form input {
-    padding: 0.8rem 1.5rem;
-    border-radius: 20px;
-    border: none;
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #444;
     font-size: 1rem;
     background: #1e1e1e;
     color: white;
-    width: 250px;
+    width: 100%;
   }
   
   .auth-buttons {
@@ -72,16 +77,16 @@
     background: linear-gradient(90deg, #6e48aa, #9d50bb);
     color: white;
     border: none;
-    padding: 1rem 2rem;
-    font-size: 1.2rem;
-    border-radius: 30px;
+    padding: 0.8rem 1.5rem;
+    font-size: 1.1rem;
+    border-radius: 6px;
     cursor: pointer;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
   }
   
   .cta-button:hover {
     transform: translateY(-3px);
-    box-shadow: 0 10px 20px rgba(110, 72, 170, 0.3);
+    box-shadow: 0 8px 16px rgba(110, 72, 170, 0.3);
   }
   
   .start-button {
@@ -137,14 +142,47 @@
       font-size: 1.2rem;
     }
     .cta-button {
-      padding: 0.8rem 1.5rem;
+      padding: 0.8rem 1.2rem;
       font-size: 1rem;
     }
+    .auth-form {
+      max-width: 320px;
+      padding: 15px;
+    }
     .auth-form input {
-      width: 200px;
+      padding: 0.7rem 1rem;
     }
     .background-trivia {
       font-size: 0.9rem;
+    }
+    .google-button {
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .landing-container h1 {
+      font-size: 2.5rem;
+    }
+    .tagline {
+      font-size: 1rem;
+    }
+    .auth-form {
+      max-width: 290px;
+      padding: 12px;
+    }
+    .form-field label {
+      font-size: 0.8rem;
+    }
+    .auth-form input {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.9rem;
+    }
+    .remember-me label, 
+    .forgot-password a,
+    .divider span,
+    .account-toggle {
+      font-size: 0.8rem;
     }
   }
 
@@ -158,3 +196,237 @@
     font-size: 0.9em;
     margin: 5px 0;
   }
+
+/* Add styles for form fields with labels */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.form-field label {
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+  color: #e0e0e0;
+  font-weight: 500;
+  text-align: left;
+  width: 100%;
+}
+
+.login-button {
+  width: 100%;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: -5px;
+  margin-bottom: 5px;
+}
+
+.remember-me input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+}
+
+.remember-me label {
+  font-size: 0.85rem;
+  color: #b0b0b0;
+}
+
+.forgot-password {
+  align-self: flex-end;
+  font-size: 0.85rem;
+  margin-top: 5px;
+}
+
+.forgot-password a {
+  color: #9d50bb;
+  text-decoration: none;
+}
+
+.divider {
+  position: relative;
+  width: 100%;
+  text-align: center;
+  margin: 15px 0;
+}
+
+.divider::before, 
+.divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background-color: #444;
+}
+
+.divider::before {
+  left: 0;
+}
+
+.divider::after {
+  right: 0;
+}
+
+.divider span {
+  display: inline-block;
+  padding: 0 10px;
+  background-color: rgba(30, 30, 30, 0.7);
+  position: relative;
+  font-size: 0.85rem;
+  color: #b0b0b0;
+}
+
+.google-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background-color: #ffffff;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.google-button:hover {
+  background-color: #f5f5f5;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.google-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  width: 24px;
+  height: 24px;
+  background-color: white;
+  border-radius: 2px;
+}
+
+.account-toggle {
+  font-size: 0.9rem;
+  margin-top: 15px;
+  color: #b0b0b0;
+}
+
+.account-toggle .link {
+  color: #9d50bb;
+  font-weight: bold;
+  cursor: pointer;
+  margin-left: 5px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 25px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h2 {
+  margin-bottom: 15px;
+  color: white;
+  font-size: 1.5rem;
+  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.modal-content p {
+  margin-bottom: 20px;
+  color: #e0e0e0;
+  font-size: 1rem;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.cancel-button {
+  background-color: transparent;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.reset-success {
+  text-align: center;
+}
+
+.reset-success p {
+  color: #4cd964;
+  margin-bottom: 20px;
+}
+
+/* Responsive adjustments for the modal */
+@media (max-width: 480px) {
+  .modal-content {
+    padding: 20px;
+  }
+  
+  .modal-content h2 {
+    font-size: 1.3rem;
+  }
+  
+  .modal-content p {
+    font-size: 0.9rem;
+  }
+  
+  .modal-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .modal-buttons button {
+    width: 100%;
+  }
+}

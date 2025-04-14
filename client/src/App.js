@@ -97,6 +97,7 @@ function App() {
   const [pendingCredentials, setPendingCredentials] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState(null);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -243,28 +244,22 @@ function App() {
           await user.reload();
           
           if (user.emailVerified) {
-            console.log("Email verified, transitioning to username setup");
-            // Temporarily prevent onAuthStateChanged from interfering
-            setIsVerifying(true); 
+            console.log("Email verified! Proceeding to username setup");
+            // First sign out to clear state
+            await signOut(auth);
+            
+            // Clear any previous errors
+            setError(null);
             
             // Update state to show username prompt
-            setShowUsernamePrompt(true);
+            setIsVerifying(false);
+            setAwaitingVerification(false);
             setIsSettingUsername(true);
-            
-            // Clear interval early to prevent race conditions
-            if (verificationIntervalRef.current) {
-              clearInterval(verificationIntervalRef.current);
-              verificationIntervalRef.current = null;
-            }
-            
-            // Give UI time to update before changing verification state
-            setTimeout(() => {
-              setIsVerifying(false);
-              setAwaitingVerification(false);
-            }, 500);
+            setShowUsernamePrompt(true);
           } else {
-            console.log("Email not yet verified, signing out");
+            console.log("Email not yet verified");
             await signOut(auth);
+            setError("Email not yet verified. Please check your inbox and click the verification link.");
           }
         } catch (err) {
           console.error('Error checking verification:', err);
@@ -485,6 +480,9 @@ function App() {
             setAwaitingVerification(false);
             setPendingCredentials(null);
             
+            // Clear any error that might have been set
+            setError(null);
+            
             // Redirect to training screen
             setMode('training');
             setCurrentScreen('training');
@@ -520,7 +518,14 @@ function App() {
           return;
         } catch (authError) {
           console.error("Auth error:", authError);
-          setError('Authentication error: ' + authError.message);
+          
+          // Provide user-friendly message for email-already-in-use error
+          if (authError.code === 'auth/email-already-in-use') {
+            setError('This email address is already in use. Please use a different email or try signing in.');
+          } else {
+            setError('Authentication error: ' + authError.message);
+          }
+          
           setAwaitingVerification(false);
           setPendingCredentials(null);
           return;
@@ -579,6 +584,12 @@ function App() {
       }
     } catch (err) {
       console.error("Sign-in error:", err);
+      
+      // Don't show popup-closed-by-user error
+      if (err.code === 'auth/popup-closed-by-user') {
+        return;
+      }
+      
       setError(err.message || 'An error occurred during sign in');
     }
   };
@@ -875,13 +886,55 @@ function App() {
     setCurrentScreen('training');
   };
 
+  const handleResendVerificationEmail = async () => {
+    if (!pendingCredentials || !pendingCredentials.email || !pendingCredentials.password) {
+      setError("Unable to resend verification email. Please try signing in again.");
+      return;
+    }
+    
+    try {
+      console.log("Attempting to resend verification email");
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        pendingCredentials.email,
+        pendingCredentials.password
+      );
+      
+      await sendEmailVerification(userCredential.user);
+      
+      // Clear any previous errors
+      setError(null);
+      
+      // Show success message
+      setVerificationMessage("Verification email resent. Please check your inbox.");
+      
+      // Clear the success message after 5 seconds
+      setTimeout(() => {
+        setVerificationMessage(null);
+      }, 5000);
+      
+    } catch (error) {
+      console.error("Failed to resend verification email:", error);
+      
+      // Handle too many requests error specifically
+      if (error.code === "auth/too-many-requests") {
+        setError("You've requested too many emails recently. Please wait a few minutes before trying again.");
+      } else {
+        setError(`Failed to resend verification email: ${error.message}`);
+      }
+    }
+  };
+
   if (awaitingVerification || isVerifying) {
     return (
       <div className="verification-screen">
         <h2>Verify Your Email</h2>
-        <p>We've sent a verification email to {pendingCredentials?.email}. Please click the link in the email to verify your account.</p>
-        <p>Once verified, you'll be able to set up your username.</p>
-        <div className="verification-actions">
+        <div className="verification-message">
+          <p>Please check your email and click the verification link.</p>
+          <p>Once you've verified your email, you will be asked to create a username.</p>
+          <p>If you do not see the email, please check your spam folder. You can request a new email to be sent after 5 minutes.</p>
+          {error && <div className="error-message">{error}</div>}
+          {verificationMessage && <div className="success-message">{verificationMessage}</div>}
           <button 
             className="check-verification-button"
             onClick={async () => {
@@ -904,6 +957,9 @@ function App() {
                   // First sign out to clear state
                   await signOut(auth);
                   
+                  // Clear any previous errors
+                  setError(null);
+                  
                   // Update state to show username prompt
                   setIsVerifying(false);
                   setAwaitingVerification(false);
@@ -925,37 +981,11 @@ function App() {
           
           <button 
             className="resend-email-button"
-            onClick={async () => {
-              try {
-                console.log("Attempting to resend verification email to:", pendingCredentials?.email);
-                if (!pendingCredentials?.email || !pendingCredentials?.password) {
-                  setError('Missing credentials for verification. Please try signing up again.');
-                  return;
-                }
-                const userCredential = await signInWithEmailAndPassword(auth, pendingCredentials.email, pendingCredentials.password);
-                const user = userCredential.user;
-                if (user.emailVerified) {
-                  console.log("User already verified, redirecting to username setup");
-                  setIsVerifying(false);
-                  setAwaitingVerification(false);
-                  setIsSettingUsername(true);
-                  setShowUsernamePrompt(true);
-                  return;
-                }
-                await sendEmailVerification(user);
-                await signOut(auth);
-                console.log("Verification email resent successfully");
-                alert('Verification email resent—check your inbox!');
-              } catch (err) {
-                console.error('Error resending verification email:', err);
-                setError(`Failed to resend verification email: ${err.message}`);
-              }
-            }}
+            onClick={handleResendVerificationEmail}
           >
             Resend Email
           </button>
         </div>
-        {error && <p className="error">{error}</p>}
       </div>
     );
   }
