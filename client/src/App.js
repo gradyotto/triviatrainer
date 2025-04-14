@@ -9,6 +9,7 @@ import CategorySelection from './CategorySelection';
 import QuestionScreen from './QuestionScreen';
 import ReinforcementTask from './ReinforcementTask';
 import Profile from './Profile';
+import AdminPage from './AdminPage';
 import './App.css';
 
 const functions = getFunctions(app);
@@ -98,6 +99,7 @@ function App() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -166,6 +168,13 @@ function App() {
       
       // Update user state regardless
       setUser(currentUser);
+      
+      // Check if user is admin
+      if (currentUser && currentUser.uid === 'PRmcNpP6eVXHfsaa6PdaD4pTH3m1') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
       
       // Skip additional processing if we're in special states
       if (isVerifying || awaitingVerification || isSettingUsername) {
@@ -925,6 +934,10 @@ function App() {
     }
   };
 
+  const handleAdminClick = () => {
+    setCurrentScreen('admin');
+  };
+
   if (awaitingVerification || isVerifying) {
     return (
       <div className="verification-screen">
@@ -1020,6 +1033,8 @@ function App() {
           setTimeRemaining(null);
         }}
         onProfileClick={() => setCurrentScreen('profile')}
+        onAdminClick={handleAdminClick}
+        isAdmin={isAdmin}
       />
       <div className="app-content">
         {loading ? (
@@ -1028,6 +1043,8 @@ function App() {
           <div>{error}</div>
         ) : currentScreen === 'profile' ? (
           <Profile user={user} username={username} onSignOut={handleSignOut} />
+        ) : currentScreen === 'admin' ? (
+          isAdmin ? <AdminPage /> : <div>Unauthorized access</div>
         ) : currentScreen === 'training' && questions.length === 0 ? (
           <CategorySelection
             mode="training"

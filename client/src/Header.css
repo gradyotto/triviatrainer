@@ -50,6 +50,17 @@
     background: linear-gradient(90deg, #9d50bb, #6e48aa);
   }
 
+  /* Admin button styling */
+  .admin-button {
+    background: linear-gradient(90deg, #d95043, #eb8242) !important;
+    font-weight: 500;
+  }
+  
+  .admin-button:hover {
+    background: linear-gradient(90deg, #eb8242, #d95043) !important;
+    box-shadow: 0 0 10px rgba(235, 130, 66, 0.5);
+  }
+
   /* Responsive adjustments */
   @media (max-width: 768px) {
     .header {
