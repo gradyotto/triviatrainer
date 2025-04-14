@@ -27,23 +27,53 @@
   .header-user {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1rem;
   }
   
   .header-user span {
     font-size: 1.1rem;
     color: #ffffff;
+    margin-right: 0.5rem;
   }
   
   .header-user button {
     background: linear-gradient(90deg, #6e48aa, #9d50bb);
     color: white;
     border: none;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem;
     border-radius: 20px;
     cursor: pointer;
+    font-size: 0.9rem;
   }
   
   .header-user button:hover {
     background: linear-gradient(90deg, #9d50bb, #6e48aa);
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .header {
+      padding: 1rem;
+    }
+    
+    .header-logo {
+      font-size: 1.5rem;
+    }
+    
+    .header-user {
+      gap: 0.5rem;
+    }
+    
+    .header-user span {
+      font-size: 0.9rem;
+      max-width: 100px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .header-user button {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+    }
   }

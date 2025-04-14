@@ -8,6 +8,7 @@ const Header = ({ user, username, onSignOut, onLogoClick, onProfileClick }) => (
     </div>
     <div className="header-user">
       <span>{username || user.email}</span>
+      <button onClick={onLogoClick}>Home</button>
       <button onClick={onProfileClick}>Profile</button>
       <button onClick={onSignOut}>Sign Out</button>
     </div>
