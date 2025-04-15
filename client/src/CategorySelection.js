@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './CategorySelection.css';
 
-function CategorySelection({ mode, categories, selectedCategories, onCategorySelect, onStart, error }) {
-  const [duration, setDuration] = useState(null); // No default, forces selection
+function CategorySelection({ 
+  mode, 
+  categories, 
+  selectedCategories, 
+  onCategorySelect, 
+  onStart, 
+  error, 
+  selectedDuration, 
+  onDurationSelect 
+}) {
   const durationOptions = [5, 10, 15, 20, 25, 30];
 
   const handleStart = () => {
-    if (selectedCategories.length > 0 && duration !== null) {
-      onStart(duration);
+    if (selectedCategories.length > 0 && selectedDuration !== null) {
+      onStart(selectedDuration);
     }
   };
 
@@ -31,8 +39,8 @@ function CategorySelection({ mode, categories, selectedCategories, onCategorySel
           {durationOptions.map(min => (
             <button
               key={min}
-              className={`duration-button ${duration === min ? 'selected' : ''}`}
-              onClick={() => setDuration(min)}
+              className={`duration-button ${selectedDuration === min ? 'selected' : ''}`}
+              onClick={() => onDurationSelect(min)}
             >
               {min} min
             </button>
@@ -43,7 +51,7 @@ function CategorySelection({ mode, categories, selectedCategories, onCategorySel
       <button
         className="start-button"
         onClick={handleStart}
-        disabled={selectedCategories.length === 0 || duration === null}
+        disabled={selectedCategories.length === 0 || selectedDuration === null}
       >
         Begin Training
       </button>

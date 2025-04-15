@@ -100,6 +100,7 @@ function App() {
   const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState(null);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -616,6 +617,10 @@ function App() {
     );
   };
 
+  const handleDurationSelect = (duration) => {
+    setSelectedDuration(prev => prev === duration ? null : duration);
+  };
+
   const handleStartTraining = (duration) => {
     if (selectedCategories.length > 0) {
       setSessionDuration(duration * 60);
@@ -1050,6 +1055,8 @@ function App() {
                 onCategorySelect={handleCategorySelect}
                 onStart={handleStartTraining}
                 error={error}
+                selectedDuration={selectedDuration}
+                onDurationSelect={handleDurationSelect}
               />
             } />
             <Route path="/profile" element={
@@ -1072,6 +1079,8 @@ function App() {
                     onCategorySelect={handleCategorySelect}
                     onStart={handleStartTraining}
                     error={error}
+                    selectedDuration={selectedDuration}
+                    onDurationSelect={handleDurationSelect}
                   />
                 ) : showReinforcement ? (
                   <ReinforcementTask
