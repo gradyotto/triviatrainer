@@ -42,6 +42,9 @@ function AdminPage() {
   const [jsonOutput, setJsonOutput] = useState('');
   const [showJson, setShowJson] = useState(false);
 
+  // Move totalDocCount outside the loop
+  let totalDocCount = 0;
+
   // Handle field selection in search
   const handleFieldToggle = (fieldId) => {
     setSelectedFields(prev => 
@@ -73,19 +76,15 @@ function AdminPage() {
       // Set a reasonable limit for client-side filtering
       const MAX_RESULTS = 100;
       const MAX_DOCS_TO_PROCESS = 1000;
-      let docCount = 0;
 
       // Create a query for each selected field
       for (const field of selectedFields) {
-        // Firestore doesn't support native "contains" queries for text fields
-        // We need to fetch data and filter it client-side for accurate substring matching
-        // Using a limit to avoid processing too many documents
         const q = query(collection(db, 'questions'), limit(MAX_DOCS_TO_PROCESS));
         const snapshot = await getDocs(q);
         const fieldResults = [];
         
         snapshot.forEach(doc => {
-          docCount++;
+          totalDocCount++;
           const data = doc.data();
           
           // Handle tags array separately
@@ -95,52 +94,40 @@ function AdminPage() {
                 tag.toLowerCase().includes(searchTermLower)
               );
               if (tagMatches) {
-                fieldResults.push({
-                  id: doc.id,
-                  ...data
-                });
+                fieldResults.push({ id: doc.id, ...data });
               }
             }
-          } 
-          // Handle regular text fields
-          else if (data[field]) {
-            // Convert field value to string and check if it contains the search term
-            const fieldValue = String(data[field]).toLowerCase();
-            if (fieldValue.includes(searchTermLower)) {
-              fieldResults.push({
-                id: doc.id,
-                ...data
-              });
+          } else if (data[field] && typeof data[field] === 'string') {
+            // For string fields, check if the field contains the search term
+            if (data[field].toLowerCase().includes(searchTermLower)) {
+              fieldResults.push({ id: doc.id, ...data });
             }
           }
         });
         
+        // Add results from this field to all results
         allResults = [...allResults, ...fieldResults];
       }
-
+      
       // Remove duplicates (same question might match multiple fields)
-      const uniqueResults = allResults.filter((item, index, self) =>
-        index === self.findIndex((t) => t.id === item.id)
-      );
+      const uniqueResults = [...new Map(allResults.map(item => [item.id, item])).values()];
       
-      // Check if we need to limit the results
-      const totalCount = uniqueResults.length;
-      setSearchCount(totalCount);
+      // Limit results to MAX_RESULTS
+      const limitedResults = uniqueResults.slice(0, MAX_RESULTS);
       
-      if (totalCount > MAX_RESULTS) {
-        setHasMoreResults(true);
-        setSearchResults(uniqueResults.slice(0, MAX_RESULTS));
-      } else {
-        setHasMoreResults(false);
-        setSearchResults(uniqueResults);
-      }
+      setSearchResults(limitedResults);
+      setIsSearching(false);
       
-      setNoResults(uniqueResults.length === 0);
+      // Log the total number of documents processed
+      console.log(`Processed ${totalDocCount} documents, found ${limitedResults.length} matches`);
+      
+      setSearchCount(limitedResults.length);
+      setNoResults(limitedResults.length === 0);
+      setHasMoreResults(limitedResults.length > MAX_RESULTS);
     } catch (error) {
       console.error("Error searching questions:", error);
       setSearchResults([]);
       setNoResults(true);
-    } finally {
       setIsSearching(false);
     }
   };

@@ -5,7 +5,6 @@ import { getFirestore } from 'firebase/firestore';
 import { 
   initializeAppCheck, 
   ReCaptchaV3Provider, 
-  setTokenAutoRefreshEnabled, 
   onTokenChanged 
 } from 'firebase/app-check';
 import { getFunctions } from 'firebase/functions';

@@ -1,19 +1,22 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import './Header.css';
 
-const Header = ({ user, username, onSignOut, onLogoClick, onProfileClick, onAdminClick, isAdmin }) => (
-  <header className="header">
-    <div className="header-logo" onClick={onLogoClick}>
-      TriviaTrainer
-    </div>
-    <div className="header-user">
-      <span>{username || user.email}</span>
-      <button onClick={onLogoClick}>Home</button>
-      <button onClick={onProfileClick}>Profile</button>
-      {isAdmin && <button onClick={onAdminClick} className="admin-button">Admin</button>}
-      <button onClick={onSignOut}>Sign Out</button>
-    </div>
-  </header>
-);
+const Header = ({ user, username, onSignOut, onLogoClick, onProfileClick, onAdminClick, isAdmin }) => {
+  return (
+    <header className="header">
+      <div className="header-logo" onClick={onLogoClick}>
+        TriviaTrainer
+      </div>
+      <div className="header-user">
+        <span>{username || user.email}</span>
+        <Link to="/training" onClick={onLogoClick}>Home</Link>
+        <Link to="/profile" onClick={onProfileClick}>Profile</Link>
+        {isAdmin && <Link to="/admin" className="admin-button" onClick={onAdminClick}>Admin</Link>}
+        <button onClick={onSignOut}>Sign Out</button>
+      </div>
+    </header>
+  );
+};
 
 export default Header;

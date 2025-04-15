@@ -430,3 +430,19 @@
     width: 100%;
   }
 }
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #6e48aa;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.link-button:hover {
+  color: #8a6cb8;
+}

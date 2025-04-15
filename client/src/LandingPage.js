@@ -269,7 +269,7 @@ const LandingPage = ({
         if (error.code === 'auth/email-already-in-use') {
           setLocalError('This email address is already in use. Please use a different email or try signing in.');
         } else {
-          setLocalError(error.message || "Error signing up");
+        setLocalError(error.message || "Error signing up");
         }
       }
     }
@@ -292,7 +292,7 @@ const LandingPage = ({
       console.error('Google sign-up error:', err);
       // Only set error if it's not the popup-closed-by-user error
       if (err.code !== 'auth/popup-closed-by-user') {
-        setLocalError(err.message || 'An error occurred during Google sign-up');
+      setLocalError(err.message || 'An error occurred during Google sign-up');
       }
       setIsSettingUsername(false);
     }
@@ -314,7 +314,7 @@ const LandingPage = ({
       console.error('Google sign-in error:', err);
       // Only set error if it's not the popup-closed-by-user error
       if (err.code !== 'auth/popup-closed-by-user') {
-        setLocalError(err.message || 'An error occurred during Google sign-in');
+      setLocalError(err.message || 'An error occurred during Google sign-in');
       }
     }
   };
@@ -456,13 +456,13 @@ const LandingPage = ({
         <p className="tagline">Set Your Username</p>
         <form className="auth-form" onSubmit={handleUsernameSubmit}>
           <div className="username-input-container" style={{ position: 'relative', width: '100%' }}>
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              maxLength={20}
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            maxLength={20}
               style={{ 
                 width: '100%',
                 borderColor: isUsernameAvailable === true ? '#4cd964' : 
@@ -511,29 +511,29 @@ const LandingPage = ({
       <form className="auth-form" onSubmit={handleEmailAuth}>
         <div className="form-field">
           <label htmlFor="email">Email</label>
-          <input
+        <input
             id="email"
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
         </div>
         <div className="form-field">
           <label htmlFor="password">Password</label>
-          <input
+        <input
             id="password"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
         </div>
         
         <div className="remember-me">
-          <input 
+            <input
             type="checkbox" 
             id="remember" 
             checked={rememberMe}
@@ -548,7 +548,13 @@ const LandingPage = ({
         
         {isSignIn && (
           <div className="forgot-password">
-            <a href="#" onClick={handleForgotPassword}>Forgot Password?</a>
+            <button 
+              onClick={handleForgotPassword} 
+              className="link-button"
+              type="button"
+            >
+              Forgot Password?
+            </button>
           </div>
         )}
         
@@ -582,13 +588,17 @@ const LandingPage = ({
             </svg>
           </span>
           {isSignIn ? 'Sign In with Google' : 'Sign Up with Google'}
-        </button>
+          </button>
         
         <div className="account-toggle">
           {isSignIn ? "Need an account?" : "Already have an account?"}{' '}
-          <a onClick={toggleAuthMode} className="link">
+          <button 
+            onClick={toggleAuthMode} 
+            className="link-button"
+            type="button"
+          >
             {isSignIn ? 'SIGN UP' : 'SIGN IN'}
-          </a>
+          </button>
         </div>
         
         {(localError || parentError) && (

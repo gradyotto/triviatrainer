@@ -3,6 +3,7 @@ import { auth, db, app } from './firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { collection, getDocs, doc, addDoc, getDoc, setDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './LandingPage';
 import Header from './Header';
 import CategorySelection from './CategorySelection';
@@ -88,7 +89,6 @@ function App() {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [mode, setMode] = useState(null);
   const [username, setUsername] = useState('');
-  const [currentScreen, setCurrentScreen] = useState('main');
   const [pendingReinforcement, setPendingReinforcement] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
@@ -207,7 +207,6 @@ function App() {
           console.log("Username fetched:", fetchedUsername);
           setUsername(fetchedUsername);
           setMode('training');
-          setCurrentScreen('training');
         } catch (err) {
           console.error('Error fetching user data:', err);
           if (err.message.includes('Missing or insufficient permissions')) {
@@ -223,11 +222,9 @@ function App() {
           // Default fallback if permission error isn't detected
           setUsername('');
           setMode('training');
-          setCurrentScreen('training');
         }
       } else {
         setMode(null);
-        setCurrentScreen('main');
         setUsername('');
       }
     });
@@ -357,7 +354,6 @@ function App() {
     setSessionDuration(null);
     setTimeRemaining(null);
     setMode('training');
-    setCurrentScreen('training');
   };
 
   const fetchQuestions = async (categories) => {
@@ -429,7 +425,6 @@ function App() {
           setIsSettingUsername(false);
           setShowUsernamePrompt(false);
           setMode('training');
-          setCurrentScreen('training');
         } catch (profileError) {
           console.error("Error creating user profile:", profileError);
           setError('Failed to create user profile');
@@ -494,8 +489,6 @@ function App() {
             
             // Redirect to training screen
             setMode('training');
-            setCurrentScreen('training');
-            return;
           } catch (profileError) {
             console.error("Error creating user profile:", profileError);
             setError('Failed to create user profile: ' + profileError.message);
@@ -610,7 +603,6 @@ function App() {
     setCurrentQuestionIndex(0);
     setSelectedCategories([]);
     setMode(null);
-    setCurrentScreen('main');
     setUsername('');
     setSessionDuration(null);
     setTimeRemaining(null);
@@ -832,7 +824,6 @@ function App() {
         setQuestions([]);
         setSelectedCategories([]);
         setMode(null);
-        setCurrentScreen('main');
       }
     } else {
       setFeedback('Try again!');
@@ -869,7 +860,6 @@ function App() {
       setSessionDuration(null);
       setTimeRemaining(null);
       setMode('training');
-      setCurrentScreen('training');
     }
   };
 
@@ -892,7 +882,6 @@ function App() {
     setSessionDuration(null);
     setTimeRemaining(null);
     setMode('training');
-    setCurrentScreen('training');
   };
 
   const handleResendVerificationEmail = async () => {
@@ -935,7 +924,17 @@ function App() {
   };
 
   const handleAdminClick = () => {
-    setCurrentScreen('admin');
+    // setCurrentScreen('admin');
+  };
+
+  // Create a PrivateRoute component to protect routes that require authentication
+  const PrivateRoute = ({ children }) => {
+    return user ? children : <Navigate to="/" />;
+  };
+
+  // Create an AdminRoute component to protect admin routes
+  const AdminRoute = ({ children }) => {
+    return isAdmin ? children : <Navigate to="/training" />;
   };
 
   if (awaitingVerification || isVerifying) {
@@ -1023,7 +1022,7 @@ function App() {
         username={username}
         onSignOut={handleSignOut}
         onLogoClick={() => {
-          setCurrentScreen('training');
+          // setCurrentScreen('training');
           setMode('training');
           setQuestions([]);
           setSelectedCategories([]);
@@ -1032,7 +1031,7 @@ function App() {
           setSessionDuration(null);
           setTimeRemaining(null);
         }}
-        onProfileClick={() => setCurrentScreen('profile')}
+        onProfileClick={() => {/* setCurrentScreen('profile') */}}
         onAdminClick={handleAdminClick}
         isAdmin={isAdmin}
       />
@@ -1041,68 +1040,83 @@ function App() {
           <div>Loading questions...</div>
         ) : error ? (
           <div>{error}</div>
-        ) : currentScreen === 'profile' ? (
-          <Profile user={user} username={username} onSignOut={handleSignOut} />
-        ) : currentScreen === 'admin' ? (
-          isAdmin ? <AdminPage /> : <div>Unauthorized access</div>
-        ) : currentScreen === 'training' && questions.length === 0 ? (
-          <CategorySelection
-            mode="training"
-            categories={trainingCategories}
-            selectedCategories={selectedCategories}
-            onCategorySelect={handleCategorySelect}
-            onStart={handleStartTraining}
-            error={error}
-          />
-        ) : questions.length === 0 ? (
-          <CategorySelection
-            mode="training"
-            categories={trainingCategories}
-            selectedCategories={selectedCategories}
-            onCategorySelect={handleCategorySelect}
-            onStart={handleStartTraining}
-            error={error}
-          />
-        ) : showReinforcement ? (
-          <ReinforcementTask
-            currentQuestion={questions[currentQuestionIndex]}
-            reinforcementInput={reinforcementInput}
-            setReinforcementInput={setReinforcementInput}
-            feedback={feedback}
-            onSubmit={completeReinforcementAndAdvance}
-          />
         ) : (
-          <QuestionScreen
-            mode={mode}
-            currentQuestion={questions[currentQuestionIndex]}
-            currentQuestionIndex={currentQuestionIndex}
-            questionsLength={questions.length}
-            score={score}
-            selectedAnswer={selectedAnswer}
-            answered={answered}
-            shuffledAnswers={shuffledAnswers}
-            userInput={userInput}
-            feedback={feedback}
-            hint={hint}
-            explanation={explanation}
-            attempts={attempts}
-            matchingAnswers={matchingAnswers}
-            matchingCorrect={matchingCorrect}
-            categoryName={
-              selectedCategories.length === trainingCategories.length 
-                ? 'All Categories' 
-                : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', ')
-            }
-            pendingReinforcement={pendingReinforcement}
-            timeRemaining={timeRemaining}
-            sessionDuration={sessionDuration}
-            onAnswerSelect={handleAnswerSelect}
-            onTrainingSubmit={handleTrainingSubmit}
-            onMatchingSelect={handleMatchingSelect}
-            setUserInput={setUserInput}
-            onNextQuestion={handleNextQuestion}
-            onAbandonQuiz={handleAbandonQuiz}
-          />
+          <Routes>
+            <Route path="/" element={
+              <CategorySelection
+                mode="training"
+                categories={trainingCategories}
+                selectedCategories={selectedCategories}
+                onCategorySelect={handleCategorySelect}
+                onStart={handleStartTraining}
+                error={error}
+              />
+            } />
+            <Route path="/profile" element={
+              <PrivateRoute>
+                <Profile user={user} username={username} onSignOut={handleSignOut} />
+              </PrivateRoute>
+            } />
+            <Route path="/admin" element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            } />
+            <Route path="/training" element={
+              <PrivateRoute>
+                {questions.length === 0 ? (
+                  <CategorySelection
+                    mode="training"
+                    categories={trainingCategories}
+                    selectedCategories={selectedCategories}
+                    onCategorySelect={handleCategorySelect}
+                    onStart={handleStartTraining}
+                    error={error}
+                  />
+                ) : showReinforcement ? (
+                  <ReinforcementTask
+                    currentQuestion={questions[currentQuestionIndex]}
+                    reinforcementInput={reinforcementInput}
+                    setReinforcementInput={setReinforcementInput}
+                    feedback={feedback}
+                    onSubmit={completeReinforcementAndAdvance}
+                  />
+                ) : (
+                  <QuestionScreen
+                    mode={mode}
+                    currentQuestion={questions[currentQuestionIndex]}
+                    currentQuestionIndex={currentQuestionIndex}
+                    questionsLength={questions.length}
+                    score={score}
+                    selectedAnswer={selectedAnswer}
+                    answered={answered}
+                    shuffledAnswers={shuffledAnswers}
+                    userInput={userInput}
+                    feedback={feedback}
+                    hint={hint}
+                    explanation={explanation}
+                    attempts={attempts}
+                    matchingAnswers={matchingAnswers}
+                    matchingCorrect={matchingCorrect}
+                    categoryName={
+                      selectedCategories.length === trainingCategories.length 
+                        ? 'All Categories' 
+                        : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', ')
+                    }
+                    pendingReinforcement={pendingReinforcement}
+                    timeRemaining={timeRemaining}
+                    sessionDuration={sessionDuration}
+                    onAnswerSelect={handleAnswerSelect}
+                    onTrainingSubmit={handleTrainingSubmit}
+                    onMatchingSelect={handleMatchingSelect}
+                    setUserInput={setUserInput}
+                    onNextQuestion={handleNextQuestion}
+                    onAbandonQuiz={handleAbandonQuiz}
+                  />
+                )}
+              </PrivateRoute>
+            } />
+          </Routes>
         )}
       </div>
     </div>
