@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db, auth } from './firebase';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, limit, startAfter } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, limit } from 'firebase/firestore';
 import './AdminPage.css';
 
 const searchableFields = [
@@ -14,15 +14,16 @@ const searchableFields = [
   { id: 'category', name: 'Category' }
 ];
 
-function AdminPage() {
+const AdminPage = () => {
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFields, setSelectedFields] = useState(['question']);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [noResults, setNoResults] = useState(false);
-  const [searchCount, setSearchCount] = useState(0); // Track search result count
-  const [hasMoreResults, setHasMoreResults] = useState(false); // Indicate if search was limited
+  const [searchCount, setSearchCount] = useState(0);
+  const [hasMoreResults, setHasMoreResults] = useState(false);
+  const [error, setError] = useState(null);
   
   // Question editing state
   const [selectedQuestion, setSelectedQuestion] = useState(null);
@@ -42,8 +43,9 @@ function AdminPage() {
   const [jsonOutput, setJsonOutput] = useState('');
   const [showJson, setShowJson] = useState(false);
 
-  // Move totalDocCount outside the loop
-  let totalDocCount = 0;
+  // Constants
+  const MAX_RESULTS = 100;
+  const MAX_DOCS_TO_PROCESS = 1000;
 
   // Handle field selection in search
   const handleFieldToggle = (fieldId) => {
@@ -68,68 +70,74 @@ function AdminPage() {
     setHasMoreResults(false);
     setSaveSuccess(false);
     setSaveError(null);
+    setError(null);
 
     try {
       const searchTermLower = searchTerm.toLowerCase();
       let allResults = [];
-      
-      // Set a reasonable limit for client-side filtering
-      const MAX_RESULTS = 100;
-      const MAX_DOCS_TO_PROCESS = 1000;
+      let totalDocCount = 0;
 
       // Create a query for each selected field
       for (const field of selectedFields) {
-        const q = query(collection(db, 'questions'), limit(MAX_DOCS_TO_PROCESS));
-        const snapshot = await getDocs(q);
-        const fieldResults = [];
-        
-        snapshot.forEach(doc => {
-          totalDocCount++;
-          const data = doc.data();
-          
-          // Handle tags array separately
-          if (field === 'tags') {
-            if (data.tags && Array.isArray(data.tags)) {
-              const tagMatches = data.tags.some(tag => 
-                tag.toLowerCase().includes(searchTermLower)
-              );
-              if (tagMatches) {
-                fieldResults.push({ id: doc.id, ...data });
-              }
-            }
-          } else if (data[field] && typeof data[field] === 'string') {
-            // For string fields, check if the field contains the search term
-            if (data[field].toLowerCase().includes(searchTermLower)) {
-              fieldResults.push({ id: doc.id, ...data });
-            }
-          }
-        });
-        
-        // Add results from this field to all results
-        allResults = [...allResults, ...fieldResults];
+        // Use a separate function to process each field to avoid the loop function issue
+        const { results, count } = await processField(field, searchTermLower);
+        allResults = [...allResults, ...results];
+        totalDocCount += count;
       }
-      
-      // Remove duplicates (same question might match multiple fields)
-      const uniqueResults = [...new Map(allResults.map(item => [item.id, item])).values()];
-      
-      // Limit results to MAX_RESULTS
+
+      // Remove duplicates based on question ID
+      const uniqueResults = Array.from(
+        new Map(allResults.map(item => [item.id, item])).values()
+      );
+
+      // Limit results
       const limitedResults = uniqueResults.slice(0, MAX_RESULTS);
-      
+
       setSearchResults(limitedResults);
-      setIsSearching(false);
-      
-      // Log the total number of documents processed
+      setJsonOutput(JSON.stringify(limitedResults, null, 2));
       console.log(`Processed ${totalDocCount} documents, found ${limitedResults.length} matches`);
       
       setSearchCount(limitedResults.length);
       setNoResults(limitedResults.length === 0);
       setHasMoreResults(limitedResults.length > MAX_RESULTS);
     } catch (error) {
-      console.error("Error searching questions:", error);
-      setSearchResults([]);
-      setNoResults(true);
+      console.error('Error searching questions:', error);
+      setError('Error searching questions: ' + error.message);
+    } finally {
       setIsSearching(false);
     }
+  };
+
+  // Helper function to process each field separately to avoid loop function issues
+  const processField = async (field, searchTermLower) => {
+    const q = query(collection(db, 'questions'), limit(MAX_DOCS_TO_PROCESS));
+    const snapshot = await getDocs(q);
+    const fieldResults = [];
+    let count = 0;
+    
+    snapshot.forEach(doc => {
+      count++;
+      const data = doc.data();
+      
+      // Handle tags array separately
+      if (field === 'tags') {
+        if (data.tags && Array.isArray(data.tags)) {
+          const tagMatches = data.tags.some(tag => 
+            tag.toLowerCase().includes(searchTermLower)
+          );
+          if (tagMatches) {
+            fieldResults.push({ id: doc.id, ...data });
+          }
+        }
+      } else if (data[field] && typeof data[field] === 'string') {
+        // For string fields, check if the field contains the search term
+        if (data[field].toLowerCase().includes(searchTermLower)) {
+          fieldResults.push({ id: doc.id, ...data });
+        }
+      }
+    });
+    
+    return { results: fieldResults, count };
   };
 
   // Handle selecting a question for editing
@@ -320,6 +328,8 @@ function AdminPage() {
       <div className="results-section">
         {isSearching ? (
           <p className="searching-message">Searching questions... This might take a moment.</p>
+        ) : error ? (
+          <p className="error-message">{error}</p>
         ) : noResults ? (
           <p className="no-results">No questions found matching your search criteria.</p>
         ) : searchResults.length > 0 ? (
