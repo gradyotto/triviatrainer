@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './QuestionScreen.css';
 
 const QuestionScreen = ({
@@ -28,6 +28,27 @@ const QuestionScreen = ({
   onNextQuestion,
   onAbandonQuiz
 }) => {
+  // Use local state to prevent focus loss when typing
+  const [localInput, setLocalInput] = useState(userInput);
+  
+  // Sync local input with parent state when userInput changes from parent
+  useEffect(() => {
+    setLocalInput(userInput);
+  }, [userInput]);
+  
+  // Handle local input change
+  const handleInputChange = (e) => {
+    setLocalInput(e.target.value);
+  };
+  
+  // When submitting, update parent state
+  const handleSubmit = () => {
+    // Only update parent state if there's actually input
+    setUserInput(localInput);
+    // Pass the local input value directly to onTrainingSubmit
+    onTrainingSubmit(localInput);
+  };
+  
   const progressPercentage = sessionDuration ? (((sessionDuration - timeRemaining) / sessionDuration) * 100).toFixed(1) : 0;
 
   return (
@@ -35,17 +56,6 @@ const QuestionScreen = ({
       <h1>TriviaTrainer</h1>
       <p>Category: {categoryName}</p>
       {mode === 'quiz' && <p>Score: {score} / {questionsLength}</p>}
-      <div className="timer">
-        <div className="progress-bar" style={{ width: '100%', background: '#ddd' }}>
-          <div
-            style={{
-              width: `${progressPercentage}%`,
-              height: '10px',
-              background: 'linear-gradient(90deg, #6e48aa, #9d50bb)'
-            }}
-          ></div>
-        </div>
-      </div>
       <div className="question-content">
         <h2>Question:</h2>
         {currentQuestion.type === 'fill-in-the-blank' && mode !== 'quiz' ? (
@@ -57,8 +67,10 @@ const QuestionScreen = ({
                   {index === 0 && (
                     <input
                       type="text"
-                      value={userInput}
-                      onChange={(e) => setUserInput(e.target.value)}
+                      id="fill-in-blank-input"
+                      name="fill-in-blank-input"
+                      value={localInput}
+                      onChange={handleInputChange}
                       placeholder="Fill in"
                       disabled={answered}
                       className="fill-in-blank"
@@ -68,7 +80,7 @@ const QuestionScreen = ({
               ))}
             </p>
             {!answered && (
-              <button onClick={() => onTrainingSubmit()}>Submit</button>
+              <button onClick={handleSubmit}>Submit</button>
             )}
           </div>
         ) : (
@@ -142,6 +154,8 @@ const QuestionScreen = ({
                         </span>
                       ) : (
                         <select
+                          id={`matching-select-${key}`}
+                          name={`matching-select-${key}`}
                           value={matchingAnswers[key] || ''}
                           onChange={(e) => onMatchingSelect(key, e.target.value)}
                           disabled={answered}
@@ -167,14 +181,16 @@ const QuestionScreen = ({
                 <div className="text-input-container">
                   <input
                     type="text"
-                    value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
+                    id="answer-input"
+                    name="answer-input"
+                    value={localInput}
+                    onChange={handleInputChange}
                     placeholder="Type your answer"
                     disabled={answered}
                     className="text-input"
                   />
                   {!answered && (
-                    <button onClick={() => onTrainingSubmit()}>Submit</button>
+                    <button onClick={handleSubmit}>Submit</button>
                   )}
                 </div>
               ) : null}

@@ -104,6 +104,7 @@ function App() {
   
   // Refs
   const verificationIntervalRef = useRef(null);
+  const timerIntervalRef = useRef(null);
 
   const fetchUserHistory = async (uid) => {
     if (!auth.currentUser) {
@@ -331,23 +332,42 @@ function App() {
   }, [questions, currentQuestionIndex]);
 
   useEffect(() => {
+    // Timer disabled temporarily to investigate performance issues
+    /*
     if (sessionDuration && timeRemaining !== null && questions.length > 0) {
-      const timer = setInterval(() => {
+      // Clear any existing timer
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+      
+      // Set up a new timer
+      timerIntervalRef.current = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 0) {
-            clearInterval(timer);
+            if (timerIntervalRef.current) {
+              clearInterval(timerIntervalRef.current);
+              timerIntervalRef.current = null;
+            }
             handleSessionEnd();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-      return () => clearInterval(timer);
+      
+      // Clean up function
+      return () => {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+      };
     }
-  }, [sessionDuration, timeRemaining, questions]);
+    */
+  }, [sessionDuration, questions.length]);
 
   const handleSessionEnd = () => {
-    alert('Training Session Time Up!');
+    alert('Training Session Complete!');
     setCurrentQuestionIndex(0);
     setScore(0);
     setQuestions([]);
@@ -623,8 +643,9 @@ function App() {
 
   const handleStartTraining = (duration) => {
     if (selectedCategories.length > 0) {
-      setSessionDuration(duration * 60);
-      setTimeRemaining(duration * 60);
+      const durationInSeconds = duration * 60;
+      setSessionDuration(durationInSeconds);
+      setTimeRemaining(durationInSeconds);
       fetchQuestions(selectedCategories);
     } else {
       setError('Pick at least one category to start training!');
@@ -651,7 +672,7 @@ function App() {
         return;
       }
     } else {
-      userAnswer = userInput.trim();
+      userAnswer = typeof answer === 'string' ? answer.trim() : userInput.trim();
       if (!userAnswer) {
         setFeedback('Come on - at least give it a shot!');
         console.log('Feedback set: Come on - at least give it a shot!');
@@ -801,9 +822,11 @@ function App() {
     }
   };
 
-  const completeReinforcementAndAdvance = () => {
+  const completeReinforcementAndAdvance = (directInput) => {
     const currentQuestion = questions[currentQuestionIndex];
-    const normalizedInput = normalizeAnswer(reinforcementInput);
+    // Use the direct input if provided, otherwise fall back to state
+    const inputToCheck = directInput || reinforcementInput;
+    const normalizedInput = normalizeAnswer(inputToCheck);
     const normalizedAnswer = normalizeAnswer(currentQuestion.answer);
 
     if (normalizedInput === normalizedAnswer) {
