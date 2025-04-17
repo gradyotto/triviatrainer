@@ -36,6 +36,12 @@ function CategorySelection({
       <div className="duration-selection">
         <h3>How long would you like to train?</h3>
         <div className="duration-buttons">
+          <button
+            className={`duration-button test-button ${selectedDuration === 0.08 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(0.08)}
+          >
+            5 sec (test)
+          </button>
           {durationOptions.map(min => (
             <button
               key={min}

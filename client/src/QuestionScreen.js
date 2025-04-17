@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './QuestionScreen.css';
 
 const QuestionScreen = ({
@@ -28,28 +28,91 @@ const QuestionScreen = ({
   onNextQuestion,
   onAbandonQuiz
 }) => {
-  // Use local state to prevent focus loss when typing
+  // Use local state to track displayed input only, not for controlling the actual DOM element
   const [localInput, setLocalInput] = useState(userInput);
   
-  // Sync local input with parent state when userInput changes from parent
-  useEffect(() => {
-    setLocalInput(userInput);
-  }, [userInput]);
+  // Keep a ref of the input DOM element itself rather than just its value
+  const inputElementRef = useRef(null);
   
-  // Handle local input change
+  // Set up the ref once the component mounts
+  useEffect(() => {
+    // Get both possible input elements
+    const answerInput = document.getElementById('answer-input');
+    const fillInBlankInput = document.getElementById('fill-in-blank-input');
+    
+    // Store the appropriate input element in our ref
+    inputElementRef.current = answerInput || fillInBlankInput;
+    
+    // Initialize with userInput if available
+    if (inputElementRef.current && userInput) {
+      inputElementRef.current.value = userInput;
+    }
+  }, [currentQuestionIndex, userInput]); // Update when question changes or userInput changes
+  
+  // Handle local display update only, real value stays in DOM
   const handleInputChange = (e) => {
     setLocalInput(e.target.value);
   };
   
-  // When submitting, update parent state
+  // When submitting, read directly from the DOM
   const handleSubmit = () => {
-    // Only update parent state if there's actually input
-    setUserInput(localInput);
-    // Pass the local input value directly to onTrainingSubmit
-    onTrainingSubmit(localInput);
+    // Get the input element value directly from DOM
+    let inputValue = '';
+    
+    if (inputElementRef.current) {
+      inputValue = inputElementRef.current.value;
+    } else {
+      // Fallback to looking it up again if ref is missing
+      const inputElement = document.getElementById('answer-input') || document.getElementById('fill-in-blank-input');
+      if (inputElement) {
+        inputValue = inputElement.value;
+      }
+    }
+    
+    // Now use the DOM value which can't be affected by React state changes
+    if (inputValue && inputValue.trim() !== '') {
+      // Update parent state for tracking
+      setUserInput(inputValue);
+      // Pass the DOM value directly to onTrainingSubmit
+      onTrainingSubmit(inputValue);
+    } else {
+      // For empty submissions, just pass empty string to get the error message
+      onTrainingSubmit('');
+    }
   };
   
+  // Clear the ref when unmounting
+  useEffect(() => {
+    return () => {
+      inputElementRef.current = null;
+    };
+  }, []);
+  
   const progressPercentage = sessionDuration ? (((sessionDuration - timeRemaining) / sessionDuration) * 100).toFixed(1) : 0;
+
+  // Handle key press events for the input fields
+  const handleKeyPress = (e) => {
+    // If Enter key is pressed, submit the answer
+    if (e.key === 'Enter' && !answered) {
+      handleSubmit();
+    }
+  };
+
+  // Add focus handling for timer expiration
+  useEffect(() => {
+    // Check if the timer is expired
+    const timerElement = document.querySelector('.vanilla-timer');
+    if (timerElement && timerElement.getAttribute('data-expired') === 'true') {
+      // Find the input element
+      const inputElement = document.getElementById('answer-input') || document.getElementById('fill-in-blank-input');
+      if (inputElement && !answered) {
+        // Try to maintain focus on the input
+        setTimeout(() => {
+          inputElement.focus();
+        }, 10);
+      }
+    }
+  }, [answered]);
 
   return (
     <div className="question-container">
@@ -69,11 +132,13 @@ const QuestionScreen = ({
                       type="text"
                       id="fill-in-blank-input"
                       name="fill-in-blank-input"
-                      value={localInput}
+                      defaultValue={userInput} // Use defaultValue instead of value for uncontrolled component
                       onChange={handleInputChange}
                       placeholder="Fill in"
                       disabled={answered}
                       className="fill-in-blank"
+                      onKeyPress={handleKeyPress}
+                      autoComplete="off" // Prevent browser from interfering
                     />
                   )}
                 </span>
@@ -183,11 +248,13 @@ const QuestionScreen = ({
                     type="text"
                     id="answer-input"
                     name="answer-input"
-                    value={localInput}
+                    defaultValue={userInput} // Use defaultValue for uncontrolled component
                     onChange={handleInputChange}
                     placeholder="Type your answer"
                     disabled={answered}
                     className="text-input"
+                    onKeyPress={handleKeyPress}
+                    autoComplete="off" // Prevent browser from interfering
                   />
                   {!answered && (
                     <button onClick={handleSubmit}>Submit</button>

@@ -96,3 +96,19 @@
   background-color: #999; /* Gray when disabled */
   cursor: not-allowed;
 }
+
+.test-button {
+  background-color: #ffb74d;
+  border: 2px dashed #e65100;
+  font-weight: bold;
+  color: #333;
+}
+
+.test-button:hover {
+  background-color: #ffa726;
+}
+
+.test-button.selected {
+  background-color: #ff9800;
+  color: #fff;
+}

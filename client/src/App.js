@@ -101,10 +101,16 @@ function App() {
   const [verificationMessage, setVerificationMessage] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   
   // Refs
   const verificationIntervalRef = useRef(null);
   const timerIntervalRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const timerEndTimeRef = useRef(null);
+  const timerDomNodeRef = useRef(null);
+  const vanillaTimerIdRef = useRef(null);
+  const timerExpirationHandlingRef = useRef(false);
 
   const fetchUserHistory = async (uid) => {
     if (!auth.currentUser) {
@@ -332,48 +338,163 @@ function App() {
   }, [questions, currentQuestionIndex]);
 
   useEffect(() => {
-    // Timer disabled temporarily to investigate performance issues
-    /*
-    if (sessionDuration && timeRemaining !== null && questions.length > 0) {
-      // Clear any existing timer
+    // Only provide cleanup function for the timer
+    return () => {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, []); // No dependencies needed for cleanup
+
+  // This function will run when the component mounts to set up the timer DOM node
+  useEffect(() => {
+    // Create a timer container element to be managed outside of React
+    const timerElement = document.createElement('div');
+    timerElement.className = 'vanilla-timer';
+    timerElement.style.display = 'none';
+    document.body.appendChild(timerElement);
+    
+    // Store a reference to use later
+    timerDomNodeRef.current = timerElement;
+    
+    // Clean up when component unmounts
+    return () => {
+      if (timerDomNodeRef.current) {
+        document.body.removeChild(timerDomNodeRef.current);
+        timerDomNodeRef.current = null;
       }
       
-      // Set up a new timer
-      timerIntervalRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 0) {
-            if (timerIntervalRef.current) {
-              clearInterval(timerIntervalRef.current);
-              timerIntervalRef.current = null;
-            }
-            handleSessionEnd();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      
-      // Clean up function
-      return () => {
-        if (timerIntervalRef.current) {
-          clearInterval(timerIntervalRef.current);
-          timerIntervalRef.current = null;
-        }
-      };
+      if (vanillaTimerIdRef.current) {
+        clearInterval(vanillaTimerIdRef.current);
+        vanillaTimerIdRef.current = null;
+      }
+    };
+  }, []);
+
+  // Better timer handling that won't affect input fields
+  const startVanillaTimer = (durationInSeconds) => {
+    // Clear any existing timer
+    if (vanillaTimerIdRef.current) {
+      clearInterval(vanillaTimerIdRef.current);
+      vanillaTimerIdRef.current = null;
     }
-    */
-  }, [sessionDuration, questions.length]);
+    
+    // Get the DOM node
+    const timerElement = timerDomNodeRef.current;
+    if (!timerElement) return;
+    
+    // Calculate end time
+    const endTime = Date.now() + (durationInSeconds * 1000);
+    
+    // Reset expired flag
+    timerElement.setAttribute('data-expired', 'false');
+    
+    // Make the timer visible
+    timerElement.style.display = 'block';
+    
+    // Last update timestamp for throttling (update max once per second)
+    let lastUpdateTime = 0;
+    
+    // Update function for the timer
+    const updateTimer = () => {
+      const now = Date.now();
+      
+      // Only update once per second to prevent too frequent DOM updates
+      if (now - lastUpdateTime < 1000) {
+        return;
+      }
+      
+      lastUpdateTime = now;
+      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+      
+      // Format the time
+      const minutes = Math.floor(remaining / 60);
+      const seconds = String(remaining % 60).padStart(2, '0');
+      
+      // Update the DOM directly - bypassing React
+      timerElement.innerHTML = `
+        <div class="timer-display">
+          <p>Time Remaining: ${minutes}:${seconds}</p>
+        </div>
+      `;
+      
+      // Check if timer has expired
+      if (remaining <= 0) {
+        clearInterval(vanillaTimerIdRef.current);
+        vanillaTimerIdRef.current = null;
+        
+        // Set data attribute to indicate expiration instead of updating React state immediately
+        timerElement.setAttribute('data-expired', 'true');
+        
+        // Change the timer display to indicate expiry
+        timerElement.innerHTML = `
+          <div class="timer-display expired">
+            <p>Time Expired! Complete your current question.</p>
+          </div>
+        `;
+        
+        // We don't call setSessionExpired here anymore to avoid React re-rendering
+        // It will be checked in handleTrainingSubmit when the user actually submits
+      }
+    };
+    
+    // Initial update
+    updateTimer();
+    
+    // Set up the interval using vanilla JS - check more frequently but update display at most once per second
+    vanillaTimerIdRef.current = setInterval(updateTimer, 250);
+    
+    // Store end time for external use if needed
+    timerEndTimeRef.current = endTime;
+  };
+
+  // Function to stop the vanilla timer
+  const stopVanillaTimer = () => {
+    if (vanillaTimerIdRef.current) {
+      clearInterval(vanillaTimerIdRef.current);
+      vanillaTimerIdRef.current = null;
+    }
+    
+    if (timerDomNodeRef.current) {
+      timerDomNodeRef.current.style.display = 'none';
+    }
+    
+    timerEndTimeRef.current = null;
+  };
 
   const handleSessionEnd = () => {
+    // Stop the vanilla timer
+    stopVanillaTimer();
+    
+    // Cancel any animation frame timer (as backup)
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    // Display a proper notification
     alert('Training Session Complete!');
+    
+    // Reset all session-related states
     setCurrentQuestionIndex(0);
     setScore(0);
     setQuestions([]);
     setSelectedCategories([]);
     setSessionDuration(null);
     setTimeRemaining(null);
+    setSessionExpired(false);
+    setSelectedAnswer(null);
+    setAnswered(false);
+    setUserInput('');
+    setFeedback('');
+    setHint('');
+    setExplanation('');  // Make sure explanation is cleared
+    setAttempts(0);
+    setMatchingAnswers({});
+    setMatchingCorrect({});
+    setShowReinforcement(false);
+    setReinforcementInput('');
     setMode('training');
   };
 
@@ -643,14 +764,55 @@ function App() {
 
   const handleStartTraining = (duration) => {
     if (selectedCategories.length > 0) {
-      const durationInSeconds = duration * 60;
+      // Special case for the 5-second test timer (0.08 minutes)
+      const durationInSeconds = duration === 0.08 
+        ? 5  // 5 seconds for testing
+        : duration * 60;  // Regular conversion from minutes to seconds
+        
+      // Clear any existing animation frame timer
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      
+      // Store the session duration in state (used for other UI elements)
       setSessionDuration(durationInSeconds);
+      
+      // Initialize with full duration (only used for initial state, not for updates)
       setTimeRemaining(durationInSeconds);
+      
+      // Reset all question-related state before starting a new session
+      setSelectedAnswer(null);
+      setAnswered(false);
+      setUserInput('');
+      setFeedback('');
+      setHint('');
+      setExplanation('');
+      setAttempts(0);
+      setMatchingAnswers({});
+      setMatchingCorrect({});
+      setShowReinforcement(false);
+      setReinforcementInput('');
+      
+      // Start the vanilla JS timer which bypasses React rendering
+      startVanillaTimer(durationInSeconds);
+      
+      // Fetch questions
       fetchQuestions(selectedCategories);
     } else {
       setError('Pick at least one category to start training!');
     }
   };
+
+  useEffect(() => {
+    // Cleanup function for the timer
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, []);
 
   const handleAnswerSelect = (answer) => {
     if (answered) return;
@@ -658,11 +820,22 @@ function App() {
     setAnswered(true);
   };
 
+  // Update handleTrainingSubmit to check for timer expiration without setState
   const handleTrainingSubmit = async (answer) => {
+    // Check if timer has expired but continue processing the current answer
+    const hasTimerExpired = timerDomNodeRef.current && 
+      timerDomNodeRef.current.getAttribute('data-expired') === 'true';
+    
+    // If we're already handling timer expiration, don't process again
+    if (timerExpirationHandlingRef.current) {
+      return;
+    }
+    
     if (answered) return;
     const currentQuestion = questions[currentQuestionIndex];
     let userAnswer;
     
+    // Preserve the answer that was passed in, which comes from DOM elements now
     if (currentQuestion.type === 'true-false' || currentQuestion.type === 'multiple-choice') {
       userAnswer = answer;
     } else if (currentQuestion.type === 'matching') {
@@ -672,8 +845,11 @@ function App() {
         return;
       }
     } else {
-      userAnswer = typeof answer === 'string' ? answer.trim() : userInput.trim();
-      if (!userAnswer) {
+      // For text inputs, use the passed value directly - it now comes from an uncontrolled DOM input
+      userAnswer = answer;
+      
+      // Double-check it's not empty
+      if (!userAnswer || userAnswer.trim() === '') {
         setFeedback('Come on - at least give it a shot!');
         console.log('Feedback set: Come on - at least give it a shot!');
         return;
@@ -744,7 +920,10 @@ function App() {
         setFeedback('Incorrect');
         setHint(currentQuestion.hint || 'No hint available.');
         setExplanation('');
-        setUserInput('');
+        
+        // Keep the user's answer in the input - explicitly set it to ensure it's kept
+        setUserInput(userAnswer);
+        
         await updateHistory(currentQuestion.id, false, userHistory);
       } else {
         setAnswered(true);
@@ -755,6 +934,22 @@ function App() {
         const shouldShowRT = currentQuestion.reinforcementTask && attempts === 1;
         setPendingReinforcement(shouldShowRT);
       }
+    }
+    
+    // If the timer has expired, handle it only AFTER processing the answer
+    if (hasTimerExpired) {
+      // Now we can safely set session expired state
+      setSessionExpired(true);
+      
+      // Set flag to prevent multiple handlers
+      timerExpirationHandlingRef.current = true;
+      
+      // Show a timeout message
+      setTimeout(() => {
+        handleSessionEnd();
+        // Reset flag after session end
+        timerExpirationHandlingRef.current = false;
+      }, 3000); // Give the user 3 seconds to see the result
     }
   };
 
@@ -823,6 +1018,12 @@ function App() {
   };
 
   const completeReinforcementAndAdvance = (directInput) => {
+    // Check if the session has expired
+    if (sessionExpired) {
+      handleSessionEnd();
+      return;
+    }
+    
     const currentQuestion = questions[currentQuestionIndex];
     // Use the direct input if provided, otherwise fall back to state
     const inputToCheck = directInput || reinforcementInput;
@@ -837,7 +1038,7 @@ function App() {
       setAnswered(false);
       setUserInput('');
       setHint('');
-      setExplanation('');
+      setExplanation('');  // Make sure explanation is cleared
       setAttempts(0);
       setMatchingAnswers({});
       setMatchingCorrect({});
@@ -846,12 +1047,8 @@ function App() {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
         console.log('Reinforcement completed, moving to next question:', currentQuestionIndex + 1);
       } else {
-        alert('Training Complete!');
-        setCurrentQuestionIndex(0);
-        setScore(0);
-        setQuestions([]);
-        setSelectedCategories([]);
-        setMode(null);
+        // Call handleSessionEnd instead of duplicating its functionality
+        handleSessionEnd();
       }
     } else {
       setFeedback('Try again!');
@@ -859,6 +1056,12 @@ function App() {
   };
 
   const handleNextQuestion = () => {
+    // If the session has expired, end it after the current question
+    if (sessionExpired) {
+      handleSessionEnd();
+      return;
+    }
+
     if (pendingReinforcement) {
       setShowReinforcement(true);
       setPendingReinforcement(false);
@@ -880,18 +1083,22 @@ function App() {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      alert('Training Complete!');
-      setCurrentQuestionIndex(0);
-      setScore(0);
-      setQuestions([]);
-      setSelectedCategories([]);
-      setSessionDuration(null);
-      setTimeRemaining(null);
-      setMode('training');
+      // Call handleSessionEnd instead of duplicating its functionality
+      handleSessionEnd();
     }
   };
 
   const handleAbandonQuiz = () => {
+    // Stop the vanilla timer
+    stopVanillaTimer();
+    
+    // Cancel any animation frame timer (as backup)
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    
+    // Reset all state
     setQuestions([]);
     setCurrentQuestionIndex(0);
     setScore(0);
@@ -900,7 +1107,7 @@ function App() {
     setUserInput('');
     setFeedback('');
     setHint('');
-    setExplanation('');
+    setExplanation('');  // Make sure explanation is cleared
     setAttempts(0);
     setMatchingAnswers({});
     setMatchingCorrect({});
@@ -909,6 +1116,7 @@ function App() {
     setSelectedCategories([]);
     setSessionDuration(null);
     setTimeRemaining(null);
+    setSessionExpired(false);
     setMode('training');
   };
 
