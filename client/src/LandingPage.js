@@ -19,7 +19,7 @@ const triviaFacts = [
   "The Eiffel Tower can be 15 cm taller during the summer due to thermal expansion",
   "Cows have best friends and get stressed when separated",
   "The fingerprints of koalas are so similar to humans that they have on occasion been confused at crime scenes",
-  "The Hawaiian alphabet has only 13 letters",
+  "The Hawaiian alphabet has only 12 letters",
   "Australia is wider than the moon",
   "Polar bears' fur is not white—it's actually transparent and reflects light",
   "The original name for the search engine Google was Backrub",

@@ -44,7 +44,9 @@ const normalizeNumber = (input) => {
 
 const normalizeAnswer = (input) => {
   if (!input) return '';
-  return normalizeNumber(
+  
+  // First apply existing normalization (number words, accents, punctuation, case)
+  const normalizedInput = normalizeNumber(
     input
       .normalize('NFKD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -52,6 +54,32 @@ const normalizeAnswer = (input) => {
       .toLowerCase()
       .trim()
   );
+  
+  // Split into words for more flexible comparisons
+  const words = normalizedInput.split(/\s+/);
+  
+  // Remove common filler words that don't affect meaning
+  const filteredWords = words.filter(word => 
+    !['a', 'an', 'the', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with'].includes(word)
+  );
+  
+  // Handle singular/plural variations by stemming words to their root
+  const stemmedWords = filteredWords.map(word => {
+    // Basic stemming rules for English
+    if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) {
+      return word.slice(0, -1); // Remove trailing 's'
+    }
+    if (word.endsWith('es') && word.length > 4) {
+      return word.slice(0, -2); // Remove trailing 'es'
+    }
+    if (word.endsWith('ies') && word.length > 4) {
+      return word.slice(0, -3) + 'y'; // Change 'ies' to 'y'
+    }
+    return word;
+  });
+  
+  // Sort words alphabetically to handle different word orders
+  return stemmedWords.sort().join(' ');
 };
 
 const trainingCategories = [
@@ -908,7 +936,9 @@ function App() {
     } else {
       const normalizedUserAnswer = normalizeAnswer(userAnswer);
       const normalizedCorrectAnswer = normalizeAnswer(currentQuestion.answer);
-      const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
+
+      // Use similarity checking instead of exact match
+      const isCorrect = checkAnswerSimilarity(normalizedUserAnswer, normalizedCorrectAnswer);
   
       if (isCorrect) {
         setAnswered(true);
@@ -1127,6 +1157,8 @@ function App() {
     setTimeRemaining(null);
     setSessionExpired(false);
     setMode('training');
+    // Don't show completion modal when abandoning
+    setShowCompletionModal(false);
   };
 
   const handleResendVerificationEmail = async () => {
@@ -1197,6 +1229,39 @@ function App() {
         </div>
       </div>
     );
+  };
+
+  const handleLogoClick = () => {
+    // Reset training state without showing completion modal
+    setMode('training');
+    setQuestions([]);
+    setSelectedCategories([]);
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setSessionDuration(null);
+    setTimeRemaining(null);
+    // Ensure completion modal is hidden when returning to categories
+    setShowCompletionModal(false);
+  };
+
+  // Add this new function near normalizeAnswer:
+  const checkAnswerSimilarity = (userAnswer, correctAnswer) => {
+    // If answers are exactly the same after normalization, they match
+    if (userAnswer === correctAnswer) return true;
+    
+    // If answers have no words, comparison is invalid
+    if (!userAnswer || !correctAnswer) return false;
+    
+    // Split into arrays of words for comparison
+    const userWords = userAnswer.split(' ').filter(w => w.length > 0);
+    const correctWords = correctAnswer.split(' ').filter(w => w.length > 0);
+    
+    // Calculate what percentage of correct words are found in user answer
+    const matchingWords = correctWords.filter(word => userWords.includes(word));
+    const matchPercentage = matchingWords.length / correctWords.length;
+    
+    // Consider it correct if user provided at least 75% of the expected words
+    return matchPercentage >= 0.75;
   };
 
   if (awaitingVerification || isVerifying) {
@@ -1283,16 +1348,7 @@ function App() {
         user={user}
         username={username}
         onSignOut={handleSignOut}
-        onLogoClick={() => {
-          // setCurrentScreen('training');
-          setMode('training');
-          setQuestions([]);
-          setSelectedCategories([]);
-          setCurrentQuestionIndex(0);
-          setScore(0);
-          setSessionDuration(null);
-          setTimeRemaining(null);
-        }}
+        onLogoClick={handleLogoClick}
         onProfileClick={() => {/* setCurrentScreen('profile') */}}
         onAdminClick={handleAdminClick}
         isAdmin={isAdmin}
