@@ -134,6 +134,7 @@ function App() {
   const [spacedRepetitionEnabled, setSpacedRepetitionEnabled] = useState(true);
   const [questionPriorities, setQuestionPriorities] = useState({});
   const [dueQuestions, setDueQuestions] = useState([]);
+  const [dueQuestionsByCategory, setDueQuestionsByCategory] = useState({});
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -672,6 +673,12 @@ function App() {
         // Calculate priorities for all questions based on user history
         const priorities = {};
         const due = [];
+        const dueByCategory = {};
+        
+        // Initialize dueByCategory with empty arrays for each selected category
+        categories.forEach(cat => {
+          dueByCategory[cat] = [];
+        });
         
         allCategoryQuestions.forEach(question => {
           const questionHistory = userHistory[question.id];
@@ -679,14 +686,17 @@ function App() {
           priorities[question.id] = priority;
           
           // Determine if it's due
-          if (questionHistory) {
-            const dueDate = calculateDueDate(questionHistory);
-            if (new Date() >= dueDate) {
-              due.push(question.id);
-            }
-          } else {
-            // New questions are always due
+          const isDue = questionHistory 
+            ? new Date() >= calculateDueDate(questionHistory) 
+            : true; // New questions are always due
+            
+          if (isDue) {
             due.push(question.id);
+            
+            // Add to dueByCategory if this question belongs to a selected category
+            if (question.category && categories.includes(question.category)) {
+              dueByCategory[question.category].push(question.id);
+            }
           }
         });
         
@@ -719,10 +729,12 @@ function App() {
         const shuffledQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
         
         console.log(`Selected ${shuffledQuestions.length} questions (${numDueToInclude} due, ${nonDueQuestions.length} non-due)`);
+        console.log('Due questions by category:', dueByCategory);
         
         // Store priorities and due states for potential UI features
         setQuestionPriorities(priorities);
         setDueQuestions(due);
+        setDueQuestionsByCategory(dueByCategory);
         
         // Set the questions in state
         setQuestions(shuffledQuestions);
@@ -1569,6 +1581,7 @@ function App() {
                 onToggleSpacedRepetition={handleToggleSpacedRepetition}
                 dueQuestions={dueQuestions}
                 questionPriorities={questionPriorities}
+                dueQuestionsByCategory={dueQuestionsByCategory}
               />
             } />
             <Route path="/profile" element={
@@ -1597,6 +1610,7 @@ function App() {
                     onToggleSpacedRepetition={handleToggleSpacedRepetition}
                     dueQuestions={dueQuestions}
                     questionPriorities={questionPriorities}
+                    dueQuestionsByCategory={dueQuestionsByCategory}
                   />
                 ) : showReinforcement ? (
                   <ReinforcementTask
@@ -1640,6 +1654,7 @@ function App() {
                     spacedRepetitionEnabled={spacedRepetitionEnabled}
                     dueQuestions={dueQuestions}
                     questionPriorities={questionPriorities}
+                    userHistory={userHistory}
                   />
                 )}
               </PrivateRoute>

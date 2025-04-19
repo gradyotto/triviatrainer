@@ -29,13 +29,17 @@ const QuestionScreen = ({
   onAbandonQuiz,
   spacedRepetitionEnabled,
   dueQuestions,
-  questionPriorities
+  questionPriorities,
+  userHistory
 }) => {
   // Use local state to track displayed input only, not for controlling the actual DOM element
   const [localInput, setLocalInput] = useState(userInput);
   
   // Keep a ref of the input DOM element itself rather than just its value
   const inputElementRef = useRef(null);
+  
+  // Add state for tooltip visibility
+  const [showPriorityTooltip, setShowPriorityTooltip] = useState(false);
   
   // Set up the ref once the component mounts
   useEffect(() => {
@@ -128,6 +132,95 @@ const QuestionScreen = ({
     ? Math.min(100, Math.round(questionPriority)) 
     : null;
 
+  // Add a new function to format a due date
+  const formatDueDate = (date) => {
+    const now = new Date();
+    const dueDate = new Date(date);
+    
+    const diffTime = Math.abs(dueDate - now);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Later today';
+    } else if (diffDays === 1) {
+      return 'Tomorrow';
+    } else if (diffDays < 7) {
+      return `In ${diffDays} days`;
+    } else if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `In ${weeks} ${weeks === 1 ? 'week' : 'weeks'}`;
+    } else {
+      const months = Math.floor(diffDays / 30);
+      return `In ${months} ${months === 1 ? 'month' : 'months'}`;
+    }
+  };
+
+  // Add a NextReviewInfo component
+  const NextReviewInfo = ({ questionId, userHistory, answered, wasCorrect }) => {
+    // Show this component whenever an answer has been submitted, whether correct or not
+    if (!answered || !userHistory || !userHistory[questionId]) {
+      return null;
+    }
+    
+    // Calculate when this question will be due again
+    const history = userHistory[questionId];
+    const reviewDate = calculateDueDate(history);
+    
+    return (
+      <div className={`next-review-info ${wasCorrect ? 'correct' : 'incorrect'}`}>
+        <p>
+          <span className="next-review-icon">{wasCorrect ? '📅' : '🔄'}</span>
+          Next review: {formatDueDate(reviewDate)}
+          {!wasCorrect && <span className="review-note"> (Prioritized for review)</span>}
+        </p>
+      </div>
+    );
+  };
+
+  // Add the calculateDueDate function
+  const calculateDueDate = (history) => {
+    // If never answered correctly, due immediately
+    if (!history || !history.attemptsHistory || history.attemptsHistory.length === 0) {
+      return new Date(0); // Due immediately (epoch time)
+    }
+    
+    // Get the most recent attempts
+    const sortedAttempts = [...history.attemptsHistory].sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+    
+    // Start with base calculation
+    const lastAttempt = sortedAttempts[0];
+    const lastAttemptDate = new Date(lastAttempt.timestamp);
+    const wasCorrect = lastAttempt.correct;
+    
+    // Calculate streak (consecutive correct answers)
+    let streak = 0;
+    if (wasCorrect) {
+      for (let i = 0; i < sortedAttempts.length; i++) {
+        if (sortedAttempts[i].correct) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    // Calculate interval based on SM-2 spaced repetition algorithm
+    let interval;
+    if (!wasCorrect) {
+      interval = 1; // Review the next day if incorrect
+    } else {
+      // Use a simplified version of SuperMemo-2 algorithm
+      // 1 correct: 1 day, 2 correct: 3 days, 3 correct: 7 days, 4 correct: 14 days, etc.
+      interval = Math.min(30, Math.pow(2, streak - 1));
+    }
+    
+    // Convert interval (days) to milliseconds and add to last attempt date
+    const dueDate = new Date(lastAttemptDate.getTime() + interval * 24 * 60 * 60 * 1000);
+    return dueDate;
+  };
+
   return (
     <div className="question-container">
       <h1>TriviaTrainer</h1>
@@ -138,12 +231,29 @@ const QuestionScreen = ({
             <span className="due-indicator">Due for review</span>
           )}
           {priorityPercentage !== null && (
-            <span className="priority-indicator" 
-              style={{ 
-                backgroundColor: `rgba(${priorityPercentage > 70 ? '220, 53, 69' : '66, 133, 244'}, ${priorityPercentage/100})` 
-              }}>
-              Priority: {priorityPercentage}%
-            </span>
+            <div className="priority-indicator-container">
+              <span className="priority-indicator" 
+                style={{ 
+                  backgroundColor: `rgba(${priorityPercentage > 70 ? '220, 53, 69' : '66, 133, 244'}, ${priorityPercentage/100})` 
+                }}
+                onMouseEnter={() => setShowPriorityTooltip(true)}
+                onMouseLeave={() => setShowPriorityTooltip(false)}
+              >
+                Priority: {priorityPercentage}%
+              </span>
+              {showPriorityTooltip && (
+                <div className="priority-tooltip">
+                  <p><strong>What this means:</strong></p>
+                  <p>This percentage shows how important it is for you to review this question now.</p>
+                  <ul>
+                    <li><strong>High (70-100%):</strong> Needs urgent review</li>
+                    <li><strong>Medium (40-69%):</strong> Good to practice</li>
+                    <li><strong>Low (0-39%):</strong> Well mastered</li>
+                  </ul>
+                  <p>Based on your past performance and when you last saw this question.</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -300,6 +410,15 @@ const QuestionScreen = ({
           )}
         </div>
         {explanation && <p className="explanation">{explanation}</p>}
+        
+        {spacedRepetitionEnabled && (
+          <NextReviewInfo 
+            questionId={currentQuestion?.id}
+            userHistory={userHistory}
+            answered={answered}
+            wasCorrect={feedback === 'Correct!'}
+          />
+        )}
       </div>
       <div className="button-container">
         {answered && (
