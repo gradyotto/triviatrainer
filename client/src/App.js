@@ -102,6 +102,7 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -473,8 +474,16 @@ function App() {
       animationFrameRef.current = null;
     }
     
-    // Display a proper notification
-    alert('Training Session Complete!');
+    // Show completion modal instead of alert
+    setShowCompletionModal(true);
+    
+    // Keep the states as is until user acknowledges the modal
+    // The reset will happen in the handleCompletionModalClose function
+  };
+
+  // New function to handle closing the completion modal
+  const handleCompletionModalClose = () => {
+    setShowCompletionModal(false);
     
     // Reset all session-related states
     setCurrentQuestionIndex(0);
@@ -1173,6 +1182,23 @@ function App() {
     return isAdmin ? children : <Navigate to="/training" />;
   };
 
+  // CompletionModal component
+  const CompletionModal = () => {
+    if (!showCompletionModal) return null;
+    
+    return (
+      <div className="modal-overlay">
+        <div className="completion-modal">
+          <h2>Training Session Complete!</h2>
+          <p>Congratulations! You've completed your training session.</p>
+          <button onClick={handleCompletionModalClose}>
+            Return to Categories
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   if (awaitingVerification || isVerifying) {
     return (
       <div className="verification-screen">
@@ -1359,6 +1385,9 @@ function App() {
           </Routes>
         )}
       </div>
+      
+      {/* Render the completion modal */}
+      <CompletionModal />
     </div>
   );
 }
