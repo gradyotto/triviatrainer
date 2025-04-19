@@ -131,6 +131,9 @@ function App() {
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [spacedRepetitionEnabled, setSpacedRepetitionEnabled] = useState(true);
+  const [questionPriorities, setQuestionPriorities] = useState({});
+  const [dueQuestions, setDueQuestions] = useState([]);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -535,36 +538,196 @@ function App() {
     setMode('training');
   };
 
+  const calculateDueDate = (history) => {
+    // If never answered correctly, due immediately
+    if (!history.attemptsHistory || history.attemptsHistory.length === 0) {
+      return new Date(0); // Due immediately (epoch time)
+    }
+    
+    // Get the most recent attempts
+    const sortedAttempts = [...history.attemptsHistory].sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+    
+    // Start with base calculation
+    const lastAttempt = sortedAttempts[0];
+    const lastAttemptDate = new Date(lastAttempt.timestamp);
+    const wasCorrect = lastAttempt.correct;
+    
+    // Calculate streak (consecutive correct answers)
+    let streak = 0;
+    if (wasCorrect) {
+      for (let i = 0; i < sortedAttempts.length; i++) {
+        if (sortedAttempts[i].correct) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    // Calculate interval based on SM-2 spaced repetition algorithm
+    let interval;
+    if (!wasCorrect) {
+      interval = 1; // Review the next day if incorrect
+    } else {
+      // Use a simplified version of SuperMemo-2 algorithm
+      // 1 correct: 1 day, 2 correct: 3 days, 3 correct: 7 days, 4 correct: 14 days, etc.
+      interval = Math.min(30, Math.pow(2, streak - 1));
+    }
+    
+    // Convert interval (days) to milliseconds and add to last attempt date
+    const dueDate = new Date(lastAttemptDate.getTime() + interval * 24 * 60 * 60 * 1000);
+    return dueDate;
+  };
+
+  const calculateQuestionPriority = (history, difficultyWeight = 2) => {
+    // Default high priority for new questions
+    if (!history || !history.attemptsHistory || history.attemptsHistory.length === 0) {
+      return 100; // Highest priority for new questions
+    }
+    
+    // Get due date
+    const dueDate = calculateDueDate(history);
+    const now = new Date();
+    
+    // Calculate overdue factor (higher priority if more overdue)
+    const daysOverdue = (now - dueDate) / (24 * 60 * 60 * 1000);
+    const overdueFactor = Math.max(0, daysOverdue * 10); // 10 points per day overdue
+    
+    // Calculate difficulty factor
+    const numAttempts = history.attemptsHistory.length;
+    const numCorrect = history.attemptsHistory.filter(a => a.correct).length;
+    const errorRate = numAttempts > 0 ? (1 - (numCorrect / numAttempts)) * 100 : 50;
+    
+    // Calculate recency factor (prioritize questions not seen recently)
+    const lastSeenDate = new Date(history.lastSeen);
+    const daysSinceLastSeen = (now - lastSeenDate) / (24 * 60 * 60 * 1000);
+    const recencyFactor = Math.min(50, daysSinceLastSeen * 2); // 2 points per day, max 50
+    
+    // Combine factors into a priority score
+    let priority = overdueFactor + (errorRate * difficultyWeight) + recencyFactor;
+    
+    // Special cases
+    if (daysOverdue > 0) {
+      // Questions that are due or overdue get a minimum priority
+      priority = Math.max(priority, 70);
+    } else {
+      // Questions not yet due get a maximum priority cap
+      priority = Math.min(priority, 60);
+    }
+    
+    return priority;
+  };
+
   const fetchQuestions = async (categories) => {
     console.log('Fetching questions for categories:', categories);
     setLoading(true);
     try {
-      const cacheKey = `questions_${categories.join(',')}`;
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const fetchedQuestions = JSON.parse(cached);
-        console.log('Loaded from cache:', fetchedQuestions);
+      // If spaced repetition is disabled, use the original approach
+      if (!spacedRepetitionEnabled || !user) {
+        // Original cache and API approach for non-spaced repetition mode
+        const cacheKey = `questions_${categories.join(',')}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const fetchedQuestions = JSON.parse(cached);
+          console.log('Loaded from cache:', fetchedQuestions);
+          setQuestions(fetchedQuestions);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+    
+        const getQuestions = httpsCallable(functions, 'getQuestions');
+        const result = await getQuestions({ categories, maxQuestions: 200 });
+        const fetchedQuestions = result.data.data;
+        console.log('Received questions from cloud function:', fetchedQuestions);
+    
+        if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
+          console.log('No questions found for categories:', categories);
+          setError('No questions available for selected categories.');
+          setQuestions([]);
+          return;
+        }
+    
+        localStorage.setItem(cacheKey, JSON.stringify(fetchedQuestions));
         setQuestions(fetchedQuestions);
         setError(null);
-        setLoading(false);
-        return;
+      } else {
+        // Enhanced approach with spaced repetition
+        console.log('Using spaced repetition algorithm to fetch questions');
+        
+        // Fetch all questions for selected categories first
+        const getQuestions = httpsCallable(functions, 'getQuestions');
+        const result = await getQuestions({ categories, maxQuestions: 400 });
+        const allCategoryQuestions = result.data.data;
+        
+        if (!Array.isArray(allCategoryQuestions) || allCategoryQuestions.length === 0) {
+          console.log('No questions found for categories:', categories);
+          setError('No questions available for selected categories.');
+          setQuestions([]);
+          return;
+        }
+        
+        // Calculate priorities for all questions based on user history
+        const priorities = {};
+        const due = [];
+        
+        allCategoryQuestions.forEach(question => {
+          const questionHistory = userHistory[question.id];
+          const priority = calculateQuestionPriority(questionHistory);
+          priorities[question.id] = priority;
+          
+          // Determine if it's due
+          if (questionHistory) {
+            const dueDate = calculateDueDate(questionHistory);
+            if (new Date() >= dueDate) {
+              due.push(question.id);
+            }
+          } else {
+            // New questions are always due
+            due.push(question.id);
+          }
+        });
+        
+        // Sort questions by priority (higher values first)
+        const sortedQuestions = [...allCategoryQuestions].sort((a, b) => {
+          return priorities[b.id] - priorities[a.id];
+        });
+        
+        // Get a good mix of questions (75% due questions, 25% others)
+        const maxQuestions = 200;
+        const numDueToInclude = Math.min(due.length, Math.ceil(maxQuestions * 0.75));
+        const numOthersToInclude = Math.min(
+          sortedQuestions.length - numDueToInclude,
+          maxQuestions - numDueToInclude
+        );
+        
+        // Start with due questions
+        let selectedQuestions = sortedQuestions
+          .filter(q => due.includes(q.id))
+          .slice(0, numDueToInclude);
+        
+        // Add some non-due questions for variety (and new material)
+        const nonDueQuestions = sortedQuestions
+          .filter(q => !due.includes(q.id))
+          .slice(0, numOthersToInclude);
+        
+        selectedQuestions = [...selectedQuestions, ...nonDueQuestions];
+        
+        // Shuffle the questions to prevent predictable ordering
+        const shuffledQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
+        
+        console.log(`Selected ${shuffledQuestions.length} questions (${numDueToInclude} due, ${nonDueQuestions.length} non-due)`);
+        
+        // Store priorities and due states for potential UI features
+        setQuestionPriorities(priorities);
+        setDueQuestions(due);
+        
+        // Set the questions in state
+        setQuestions(shuffledQuestions);
+        setError(null);
       }
-  
-      const getQuestions = httpsCallable(functions, 'getQuestions');
-      const result = await getQuestions({ categories, maxQuestions: 200 });
-      const fetchedQuestions = result.data.data;
-      console.log('Received questions from cloud function:', fetchedQuestions);
-  
-      if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
-        console.log('No questions found for categories:', categories);
-        setError('No questions available for selected categories.');
-        setQuestions([]);
-        return;
-      }
-  
-      localStorage.setItem(cacheKey, JSON.stringify(fetchedQuestions));
-      setQuestions(fetchedQuestions);
-      setError(null);
     } catch (e) {
       console.error('Error fetching questions:', e.message);
       setError(e.message === 'Rate limit exceeded. Please try again later.'
@@ -798,6 +961,20 @@ function App() {
   const handleDurationSelect = (duration) => {
     setSelectedDuration(prev => prev === duration ? null : duration);
   };
+
+  const handleToggleSpacedRepetition = (enabled) => {
+    setSpacedRepetitionEnabled(enabled);
+    // Save the preference to localStorage
+    localStorage.setItem('spacedRepetitionEnabled', JSON.stringify(enabled));
+  };
+
+  useEffect(() => {
+    // Load spaced repetition preference from localStorage
+    const savedPreference = localStorage.getItem('spacedRepetitionEnabled');
+    if (savedPreference !== null) {
+      setSpacedRepetitionEnabled(JSON.parse(savedPreference));
+    }
+  }, []);
 
   const handleStartTraining = (duration) => {
     if (selectedCategories.length > 0) {
@@ -1049,6 +1226,24 @@ function App() {
         correct: isCorrect,
         timeSpent
       });
+
+      // Update question priorities after submission
+      if (spacedRepetitionEnabled) {
+        const updatedPriorities = { ...questionPriorities };
+        updatedPriorities[questionId] = calculateQuestionPriority(updatedHistory[questionId]);
+        setQuestionPriorities(updatedPriorities);
+        
+        // Recalculate due date
+        const newDueDate = calculateDueDate(updatedHistory[questionId]);
+        const isDue = new Date() >= newDueDate;
+        
+        // Update due questions list
+        if (isDue && !dueQuestions.includes(questionId)) {
+          setDueQuestions([...dueQuestions, questionId]);
+        } else if (!isDue && dueQuestions.includes(questionId)) {
+          setDueQuestions(dueQuestions.filter(id => id !== questionId));
+        }
+      }
 
       console.log(`History updated for q${questionId} with timeSpent: ${timeSpent}s`);
     } catch (e) {
@@ -1370,6 +1565,10 @@ function App() {
                 error={error}
                 selectedDuration={selectedDuration}
                 onDurationSelect={handleDurationSelect}
+                spacedRepetitionEnabled={spacedRepetitionEnabled}
+                onToggleSpacedRepetition={handleToggleSpacedRepetition}
+                dueQuestions={dueQuestions}
+                questionPriorities={questionPriorities}
               />
             } />
             <Route path="/profile" element={
@@ -1394,6 +1593,10 @@ function App() {
                     error={error}
                     selectedDuration={selectedDuration}
                     onDurationSelect={handleDurationSelect}
+                    spacedRepetitionEnabled={spacedRepetitionEnabled}
+                    onToggleSpacedRepetition={handleToggleSpacedRepetition}
+                    dueQuestions={dueQuestions}
+                    questionPriorities={questionPriorities}
                   />
                 ) : showReinforcement ? (
                   <ReinforcementTask
@@ -1434,6 +1637,9 @@ function App() {
                     setUserInput={setUserInput}
                     onNextQuestion={handleNextQuestion}
                     onAbandonQuiz={handleAbandonQuiz}
+                    spacedRepetitionEnabled={spacedRepetitionEnabled}
+                    dueQuestions={dueQuestions}
+                    questionPriorities={questionPriorities}
                   />
                 )}
               </PrivateRoute>

@@ -26,7 +26,10 @@ const QuestionScreen = ({
   onMatchingSelect,
   setUserInput,
   onNextQuestion,
-  onAbandonQuiz
+  onAbandonQuiz,
+  spacedRepetitionEnabled,
+  dueQuestions,
+  questionPriorities
 }) => {
   // Use local state to track displayed input only, not for controlling the actual DOM element
   const [localInput, setLocalInput] = useState(userInput);
@@ -114,10 +117,36 @@ const QuestionScreen = ({
     }
   }, [answered]);
 
+  // Determine if this question is due for review
+  const isDueForReview = spacedRepetitionEnabled && dueQuestions?.includes(currentQuestion?.id);
+  
+  // Get the priority of this question if available
+  const questionPriority = spacedRepetitionEnabled && questionPriorities?.[currentQuestion?.id];
+  
+  // Format priority as a percentage for display
+  const priorityPercentage = questionPriority 
+    ? Math.min(100, Math.round(questionPriority)) 
+    : null;
+
   return (
     <div className="question-container">
       <h1>TriviaTrainer</h1>
       <p>Category: {categoryName}</p>
+      {spacedRepetitionEnabled && (
+        <div className="spaced-repetition-indicators">
+          {isDueForReview && (
+            <span className="due-indicator">Due for review</span>
+          )}
+          {priorityPercentage !== null && (
+            <span className="priority-indicator" 
+              style={{ 
+                backgroundColor: `rgba(${priorityPercentage > 70 ? '220, 53, 69' : '66, 133, 244'}, ${priorityPercentage/100})` 
+              }}>
+              Priority: {priorityPercentage}%
+            </span>
+          )}
+        </div>
+      )}
       {mode === 'quiz' && <p>Score: {score} / {questionsLength}</p>}
       <div className="question-content">
         <h2>Question:</h2>
