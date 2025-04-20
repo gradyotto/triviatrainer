@@ -43,56 +43,43 @@ const normalizeNumber = (input) => {
 };
 
 const normalizeAnswer = (input) => {
+  // Handle empty or falsy inputs
   if (!input) return '';
   
-  // First apply existing normalization (number words, accents, punctuation, case)
-  const normalizedInput = normalizeNumber(
-    input
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^\w\s]/g, '')
-      .toLowerCase()
-      .trim()
-  );
+  // Handle numbers with a normalization function
+  if (!isNaN(Number(input))) {
+    return normalizeNumber(input);
+  }
   
-  // Split into words for more flexible comparisons
-  const words = normalizedInput.split(/\s+/);
+  // Convert to string, trim, and convert to lowercase
+  let normalized = String(input).trim().toLowerCase();
   
-  // Remove common filler words that don't affect meaning
-  const filteredWords = words.filter(word => 
-    !['a', 'an', 'the', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with'].includes(word)
-  );
+  // Replace common contractions
+  normalized = normalized.replace(/n't/g, ' not');
+  normalized = normalized.replace(/'s/g, ' is');
+  normalized = normalized.replace(/'re/g, ' are');
+  normalized = normalized.replace(/'m/g, ' am');
+  normalized = normalized.replace(/'ve/g, ' have');
+  normalized = normalized.replace(/'ll/g, ' will');
+  normalized = normalized.replace(/'d/g, ' would');
   
-  // Handle singular/plural variations by stemming words to their root
-  const stemmedWords = filteredWords.map(word => {
-    // Basic stemming rules for English
-    if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) {
-      return word.slice(0, -1); // Remove trailing 's'
-    }
-    if (word.endsWith('es') && word.length > 4) {
-      return word.slice(0, -2); // Remove trailing 'es'
-    }
-    if (word.endsWith('ies') && word.length > 4) {
-      return word.slice(0, -3) + 'y'; // Change 'ies' to 'y'
-    }
+  // Remove punctuation and extra whitespace
+  normalized = normalized.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+  normalized = normalized.replace(/\s{2,}/g, ' ');
+  
+  // Stem words (very simple approach)
+  const stemmedWords = normalized.split(' ').map(word => {
+    // Remove trailing 's', 'es', 'ed', 'ing'
+    if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+    if (word.endsWith('es')) return word.slice(0, -2);
+    if (word.endsWith('ed')) return word.slice(0, -2);
+    if (word.endsWith('ing')) return word.slice(0, -3);
     return word;
   });
   
   // Sort words alphabetically to handle different word orders
   return stemmedWords.sort().join(' ');
 };
-
-const trainingCategories = [
-  { id: 'History', name: 'History' },
-  { id: 'Science', name: 'Science' },
-  { id: 'Literature', name: 'Literature' },
-  { id: 'Geography', name: 'Geography' },
-  { id: 'Sports', name: 'Sports' },
-  { id: 'Entertainment', name: 'Entertainment' },
-  { id: 'Art', name: 'Art' },
-  { id: 'Pop Culture', name: 'Pop Culture' },
-  { id: 'General Knowledge', name: 'General Knowledge' }
-];
 
 function App() {
   const [questions, setQuestions] = useState([]);
@@ -135,6 +122,7 @@ function App() {
   const [questionPriorities, setQuestionPriorities] = useState({});
   const [dueQuestions, setDueQuestions] = useState([]);
   const [dueQuestionsByCategory, setDueQuestionsByCategory] = useState({});
+  const [categories, setCategories] = useState([]);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -146,40 +134,187 @@ function App() {
   const timerExpirationHandlingRef = useRef(false);
 
   const fetchUserHistory = async (uid) => {
-    if (!auth.currentUser) {
-      console.log('No authenticated user, skipping fetchUserHistory');
-      setUserHistory({});
-      return;
-    }
     try {
-      const progressSnapshot = await getDocs(collection(db, `userProgress/${uid}/progress`));
-      const attemptsSnapshot = await getDocs(collection(db, `userProgress/${uid}/attempts`));
-      const history = {};
-      const attemptsMap = {};
-
-      attemptsSnapshot.forEach(doc => {
-        const data = doc.data();
-        attemptsMap[data.progressId] = attemptsMap[data.progressId] || [];
-        attemptsMap[data.progressId].push({
-          timestamp: data.timestamp,
-          correct: data.correct
-        });
+      console.log('Fetching user history for:', uid);
+      
+      // Fetch user progress documents
+      const progressQuery = await getDocs(collection(db, `userProgress/${uid}/progress`));
+      const progressDocs = [];
+      progressQuery.forEach(doc => {
+        progressDocs.push({ id: doc.id, ...doc.data() });
       });
-
-      progressSnapshot.forEach(doc => {
-        const data = doc.data();
-        history[data.questionId] = {
-          firstSeen: data.firstSeen,
-          lastSeen: data.lastSeen,
-          attemptsHistory: attemptsMap[data.progressId] || []
+      
+      // Fetch user attempt documents
+      const attemptsQuery = await getDocs(collection(db, `userProgress/${uid}/attempts`));
+      const attemptDocs = [];
+      attemptsQuery.forEach(doc => {
+        attemptDocs.push({ id: doc.id, ...doc.data() });
+      });
+      
+      console.log(`Fetched ${progressDocs.length} progress docs and ${attemptDocs.length} attempt docs`);
+      
+      // Process attempts by progressId
+      const attemptsByProgressId = {};
+      attemptDocs.forEach(attempt => {
+        if (!attemptsByProgressId[attempt.progressId]) {
+          attemptsByProgressId[attempt.progressId] = [];
+        }
+        attemptsByProgressId[attempt.progressId].push(attempt);
+      });
+      
+      // Build history object
+      const history = {};
+      progressDocs.forEach(progress => {
+        const attempts = attemptsByProgressId[progress.progressId] || [];
+        history[progress.questionId] = {
+          firstSeen: progress.firstSeen,
+          lastSeen: progress.lastSeen,
+          attemptsHistory: attempts.map(attempt => ({
+            timestamp: attempt.timestamp,
+            correct: attempt.correct,
+            timeSpent: attempt.timeSpent || 0
+          }))
         };
       });
-
+      
+      console.log('User history loaded:', Object.keys(history).length, 'questions with history');
       setUserHistory(history);
-      console.log('User history loaded from Firestore:', history);
-    } catch (e) {
-      console.error('Error fetching user history:', e);
-      setUserHistory({});
+      
+      // Pre-calculate due questions and priorities on load
+      if (spacedRepetitionEnabled) {
+        const due = [];
+        const priorities = {};
+        
+        // Default hardcoded categories to use as fallback
+        const defaultCategories = [
+          { id: 'History', name: 'History' },
+          { id: 'Science', name: 'Science' },
+          { id: 'Literature', name: 'Literature' },
+          { id: 'Geography', name: 'Geography' },
+          { id: 'Sports', name: 'Sports' },
+          { id: 'Entertainment', name: 'Entertainment' },
+          { id: 'Art', name: 'Art' },
+          { id: 'Pop Culture', name: 'Pop Culture' },
+          { id: 'General Knowledge', name: 'General Knowledge' }
+        ];
+        
+        // Initialize dueByCategory with default categories
+        const dueByCategory = {};
+        defaultCategories.forEach(category => {
+          dueByCategory[category.id] = [];
+        });
+        
+        // First, consider all questions with history as potentially due
+        // We'll process each history entry to determine due status
+        console.log(`Processing ${Object.keys(history).length} history entries for due calculation`);
+        
+        try {
+          // Fetch ALL questions to better match history with categories
+          console.log('Fetching all questions to match with history');
+          let allQuestions;
+          
+          try {
+            // Try to fetch questions from Firestore
+            const allQuestionsSnapshot = await getDocs(collection(db, 'questions'));
+            allQuestions = [];
+            allQuestionsSnapshot.forEach(doc => {
+              allQuestions.push({ id: doc.id, ...doc.data() });
+            });
+            console.log(`Fetched ${allQuestions.length} questions from Firestore`);
+          } catch (err) {
+            console.error('Error fetching questions from Firestore:', err);
+            console.log('Falling back to cached questions');
+            // Try to get from cache
+            const cachedQuestions = localStorage.getItem('all_questions_cache');
+            if (cachedQuestions) {
+              allQuestions = JSON.parse(cachedQuestions);
+              console.log(`Using ${allQuestions.length} questions from cache`);
+            } else {
+              allQuestions = [];
+              console.log('No cached questions available');
+            }
+          }
+          
+          // Create a map of question IDs to categories for faster lookups
+          const questionCategories = {};
+          allQuestions.forEach(question => {
+            if (question.id && question.category) {
+              questionCategories[question.id] = question.category;
+            }
+          });
+          
+          // Calculate due status for each question in history
+          Object.keys(history).forEach(questionId => {
+            const questionHistory = history[questionId];
+            
+            // Calculate priority for this question
+            const priority = calculateQuestionPriority(questionHistory);
+            priorities[questionId] = priority;
+            
+            // Determine if it's due based on calculateDueDate
+            const dueDate = calculateDueDate(questionHistory);
+            const isDue = new Date() >= dueDate;
+            
+            // If we have a high priority (over 60) or it's due, add to due list
+            const isHighPriority = priority >= 60;
+            if (isDue || isHighPriority) {
+              due.push(questionId);
+              console.log(`Question ${questionId} is due (priority: ${priority})`);
+              
+              // Look up the category from our question map
+              const category = questionCategories[questionId];
+              
+              // If we found a category and it's in our default list, add the question to that category
+              if (category && defaultCategories.some(c => c.id === category)) {
+                if (!dueByCategory[category]) {
+                  dueByCategory[category] = [];
+                }
+                dueByCategory[category].push(questionId);
+                console.log(`Added question ${questionId} to ${category} due list`);
+              } else {
+                // For questions without a known category, try to guess based on patterns in the ID
+                const possibleCategory = guessCategory(questionId, defaultCategories.map(c => c.id));
+                if (possibleCategory) {
+                  if (!dueByCategory[possibleCategory]) {
+                    dueByCategory[possibleCategory] = [];
+                  }
+                  dueByCategory[possibleCategory].push(questionId);
+                  console.log(`Added question ${questionId} to ${possibleCategory} due list (guessed)`);
+                }
+              }
+            }
+          });
+          
+          // Set state with our calculated values
+          setDueQuestions(due);
+          setQuestionPriorities(priorities);
+          setDueQuestionsByCategory(dueByCategory);
+          
+          // Log the results
+          console.log('Pre-calculated:', due.length, 'due questions');
+          console.log('Due by category:', dueByCategory);
+          Object.keys(dueByCategory).forEach(category => {
+            console.log(`Category ${category}: ${dueByCategory[category]?.length || 0} due questions`);
+          });
+          
+          // Helper function to guess category from question ID
+          function guessCategory(questionId, categories) {
+            for (const category of categories) {
+              if (questionId.toLowerCase().includes(category.toLowerCase())) {
+                return category;
+              }
+            }
+            return null;
+          }
+        } catch (err) {
+          console.error('Error pre-calculating due questions:', err);
+        }
+      }
+      
+      return history;
+    } catch (err) {
+      console.error('Error fetching user history:', err);
+      return {};
     }
   };
 
@@ -540,8 +675,9 @@ function App() {
   };
 
   const calculateDueDate = (history) => {
-    // If never answered correctly, due immediately
-    if (!history.attemptsHistory || history.attemptsHistory.length === 0) {
+    // If there's no history at all, treat as due immediately
+    if (!history || !history.attemptsHistory || history.attemptsHistory.length === 0) {
+      console.log('No history, due immediately');
       return new Date(0); // Due immediately (epoch time)
     }
     
@@ -552,33 +688,41 @@ function App() {
     
     // Start with base calculation
     const lastAttempt = sortedAttempts[0];
+    if (!lastAttempt || !lastAttempt.timestamp) {
+      console.log('Invalid last attempt, due immediately');
+      return new Date(0);
+    }
+    
     const lastAttemptDate = new Date(lastAttempt.timestamp);
     const wasCorrect = lastAttempt.correct;
     
+    // If last attempt was incorrect, due after 1 day
+    if (!wasCorrect) {
+      const dueDate = new Date(lastAttemptDate.getTime() + 1 * 24 * 60 * 60 * 1000);
+      console.log(`Last attempt was incorrect, due after 1 day: ${dueDate.toISOString()}`);
+      return dueDate;
+    }
+    
     // Calculate streak (consecutive correct answers)
     let streak = 0;
-    if (wasCorrect) {
-      for (let i = 0; i < sortedAttempts.length; i++) {
-        if (sortedAttempts[i].correct) {
-          streak++;
-        } else {
-          break;
-        }
+    for (let i = 0; i < sortedAttempts.length; i++) {
+      if (sortedAttempts[i].correct) {
+        streak++;
+      } else {
+        break;
       }
     }
     
     // Calculate interval based on SM-2 spaced repetition algorithm
-    let interval;
-    if (!wasCorrect) {
-      interval = 1; // Review the next day if incorrect
-    } else {
-      // Use a simplified version of SuperMemo-2 algorithm
-      // 1 correct: 1 day, 2 correct: 3 days, 3 correct: 7 days, 4 correct: 14 days, etc.
-      interval = Math.min(30, Math.pow(2, streak - 1));
-    }
+    let interval = Math.min(30, Math.pow(2, streak - 1));
+    
+    // For testing or demonstration purposes, you can temporarily reduce intervals
+    // Uncomment for debugging/testing
+    // interval = Math.min(interval, 1);  // Force all intervals to be at most 1 day
     
     // Convert interval (days) to milliseconds and add to last attempt date
     const dueDate = new Date(lastAttemptDate.getTime() + interval * 24 * 60 * 60 * 1000);
+    console.log(`Streak: ${streak}, interval: ${interval} days, due: ${dueDate.toISOString()}`);
     return dueDate;
   };
 
@@ -652,6 +796,10 @@ function App() {
         }
     
         localStorage.setItem(cacheKey, JSON.stringify(fetchedQuestions));
+        
+        // Also cache all questions for due calculations
+        cacheAllQuestions(fetchedQuestions);
+        
         setQuestions(fetchedQuestions);
         setError(null);
       } else {
@@ -669,6 +817,15 @@ function App() {
           setQuestions([]);
           return;
         }
+        
+        // Cache all questions for due calculations
+        cacheAllQuestions(allCategoryQuestions);
+        
+        // Group questions by category
+        const questionsByCategory = {};
+        categories.forEach(category => {
+          questionsByCategory[category] = allCategoryQuestions.filter(q => q.category === category);
+        });
         
         // Calculate priorities for all questions based on user history
         const priorities = {};
@@ -700,35 +857,76 @@ function App() {
           }
         });
         
-        // Sort questions by priority (higher values first)
-        const sortedQuestions = [...allCategoryQuestions].sort((a, b) => {
-          return priorities[b.id] - priorities[a.id];
-        });
+        // Calculate how many questions to select from each category
+        const maxQuestionsTotal = 200;
+        const questionsPerCategory = Math.floor(maxQuestionsTotal / categories.length);
         
-        // Get a good mix of questions (75% due questions, 25% others)
-        const maxQuestions = 200;
-        const numDueToInclude = Math.min(due.length, Math.ceil(maxQuestions * 0.75));
-        const numOthersToInclude = Math.min(
-          sortedQuestions.length - numDueToInclude,
-          maxQuestions - numDueToInclude
-        );
+        // Select questions from each category
+        let selectedQuestions = [];
         
-        // Start with due questions
-        let selectedQuestions = sortedQuestions
-          .filter(q => due.includes(q.id))
-          .slice(0, numDueToInclude);
+        for (const category of categories) {
+          const categoryQuestions = questionsByCategory[category] || [];
+          
+          if (categoryQuestions.length === 0) continue;
+          
+          // Sort questions in this category by priority
+          const sortedCategoryQuestions = [...categoryQuestions].sort((a, b) => {
+            return priorities[b.id] - priorities[a.id];
+          });
+          
+          // Calculate how many due questions to include for this category
+          const dueCategoryQuestions = sortedCategoryQuestions.filter(q => due.includes(q.id));
+          const numDueToInclude = Math.min(
+            dueCategoryQuestions.length, 
+            Math.ceil(questionsPerCategory * 0.75)
+          );
+          
+          // Calculate how many non-due questions to include
+          const numOthersToInclude = Math.min(
+            sortedCategoryQuestions.length - numDueToInclude,
+            questionsPerCategory - numDueToInclude
+          );
+          
+          // Select due questions for this category
+          const selectedDueQuestions = dueCategoryQuestions.slice(0, numDueToInclude);
+          
+          // Select non-due questions for this category
+          const nonDueCategoryQuestions = sortedCategoryQuestions.filter(q => !due.includes(q.id));
+          const selectedNonDueQuestions = nonDueCategoryQuestions.slice(0, numOthersToInclude);
+          
+          // Add selected questions from this category
+          selectedQuestions = [
+            ...selectedQuestions,
+            ...selectedDueQuestions,
+            ...selectedNonDueQuestions
+          ];
+          
+          console.log(`Selected ${selectedDueQuestions.length} due and ${selectedNonDueQuestions.length} non-due questions from ${category}`);
+        }
         
-        // Add some non-due questions for variety (and new material)
-        const nonDueQuestions = sortedQuestions
-          .filter(q => !due.includes(q.id))
-          .slice(0, numOthersToInclude);
-        
-        selectedQuestions = [...selectedQuestions, ...nonDueQuestions];
+        // If we couldn't get enough questions per category, add more from any category
+        if (selectedQuestions.length < maxQuestionsTotal && allCategoryQuestions.length > selectedQuestions.length) {
+          const remainingQuestions = allCategoryQuestions.filter(
+            q => !selectedQuestions.some(sq => sq.id === q.id)
+          );
+          
+          // Sort by priority
+          const sortedRemaining = [...remainingQuestions].sort((a, b) => {
+            return priorities[b.id] - priorities[a.id];
+          });
+          
+          // Add up to the max
+          const additionalNeeded = maxQuestionsTotal - selectedQuestions.length;
+          const additionalQuestions = sortedRemaining.slice(0, additionalNeeded);
+          
+          selectedQuestions = [...selectedQuestions, ...additionalQuestions];
+          console.log(`Added ${additionalQuestions.length} additional questions to reach target count`);
+        }
         
         // Shuffle the questions to prevent predictable ordering
         const shuffledQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
         
-        console.log(`Selected ${shuffledQuestions.length} questions (${numDueToInclude} due, ${nonDueQuestions.length} non-due)`);
+        console.log(`Selected ${shuffledQuestions.length} questions total from ${categories.length} categories`);
         console.log('Due questions by category:', dueByCategory);
         
         // Store priorities and due states for potential UI features
@@ -740,14 +938,51 @@ function App() {
         setQuestions(shuffledQuestions);
         setError(null);
       }
-    } catch (e) {
-      console.error('Error fetching questions:', e.message);
-      setError(e.message === 'Rate limit exceeded. Please try again later.'
-        ? 'Rate limit exceeded. Please wait a minute.'
-        : 'Failed to load questions');
-      setQuestions([]);
+    } catch (err) {
+      console.error('Error fetching questions:', err);
+      setError('Failed to fetch questions. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to cache questions for future due calculations
+  const cacheAllQuestions = (questions) => {
+    if (!Array.isArray(questions) || questions.length === 0) return;
+    
+    try {
+      // Get existing cache
+      const existingCache = localStorage.getItem('all_questions_cache');
+      let allQuestions = [];
+      
+      if (existingCache) {
+        try {
+          allQuestions = JSON.parse(existingCache);
+        } catch (err) {
+          console.error('Error parsing existing questions cache:', err);
+          allQuestions = [];
+        }
+      }
+      
+      // Create a map of existing questions by ID
+      const existingQuestionsMap = {};
+      allQuestions.forEach(q => {
+        if (q && q.id) {
+          existingQuestionsMap[q.id] = true;
+        }
+      });
+      
+      // Add new questions to the cache if they don't already exist
+      const newQuestions = questions.filter(q => q && q.id && !existingQuestionsMap[q.id]);
+      
+      if (newQuestions.length > 0) {
+        console.log(`Adding ${newQuestions.length} new questions to cache`);
+        const updatedCache = [...allQuestions, ...newQuestions];
+        localStorage.setItem('all_questions_cache', JSON.stringify(updatedCache));
+        console.log(`Cache now contains ${updatedCache.length} questions`);
+      }
+    } catch (err) {
+      console.error('Error caching questions:', err);
     }
   };
 
@@ -976,8 +1211,157 @@ function App() {
 
   const handleToggleSpacedRepetition = (enabled) => {
     setSpacedRepetitionEnabled(enabled);
+    
     // Save the preference to localStorage
     localStorage.setItem('spacedRepetitionEnabled', JSON.stringify(enabled));
+    
+    // If enabling, recalculate due questions and priorities
+    if (enabled && user) {
+      console.log('Recalculating due questions and priorities');
+      
+      // Use the cached user history to calculate due questions
+      const due = [];
+      const priorities = {};
+      
+      // Default hardcoded categories to use as fallback
+      const defaultCategories = [
+        { id: 'History', name: 'History' },
+        { id: 'Science', name: 'Science' },
+        { id: 'Literature', name: 'Literature' },
+        { id: 'Geography', name: 'Geography' },
+        { id: 'Sports', name: 'Sports' },
+        { id: 'Entertainment', name: 'Entertainment' },
+        { id: 'Art', name: 'Art' },
+        { id: 'Pop Culture', name: 'Pop Culture' },
+        { id: 'General Knowledge', name: 'General Knowledge' }
+      ];
+      
+      // Initialize dueByCategory with default categories
+      const dueByCategory = {};
+      defaultCategories.forEach(category => {
+        dueByCategory[category.id] = [];
+      });
+      
+      // First, consider all questions with history as potentially due
+      const fetchQuestionsForDueCounts = async () => {
+        try {
+          // Try to fetch questions from Firestore
+          console.log('Fetching all questions to match with history');
+          let allQuestions;
+          
+          try {
+            const allQuestionsSnapshot = await getDocs(collection(db, 'questions'));
+            allQuestions = [];
+            allQuestionsSnapshot.forEach(doc => {
+              allQuestions.push({ id: doc.id, ...doc.data() });
+            });
+            console.log(`Fetched ${allQuestions.length} questions from Firestore`);
+            
+            // Cache the questions for future use
+            try {
+              localStorage.setItem('all_questions_cache', JSON.stringify(allQuestions));
+            } catch (cacheErr) {
+              console.error('Error caching questions:', cacheErr);
+            }
+          } catch (err) {
+            console.error('Error fetching questions from Firestore:', err);
+            console.log('Falling back to cached questions');
+            // Try to get from cache
+            const cachedQuestions = localStorage.getItem('all_questions_cache');
+            if (cachedQuestions) {
+              allQuestions = JSON.parse(cachedQuestions);
+              console.log(`Using ${allQuestions.length} questions from cache`);
+            } else {
+              allQuestions = [];
+              console.log('No cached questions available');
+            }
+          }
+          
+          // Create a map of question IDs to categories for faster lookups
+          const questionCategories = {};
+          allQuestions.forEach(question => {
+            if (question.id && question.category) {
+              questionCategories[question.id] = question.category;
+            }
+          });
+          
+          console.log(`Processing ${Object.keys(userHistory).length} history entries for due calculation`);
+          
+          // Calculate due status for each question in history
+          Object.keys(userHistory).forEach(questionId => {
+            const questionHistory = userHistory[questionId];
+            
+            // Calculate priority for this question
+            const priority = calculateQuestionPriority(questionHistory);
+            priorities[questionId] = priority;
+            
+            // Determine if it's due based on calculateDueDate
+            const dueDate = calculateDueDate(questionHistory);
+            const isDue = new Date() >= dueDate;
+            
+            // If we have a high priority (over 60) or it's due, add to due list
+            const isHighPriority = priority >= 60;
+            if (isDue || isHighPriority) {
+              due.push(questionId);
+              console.log(`Question ${questionId} is due (priority: ${priority})`);
+              
+              // Look up the category from our question map
+              const category = questionCategories[questionId];
+              
+              // If we found a category and it's in our default list, add the question to that category
+              if (category && defaultCategories.some(c => c.id === category)) {
+                if (!dueByCategory[category]) {
+                  dueByCategory[category] = [];
+                }
+                dueByCategory[category].push(questionId);
+                console.log(`Added question ${questionId} to ${category} due list`);
+              } else {
+                // For questions without a known category, try to guess based on patterns in the ID
+                const possibleCategory = guessCategory(questionId, defaultCategories.map(c => c.id));
+                if (possibleCategory) {
+                  if (!dueByCategory[possibleCategory]) {
+                    dueByCategory[possibleCategory] = [];
+                  }
+                  dueByCategory[possibleCategory].push(questionId);
+                  console.log(`Added question ${questionId} to ${possibleCategory} due list (guessed)`);
+                }
+              }
+            }
+          });
+          
+          // Set state with our calculated values
+          setDueQuestions(due);
+          setQuestionPriorities(priorities);
+          setDueQuestionsByCategory(dueByCategory);
+          
+          // Log the results
+          console.log('Recalculated:', due.length, 'due questions');
+          console.log('Due by category:', dueByCategory);
+          Object.keys(dueByCategory).forEach(category => {
+            console.log(`Category ${category}: ${dueByCategory[category]?.length || 0} due questions`);
+          });
+          
+          // Helper function to guess category from question ID
+          function guessCategory(questionId, categories) {
+            for (const category of categories) {
+              if (questionId.toLowerCase().includes(category.toLowerCase())) {
+                return category;
+              }
+            }
+            return null;
+          }
+        } catch (err) {
+          console.error('Error calculating due questions:', err);
+        }
+      };
+      
+      fetchQuestionsForDueCounts();
+    } else {
+      // If disabling, clear due questions and priorities
+      setDueQuestions([]);
+      setQuestionPriorities({});
+      setDueQuestionsByCategory({});
+    }
   };
 
   useEffect(() => {
@@ -1245,15 +1629,56 @@ function App() {
         updatedPriorities[questionId] = calculateQuestionPriority(updatedHistory[questionId]);
         setQuestionPriorities(updatedPriorities);
         
-        // Recalculate due date
-        const newDueDate = calculateDueDate(updatedHistory[questionId]);
-        const isDue = new Date() >= newDueDate;
-        
-        // Update due questions list
-        if (isDue && !dueQuestions.includes(questionId)) {
-          setDueQuestions([...dueQuestions, questionId]);
-        } else if (!isDue && dueQuestions.includes(questionId)) {
-          setDueQuestions(dueQuestions.filter(id => id !== questionId));
+        try {
+          // Find the question to get its category
+          const questionSnapshot = await getDoc(doc(db, 'questions', questionId));
+          if (questionSnapshot.exists()) {
+            const question = questionSnapshot.data();
+            const category = question.category;
+            
+            if (category) {
+              // Recalculate due date
+              const newDueDate = calculateDueDate(updatedHistory[questionId]);
+              const isDue = new Date() >= newDueDate;
+              
+              // Update due questions list
+              let newDueQuestions = [...dueQuestions];
+              let newDueByCategory = { ...dueQuestionsByCategory };
+              
+              if (isDue && !dueQuestions.includes(questionId)) {
+                // Add to due lists
+                newDueQuestions.push(questionId);
+                
+                // Make sure the category exists in dueByCategory
+                if (!newDueByCategory[category]) {
+                  newDueByCategory[category] = [];
+                }
+                
+                if (!newDueByCategory[category].includes(questionId)) {
+                  newDueByCategory[category] = [...newDueByCategory[category], questionId];
+                }
+                
+                setDueQuestions(newDueQuestions);
+                setDueQuestionsByCategory(newDueByCategory);
+                
+                console.log(`Added question ${questionId} to ${category} due list (total: ${newDueByCategory[category].length})`);
+              } else if (!isDue && dueQuestions.includes(questionId)) {
+                // Remove from due lists
+                newDueQuestions = newDueQuestions.filter(id => id !== questionId);
+                
+                if (newDueByCategory[category]) {
+                  newDueByCategory[category] = newDueByCategory[category].filter(id => id !== questionId);
+                }
+                
+                setDueQuestions(newDueQuestions);
+                setDueQuestionsByCategory(newDueByCategory);
+                
+                console.log(`Removed question ${questionId} from ${category} due list (remaining: ${newDueByCategory[category]?.length || 0})`);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error updating due status for question:', err);
         }
       }
 
@@ -1471,6 +1896,111 @@ function App() {
     return matchPercentage >= 0.75;
   };
 
+  // Add an effect to fetch categories when the app loads
+  useEffect(() => {
+    // Default hardcoded categories to use as fallback
+    const defaultCategories = [
+      { id: 'History', name: 'History' },
+      { id: 'Science', name: 'Science' },
+      { id: 'Literature', name: 'Literature' },
+      { id: 'Geography', name: 'Geography' },
+      { id: 'Sports', name: 'Sports' },
+      { id: 'Entertainment', name: 'Entertainment' },
+      { id: 'Art', name: 'Art' },
+      { id: 'Pop Culture', name: 'Pop Culture' },
+      { id: 'General Knowledge', name: 'General Knowledge' }
+    ];
+    
+    const fetchCategories = async () => {
+      try {
+        // Try to get categories from Firestore
+        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+        const categoriesData = [];
+        categoriesSnapshot.forEach(doc => {
+          categoriesData.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // If we got categories from Firestore, use them
+        if (categoriesData.length > 0) {
+          console.log('Using categories from Firestore:', categoriesData);
+          setCategories(categoriesData);
+        } else {
+          // If the collection exists but has no documents, try to populate it
+          console.log('No categories found in Firestore, attempting to create them');
+          try {
+            if (user && isAdmin) {
+              // First, check if the current user is an admin before trying to add categories
+              console.log('Attempting to create default categories in Firestore');
+              
+              // Create the categories in Firestore
+              for (const category of defaultCategories) {
+                await setDoc(doc(db, 'categories', category.id), {
+                  name: category.name,
+                  createdAt: new Date().toISOString()
+                });
+                console.log(`Created category: ${category.name}`);
+              }
+              
+              // Now try fetching again
+              const newCategoriesSnapshot = await getDocs(collection(db, 'categories'));
+              const newCategoriesData = [];
+              newCategoriesSnapshot.forEach(doc => {
+                newCategoriesData.push({ id: doc.id, ...doc.data() });
+              });
+              
+              if (newCategoriesData.length > 0) {
+                console.log('Successfully created and fetched categories:', newCategoriesData);
+                setCategories(newCategoriesData);
+                return;
+              }
+            } else {
+              console.log('User is not an admin, using default categories instead');
+            }
+          } catch (createErr) {
+            console.error('Error creating categories:', createErr);
+          }
+          
+          // Fall back to default categories if creation failed
+          console.log('Using default categories');
+          setCategories(defaultCategories);
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+        // On error, fall back to hardcoded categories
+        console.log('Error fetching categories from Firestore, using default categories');
+        setCategories(defaultCategories);
+      }
+    };
+    
+    fetchCategories();
+  }, [user, isAdmin]);
+
+  // Add an effect to log category information when it changes
+  useEffect(() => {
+    console.log('=== Categories State Changed ===');
+    console.log('Categories:', categories);
+    console.log('DueByCategory:', dueQuestionsByCategory);
+    console.log('DueQuestions count:', dueQuestions.length);
+    
+    // Count total due questions by category
+    const totalDue = Object.values(dueQuestionsByCategory).reduce(
+      (sum, list) => sum + list.length, 0
+    );
+    console.log('Total due from dueByCategory:', totalDue);
+    
+    // Check if categories match dueByCategory keys
+    const categoryIds = categories.map(c => c.id);
+    const dueCategories = Object.keys(dueQuestionsByCategory);
+    
+    console.log('Category IDs:', categoryIds);
+    console.log('Due category keys:', dueCategories);
+    
+    const mismatchedCategories = dueCategories.filter(id => !categoryIds.includes(id));
+    if (mismatchedCategories.length > 0) {
+      console.warn('Mismatched categories between categories and dueByCategory:', mismatchedCategories);
+    }
+  }, [categories, dueQuestionsByCategory, dueQuestions]);
+
   if (awaitingVerification || isVerifying) {
     return (
       <div className="verification-screen">
@@ -1570,7 +2100,7 @@ function App() {
             <Route path="/" element={
               <CategorySelection
                 mode="training"
-                categories={trainingCategories}
+                categories={categories}
                 selectedCategories={selectedCategories}
                 onCategorySelect={handleCategorySelect}
                 onStart={handleStartTraining}
@@ -1599,7 +2129,7 @@ function App() {
                 {questions.length === 0 ? (
                   <CategorySelection
                     mode="training"
-                    categories={trainingCategories}
+                    categories={categories}
                     selectedCategories={selectedCategories}
                     onCategorySelect={handleCategorySelect}
                     onStart={handleStartTraining}
@@ -1638,9 +2168,9 @@ function App() {
                     matchingAnswers={matchingAnswers}
                     matchingCorrect={matchingCorrect}
                     categoryName={
-                      selectedCategories.length === trainingCategories.length 
+                      selectedCategories.length === categories.length 
                         ? 'All Categories' 
-                        : selectedCategories.map(id => trainingCategories.find(cat => cat.id === id)?.name).join(', ')
+                        : selectedCategories.map(id => categories.find(cat => cat.id === id)?.name).join(', ')
                     }
                     pendingReinforcement={pendingReinforcement}
                     timeRemaining={timeRemaining}

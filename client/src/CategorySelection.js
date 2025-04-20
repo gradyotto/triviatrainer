@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './CategorySelection.css';
 
 function CategorySelection({ 
@@ -27,11 +27,25 @@ function CategorySelection({
 
   // Count due questions per category more accurately
   const getDueQuestionCount = (categoryId) => {
-    if (!spacedRepetitionEnabled || !dueQuestionsByCategory) return 0;
+    if (!spacedRepetitionEnabled || !dueQuestionsByCategory) {
+      console.log(`getDueQuestionCount: SR disabled or no dueByCategory for ${categoryId}`);
+      return 0;
+    }
     
     const categoryDueQuestions = dueQuestionsByCategory[categoryId] || [];
+    console.log(`getDueQuestionCount for ${categoryId}: ${categoryDueQuestions.length} due questions`);
     return categoryDueQuestions.length;
   };
+
+  // Log all props on first render for debugging
+  useEffect(() => {
+    console.log('CategorySelection props:');
+    console.log('- spacedRepetitionEnabled:', spacedRepetitionEnabled);
+    console.log('- categories:', categories);
+    console.log('- selectedCategories:', selectedCategories);
+    console.log('- dueQuestions length:', dueQuestions?.length);
+    console.log('- dueQuestionsByCategory:', dueQuestionsByCategory);
+  }, []);
 
   const totalDueQuestions = dueQuestions?.length || 0;
 
