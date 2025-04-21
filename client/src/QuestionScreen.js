@@ -194,31 +194,120 @@ const QuestionScreen = ({
     const lastAttemptDate = new Date(lastAttempt.timestamp);
     const wasCorrect = lastAttempt.correct;
     
-    // Calculate streak (consecutive correct answers)
-    let streak = 0;
+    // Calculate level using consecutive correct answers
+    let level = 0;
     if (wasCorrect) {
       for (let i = 0; i < sortedAttempts.length; i++) {
         if (sortedAttempts[i].correct) {
-          streak++;
+          level++;
         } else {
           break;
         }
       }
+    } else {
+      // If incorrect, decrease level by 1 but not below 0
+      // Look for previous streak before the incorrect answer
+      if (sortedAttempts.length > 1) {
+        for (let i = 1; i < sortedAttempts.length; i++) {
+          if (sortedAttempts[i].correct) {
+            level++;
+          } else {
+            break;
+          }
+        }
+        level = Math.max(0, level - 1);
+      }
     }
     
-    // Calculate interval based on SM-2 spaced repetition algorithm
-    let interval;
-    if (!wasCorrect) {
-      interval = 1; // Review the next day if incorrect
-    } else {
-      // Use a simplified version of SuperMemo-2 algorithm
-      // 1 correct: 1 day, 2 correct: 3 days, 3 correct: 7 days, 4 correct: 14 days, etc.
-      interval = Math.min(30, Math.pow(2, streak - 1));
-    }
+    // Cap level at 15
+    level = Math.min(15, level);
+    
+    // Fibonacci-based intervals (better than exponential for practical purposes)
+    // 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987 days
+    const fibonacci = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987];
+    const intervalDays = wasCorrect ? fibonacci[level] : 1;
     
     // Convert interval (days) to milliseconds and add to last attempt date
-    const dueDate = new Date(lastAttemptDate.getTime() + interval * 24 * 60 * 60 * 1000);
+    const dueDate = new Date(lastAttemptDate.getTime() + intervalDays * 24 * 60 * 60 * 1000);
     return dueDate;
+  };
+
+  // Utility functions for compressed learning state
+  const compressLearningState = (history) => {
+    if (!history || !history.attemptsHistory || history.attemptsHistory.length === 0) {
+      return null;
+    }
+
+    // Sort attempts by timestamp (newest first)
+    const sortedAttempts = [...history.attemptsHistory].sort((a, b) => 
+      new Date(b.timestamp) - new Date(a.timestamp)
+    );
+
+    // Calculate level using SM-2 algorithm
+    let level = 0;
+    let correctStreak = 0;
+    for (let i = 0; i < sortedAttempts.length; i++) {
+      if (sortedAttempts[i].correct) {
+        correctStreak++;
+      } else {
+        break;
+      }
+    }
+    level = Math.min(15, correctStreak);
+
+    // Count correct and incorrect answers
+    const correctCount = sortedAttempts.filter(a => a.correct).length;
+    const incorrectCount = sortedAttempts.filter(a => !a.correct).length;
+
+    // Get the last review timestamp
+    const lastReviewTimestamp = new Date(sortedAttempts[0].timestamp).getTime();
+
+    // Calculate due date based on SM-2 algorithm
+    const dueDate = calculateDueDate(history).getTime();
+
+    // Generate binary history string (1=correct, 0=incorrect), recent first
+    // Limit to last 20 attempts to keep it manageable
+    const binaryHistory = sortedAttempts.slice(0, 20)
+      .map(a => a.correct ? '1' : '0')
+      .join('');
+
+    // Return compressed state
+    return {
+      qid: history.questionId,
+      lvl: level,
+      c: correctCount,
+      i: incorrectCount,
+      lrn: lastReviewTimestamp,
+      due: dueDate,
+      hist: binaryHistory
+    };
+  };
+
+  const expandLearningState = (compressedState) => {
+    if (!compressedState) return null;
+
+    const { qid, hist, lrn } = compressedState;
+    
+    // Convert binary history string to attemptsHistory array
+    const attemptsHistory = [];
+    const baseTime = lrn; // Use the last review time as a base
+    
+    for (let i = 0; i < hist.length; i++) {
+      // Simulate timestamps by going backward in time (newest first)
+      // Each attempt is roughly 1-7 days apart for simplicity
+      const timestamp = new Date(baseTime - (i * 24 * 60 * 60 * 1000));
+      
+      attemptsHistory.push({
+        questionId: qid,
+        timestamp: timestamp.toISOString(),
+        correct: hist[i] === '1'
+      });
+    }
+    
+    return {
+      questionId: qid,
+      attemptsHistory
+    };
   };
 
   return (
@@ -278,6 +367,7 @@ const QuestionScreen = ({
                       className="fill-in-blank"
                       onKeyPress={handleKeyPress}
                       autoComplete="off" // Prevent browser from interfering
+                      ref={inputElementRef}
                     />
                   )}
                 </span>
@@ -366,11 +456,11 @@ const QuestionScreen = ({
                         >
                           <option value="">Select</option>
                           {Array.isArray(currentQuestion.options) ? 
-                            currentQuestion.options.map((option) => (
-                              <option key={option} value={option}>{option}</option>
+                            currentQuestion.options.map((option, index) => (
+                              <option key={`${option}-${index}`} value={option}>{option}</option>
                             )) : 
-                            Object.values(currentQuestion.options || {}).map((option) => (
-                              <option key={option} value={option}>{option}</option>
+                            Object.values(currentQuestion.options || {}).map((option, index) => (
+                              <option key={`${option}-${index}`} value={option}>{option}</option>
                             ))
                           }
                         </select>

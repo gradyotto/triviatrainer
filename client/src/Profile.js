@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import './Profile.css';
 
 const bannedWords = [
@@ -8,7 +8,7 @@ const bannedWords = [
   'nigger', 'fag', 'slut', 'whore', 'prick', 'twat', 'arse', 'jerk', 'crap', 'wank'
 ];
 
-const Profile = ({ user, username: parentUsername, onSignOut }) => {
+const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAdmin, debugSyncStatus }) => {
   const [username, setUsername] = useState(parentUsername || '');
   const [newUsername, setNewUsername] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -27,28 +27,46 @@ const Profile = ({ user, username: parentUsername, onSignOut }) => {
   useEffect(() => {
     const fetchActivityData = async () => {
       try {
-        const attemptsSnapshot = await getDocs(collection(db, `userProgress/${user.uid}/attempts`));
-        const attempts = attemptsSnapshot.docs.map(doc => {
-          const timestamp = doc.data().timestamp;
-          const date = new Date(timestamp);
-          return {
-            timestamp: date.toISOString().split('T')[0]
-          };
-        });
-
-        const today = new Date().toISOString().split('T')[0];
+        // Get activity data from the new compressed format
+        const spacedDoc = await getDoc(doc(db, `users/${user.uid}/data/spaced`));
         const activity = {};
-        attempts.forEach(({ timestamp }) => {
-          if (timestamp <= today) {
-            activity[timestamp] = (activity[timestamp] || 0) + 1;
+        
+        if (spacedDoc.exists()) {
+          const data = spacedDoc.data();
+          const questionStates = data.questionStates || {};
+          
+          // Extract dates from learning data
+          Object.values(questionStates).forEach(state => {
+            if (state.lrn) {
+              const date = new Date(state.lrn).toISOString().split('T')[0];
+              activity[date] = (activity[date] || 0) + 1;
+            }
+          });
+          
+          // Also include sync timestamps for more complete activity data
+          if (data.updates && Array.isArray(data.updates)) {
+            data.updates.forEach(update => {
+              if (update.ts) {
+                const date = new Date(update.ts).toISOString().split('T')[0];
+                activity[date] = (activity[date] || 0) + 1;
+              }
+            });
           }
-        });
+        }
         
         console.log('Activity data:', activity);
         setActivityData(activity);
       } catch (e) {
         console.error('Error fetching activity data:', e);
-        setError('Failed to load activity data');
+        setError('Failed to load activity data. Please try again later.');
+        
+        // Initialize with empty data to prevent crashes
+        setActivityData({});
+        
+        // If it's a permission error, still allow the component to render
+        if (e.code === 'permission-denied') {
+          console.log('Permission denied for activity data - using empty dataset');
+        }
       }
     };
     fetchActivityData();
@@ -230,7 +248,13 @@ const Profile = ({ user, username: parentUsername, onSignOut }) => {
           <p><strong>Stats:</strong> Coming soon! (Questions answered, accuracy, etc.)</p>
         </div>
         {error && <p className="error">{error}</p>}
-        <button onClick={onSignOut} className="sign-out-button">Sign Out</button>
+        <div className="profile-buttons">
+          <button onClick={onSignOut} className="sign-out-button">Sign Out</button>
+          {isAdmin && <button onClick={onAdminClick} className="admin-button">Admin Panel</button>}
+          {process.env.NODE_ENV === 'development' && 
+            <button onClick={debugSyncStatus} className="debug-button">Debug Sync Status</button>
+          }
+        </div>
       </div>
       {getActivityGraph()}
     </div>

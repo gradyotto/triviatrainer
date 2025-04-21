@@ -12,6 +12,21 @@ import ReinforcementTask from './ReinforcementTask';
 import Profile from './Profile';
 import AdminPage from './AdminPage';
 import './App.css';
+import { initSyncSystem, forceSyncWithFirebase, getPendingSyncsCount, recordAnswer } from './utils/syncUtils';
+import { 
+  fetchQuestionsByCategories, 
+  fetchQuestionById, 
+  preloadAllCategories 
+} from './utils/questionService';
+import { 
+  storeLearningState, 
+  getLearningState, 
+  getAllLearningStates,
+  initLearningDB,
+  getDueQuestions,
+  calculateDueCounts
+} from './utils/indexedDB';
+import NetworkStatus from './components/NetworkStatus';
 
 const functions = getFunctions(app);
 
@@ -123,6 +138,15 @@ function App() {
   const [dueQuestions, setDueQuestions] = useState([]);
   const [dueQuestionsByCategory, setDueQuestionsByCategory] = useState({});
   const [categories, setCategories] = useState([]);
+  const [trainingInProgress, setTrainingInProgress] = useState(false);
+  const [currentTrainingState, setCurrentTrainingState] = useState(null);
+  const [screen, setScreen] = useState('home');
+  const [sessionResults, setSessionResults] = useState({
+    totalQuestions: 0,
+    correctAnswers: 0,
+    accuracy: 0,
+    timeSpent: 0
+  });
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -137,184 +161,90 @@ function App() {
     try {
       console.log('Fetching user history for:', uid);
       
-      // Fetch user progress documents
-      const progressQuery = await getDocs(collection(db, `userProgress/${uid}/progress`));
-      const progressDocs = [];
-      progressQuery.forEach(doc => {
-        progressDocs.push({ id: doc.id, ...doc.data() });
-      });
+      // Initialize IndexedDB
+      await initLearningDB();
       
-      // Fetch user attempt documents
-      const attemptsQuery = await getDocs(collection(db, `userProgress/${uid}/attempts`));
-      const attemptDocs = [];
-      attemptsQuery.forEach(doc => {
-        attemptDocs.push({ id: doc.id, ...doc.data() });
-      });
+      // Get the compressed learning state from Firestore
+      const spacedDoc = await getDoc(doc(db, `users/${uid}/data/spaced`));
+      const compressedStates = spacedDoc.exists() ? (spacedDoc.data().questionStates || {}) : {};
+      console.log('Using compressed learning state format:', Object.keys(compressedStates).length, 'questions');
       
-      console.log(`Fetched ${progressDocs.length} progress docs and ${attemptDocs.length} attempt docs`);
-      
-      // Process attempts by progressId
-      const attemptsByProgressId = {};
-      attemptDocs.forEach(attempt => {
-        if (!attemptsByProgressId[attempt.progressId]) {
-          attemptsByProgressId[attempt.progressId] = [];
-        }
-        attemptsByProgressId[attempt.progressId].push(attempt);
-      });
-      
-      // Build history object
+      // Convert compressed states to the format expected by the application
       const history = {};
-      progressDocs.forEach(progress => {
-        const attempts = attemptsByProgressId[progress.progressId] || [];
-        history[progress.questionId] = {
-          firstSeen: progress.firstSeen,
-          lastSeen: progress.lastSeen,
-          attemptsHistory: attempts.map(attempt => ({
-            timestamp: attempt.timestamp,
-            correct: attempt.correct,
-            timeSpent: attempt.timeSpent || 0
-          }))
+      
+      Object.entries(compressedStates).forEach(([questionId, state]) => {
+        // Create attemptsHistory array from binary history string
+        const attemptsHistory = [];
+        const binaryHistory = state.hist || '';
+        const lastReviewTime = state.lrn || Date.now();
+        
+        // Convert binary history to attempt objects
+        for (let i = 0; i < binaryHistory.length; i++) {
+          // Simulate timestamps by going backward in time (newest first)
+          // Each attempt is roughly 1-7 days apart for simplicity
+          const timestamp = new Date(lastReviewTime - (i * 24 * 60 * 60 * 1000));
+          
+          attemptsHistory.push({
+            questionId,
+            timestamp: timestamp.toISOString(),
+            correct: binaryHistory[i] === '1',
+            timeSpent: 0 // We don't have this info in compressed format
+          });
+        }
+        
+        history[questionId] = {
+          questionId,
+          firstSeen: new Date(state.lrn - 30 * 24 * 60 * 60 * 1000).toISOString(), // Estimate
+          lastSeen: new Date(state.lrn).toISOString(),
+          attemptsHistory
         };
       });
-      
-      console.log('User history loaded:', Object.keys(history).length, 'questions with history');
+
+      console.log('Converted compressed states to history format:', Object.keys(history).length, 'questions');
       setUserHistory(history);
+      
+      // Initialize the sync system
+      initSyncSystem(uid, db);
       
       // Pre-calculate due questions and priorities on load
       if (spacedRepetitionEnabled) {
-        const due = [];
-        const priorities = {};
+        // Calculate due counts from IndexedDB
+        const dueCounts = await calculateDueCounts();
+        console.log('Due counts from IndexedDB:', dueCounts);
         
-        // Default hardcoded categories to use as fallback
-        const defaultCategories = [
-          { id: 'History', name: 'History' },
-          { id: 'Science', name: 'Science' },
-          { id: 'Literature', name: 'Literature' },
-          { id: 'Geography', name: 'Geography' },
-          { id: 'Sports', name: 'Sports' },
-          { id: 'Entertainment', name: 'Entertainment' },
-          { id: 'Art', name: 'Art' },
-          { id: 'Pop Culture', name: 'Pop Culture' },
-          { id: 'General Knowledge', name: 'General Knowledge' }
-        ];
+        // Get due questions from IndexedDB
+        const due = await getDueQuestions();
+        console.log('Due questions from IndexedDB:', due.length);
         
-        // Initialize dueByCategory with default categories
+        // Update state with due questions
+        const dueQuestionIds = due.map(q => q.qid);
+        setDueQuestions(dueQuestionIds);
+        
+        // Group due questions by category
         const dueByCategory = {};
-        defaultCategories.forEach(category => {
-          dueByCategory[category.id] = [];
+        due.forEach(q => {
+          const category = q.category;
+          if (category) {
+            if (!dueByCategory[category]) {
+              dueByCategory[category] = [];
+            }
+            dueByCategory[category].push(q.qid);
+          }
         });
         
-        // First, consider all questions with history as potentially due
-        // We'll process each history entry to determine due status
-        console.log(`Processing ${Object.keys(history).length} history entries for due calculation`);
+        setDueQuestionsByCategory(dueByCategory);
+        console.log('Due questions by category:', dueByCategory);
         
-        try {
-          // Fetch ALL questions to better match history with categories
-          console.log('Fetching all questions to match with history');
-          let allQuestions;
-          
-          try {
-            // Try to fetch questions from Firestore
-            const allQuestionsSnapshot = await getDocs(collection(db, 'questions'));
-            allQuestions = [];
-            allQuestionsSnapshot.forEach(doc => {
-              allQuestions.push({ id: doc.id, ...doc.data() });
-            });
-            console.log(`Fetched ${allQuestions.length} questions from Firestore`);
-          } catch (err) {
-            console.error('Error fetching questions from Firestore:', err);
-            console.log('Falling back to cached questions');
-            // Try to get from cache
-            const cachedQuestions = localStorage.getItem('all_questions_cache');
-            if (cachedQuestions) {
-              allQuestions = JSON.parse(cachedQuestions);
-              console.log(`Using ${allQuestions.length} questions from cache`);
-            } else {
-              allQuestions = [];
-              console.log('No cached questions available');
-            }
-          }
-          
-          // Create a map of question IDs to categories for faster lookups
-          const questionCategories = {};
-          allQuestions.forEach(question => {
-            if (question.id && question.category) {
-              questionCategories[question.id] = question.category;
-            }
-          });
-          
-          // Calculate due status for each question in history
-          Object.keys(history).forEach(questionId => {
-            const questionHistory = history[questionId];
-            
-            // Calculate priority for this question
-            const priority = calculateQuestionPriority(questionHistory);
-            priorities[questionId] = priority;
-            
-            // Determine if it's due based on calculateDueDate
-            const dueDate = calculateDueDate(questionHistory);
-            const isDue = new Date() >= dueDate;
-            
-            // If we have a high priority (over 60) or it's due, add to due list
-            const isHighPriority = priority >= 60;
-            if (isDue || isHighPriority) {
-              due.push(questionId);
-              console.log(`Question ${questionId} is due (priority: ${priority})`);
-              
-              // Look up the category from our question map
-              const category = questionCategories[questionId];
-              
-              // If we found a category and it's in our default list, add the question to that category
-              if (category && defaultCategories.some(c => c.id === category)) {
-                if (!dueByCategory[category]) {
-                  dueByCategory[category] = [];
-                }
-                dueByCategory[category].push(questionId);
-                console.log(`Added question ${questionId} to ${category} due list`);
-              } else {
-                // For questions without a known category, try to guess based on patterns in the ID
-                const possibleCategory = guessCategory(questionId, defaultCategories.map(c => c.id));
-                if (possibleCategory) {
-                  if (!dueByCategory[possibleCategory]) {
-                    dueByCategory[possibleCategory] = [];
-                  }
-                  dueByCategory[possibleCategory].push(questionId);
-                  console.log(`Added question ${questionId} to ${possibleCategory} due list (guessed)`);
-                }
-              }
-            }
-          });
-          
-          // Set state with our calculated values
-          setDueQuestions(due);
-          setQuestionPriorities(priorities);
-          setDueQuestionsByCategory(dueByCategory);
-          
-          // Log the results
-          console.log('Pre-calculated:', due.length, 'due questions');
-          console.log('Due by category:', dueByCategory);
-          Object.keys(dueByCategory).forEach(category => {
-            console.log(`Category ${category}: ${dueByCategory[category]?.length || 0} due questions`);
-          });
-          
-          // Helper function to guess category from question ID
-          function guessCategory(questionId, categories) {
-            for (const category of categories) {
-              if (questionId.toLowerCase().includes(category.toLowerCase())) {
-                return category;
-              }
-            }
-            return null;
-          }
-        } catch (err) {
-          console.error('Error pre-calculating due questions:', err);
-        }
+        // Calculate priorities for all questions
+        const priorities = {};
+        due.forEach(q => {
+          priorities[q.qid] = calculateQuestionPriority(history[q.qid]);
+        });
+        
+        setQuestionPriorities(priorities);
       }
-      
-      return history;
-    } catch (err) {
-      console.error('Error fetching user history:', err);
-      return {};
+    } catch (e) {
+      console.error('Error fetching user history:', e);
     }
   };
 
@@ -641,6 +571,37 @@ function App() {
       animationFrameRef.current = null;
     }
     
+    // Force sync any pending changes to Firestore, but only if online
+    if (user && navigator.onLine) {
+      getPendingSyncsCount().then(count => {
+        if (count > 0) {
+          console.log(`Syncing ${count} pending changes before ending session...`);
+          // Create a toast or notification that syncing is happening
+          forceSyncWithFirebase(user.uid, db).then(() => {
+            console.log('Session end sync completed successfully');
+          }).catch(error => {
+            console.error('Error syncing at session end:', error);
+          });
+        }
+      });
+    } else if (user && !navigator.onLine) {
+      console.log('Currently offline - changes will sync when connection is restored');
+      // You could add a toast notification here about offline mode
+    }
+    
+    // Calculate session statistics
+    const totalAnswered = currentTrainingState?.questionsAnswered || 0;
+    const correctAnswers = currentTrainingState?.correctAnswers || 0;
+    const accuracyPercent = totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0;
+    
+    // Update the session results for the modal
+    setSessionResults({
+      totalQuestions: totalAnswered,
+      correctAnswers: correctAnswers,
+      accuracy: accuracyPercent,
+      timeSpent: sessionDuration - (timeRemaining || 0)
+    });
+    
     // Show completion modal instead of alert
     setShowCompletionModal(true);
     
@@ -771,218 +732,71 @@ function App() {
     try {
       // If spaced repetition is disabled, use the original approach
       if (!spacedRepetitionEnabled || !user) {
-        // Original cache and API approach for non-spaced repetition mode
-        const cacheKey = `questions_${categories.join(',')}`;
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const fetchedQuestions = JSON.parse(cached);
-          console.log('Loaded from cache:', fetchedQuestions);
-          setQuestions(fetchedQuestions);
-          setError(null);
-          setLoading(false);
-          return;
-        }
-    
-        const getQuestions = httpsCallable(functions, 'getQuestions');
-        const result = await getQuestions({ categories, maxQuestions: 200 });
-        const fetchedQuestions = result.data.data;
-        console.log('Received questions from cloud function:', fetchedQuestions);
-    
+        // Use the new question service
+        const fetchedQuestions = await fetchQuestionsByCategories(categories, db);
+        
         if (!Array.isArray(fetchedQuestions) || fetchedQuestions.length === 0) {
           console.log('No questions found for categories:', categories);
           setError('No questions available for selected categories.');
           setQuestions([]);
-          return;
-        }
-    
-        localStorage.setItem(cacheKey, JSON.stringify(fetchedQuestions));
-        
-        // Also cache all questions for due calculations
-        cacheAllQuestions(fetchedQuestions);
-        
+        return;
+      }
+  
         setQuestions(fetchedQuestions);
         setError(null);
       } else {
         // Enhanced approach with spaced repetition
         console.log('Using spaced repetition algorithm to fetch questions');
         
-        // Fetch all questions for selected categories first
-        const getQuestions = httpsCallable(functions, 'getQuestions');
-        const result = await getQuestions({ categories, maxQuestions: 400 });
-        const allCategoryQuestions = result.data.data;
+        // Get due questions from IndexedDB first
+        const dueQuestionsData = await getDueQuestions(categories);
+        const dueQuestionIds = dueQuestionsData.map(q => q.qid);
         
-        if (!Array.isArray(allCategoryQuestions) || allCategoryQuestions.length === 0) {
-          console.log('No questions found for categories:', categories);
-          setError('No questions available for selected categories.');
-          setQuestions([]);
-          return;
+        // Fetch questions for the due question IDs and regular questions
+        const allQuestions = await fetchQuestionsByCategories(categories, db);
+        
+        if (!Array.isArray(allQuestions) || allQuestions.length === 0) {
+        console.log('No questions found for categories:', categories);
+        setError('No questions available for selected categories.');
+        setQuestions([]);
+        return;
+      }
+  
+        // Separate due and non-due questions
+        const dueQuestions = allQuestions.filter(q => dueQuestionIds.includes(q.id));
+        const nonDueQuestions = allQuestions.filter(q => !dueQuestionIds.includes(q.id));
+        
+        // Create a combined list with due questions first
+        const combinedQuestions = [...dueQuestions];
+        
+        // Fill up to the max with non-due questions if needed
+        const maxQuestions = 100;
+        const remainingSlots = maxQuestions - dueQuestions.length;
+        
+        if (remainingSlots > 0 && nonDueQuestions.length > 0) {
+          // Randomly select non-due questions
+          const shuffledNonDue = [...nonDueQuestions].sort(() => 0.5 - Math.random());
+          const selectedNonDue = shuffledNonDue.slice(0, remainingSlots);
+          combinedQuestions.push(...selectedNonDue);
         }
         
-        // Cache all questions for due calculations
-        cacheAllQuestions(allCategoryQuestions);
-        
-        // Group questions by category
-        const questionsByCategory = {};
-        categories.forEach(category => {
-          questionsByCategory[category] = allCategoryQuestions.filter(q => q.category === category);
-        });
-        
-        // Calculate priorities for all questions based on user history
-        const priorities = {};
-        const due = [];
+        // For logging
         const dueByCategory = {};
-        
-        // Initialize dueByCategory with empty arrays for each selected category
-        categories.forEach(cat => {
-          dueByCategory[cat] = [];
+        categories.forEach(category => {
+          dueByCategory[category] = dueQuestions.filter(q => q.category === category).length;
         });
         
-        allCategoryQuestions.forEach(question => {
-          const questionHistory = userHistory[question.id];
-          const priority = calculateQuestionPriority(questionHistory);
-          priorities[question.id] = priority;
-          
-          // Determine if it's due
-          const isDue = questionHistory 
-            ? new Date() >= calculateDueDate(questionHistory) 
-            : true; // New questions are always due
-            
-          if (isDue) {
-            due.push(question.id);
-            
-            // Add to dueByCategory if this question belongs to a selected category
-            if (question.category && categories.includes(question.category)) {
-              dueByCategory[question.category].push(question.id);
-            }
-          }
-        });
-        
-        // Calculate how many questions to select from each category
-        const maxQuestionsTotal = 200;
-        const questionsPerCategory = Math.floor(maxQuestionsTotal / categories.length);
-        
-        // Select questions from each category
-        let selectedQuestions = [];
-        
-        for (const category of categories) {
-          const categoryQuestions = questionsByCategory[category] || [];
-          
-          if (categoryQuestions.length === 0) continue;
-          
-          // Sort questions in this category by priority
-          const sortedCategoryQuestions = [...categoryQuestions].sort((a, b) => {
-            return priorities[b.id] - priorities[a.id];
-          });
-          
-          // Calculate how many due questions to include for this category
-          const dueCategoryQuestions = sortedCategoryQuestions.filter(q => due.includes(q.id));
-          const numDueToInclude = Math.min(
-            dueCategoryQuestions.length, 
-            Math.ceil(questionsPerCategory * 0.75)
-          );
-          
-          // Calculate how many non-due questions to include
-          const numOthersToInclude = Math.min(
-            sortedCategoryQuestions.length - numDueToInclude,
-            questionsPerCategory - numDueToInclude
-          );
-          
-          // Select due questions for this category
-          const selectedDueQuestions = dueCategoryQuestions.slice(0, numDueToInclude);
-          
-          // Select non-due questions for this category
-          const nonDueCategoryQuestions = sortedCategoryQuestions.filter(q => !due.includes(q.id));
-          const selectedNonDueQuestions = nonDueCategoryQuestions.slice(0, numOthersToInclude);
-          
-          // Add selected questions from this category
-          selectedQuestions = [
-            ...selectedQuestions,
-            ...selectedDueQuestions,
-            ...selectedNonDueQuestions
-          ];
-          
-          console.log(`Selected ${selectedDueQuestions.length} due and ${selectedNonDueQuestions.length} non-due questions from ${category}`);
-        }
-        
-        // If we couldn't get enough questions per category, add more from any category
-        if (selectedQuestions.length < maxQuestionsTotal && allCategoryQuestions.length > selectedQuestions.length) {
-          const remainingQuestions = allCategoryQuestions.filter(
-            q => !selectedQuestions.some(sq => sq.id === q.id)
-          );
-          
-          // Sort by priority
-          const sortedRemaining = [...remainingQuestions].sort((a, b) => {
-            return priorities[b.id] - priorities[a.id];
-          });
-          
-          // Add up to the max
-          const additionalNeeded = maxQuestionsTotal - selectedQuestions.length;
-          const additionalQuestions = sortedRemaining.slice(0, additionalNeeded);
-          
-          selectedQuestions = [...selectedQuestions, ...additionalQuestions];
-          console.log(`Added ${additionalQuestions.length} additional questions to reach target count`);
-        }
-        
-        // Shuffle the questions to prevent predictable ordering
-        const shuffledQuestions = selectedQuestions.sort(() => Math.random() - 0.5);
-        
-        console.log(`Selected ${shuffledQuestions.length} questions total from ${categories.length} categories`);
+        console.log(`Selected ${dueQuestions.length} due and ${combinedQuestions.length - dueQuestions.length} non-due questions from ${categories.join(', ')}`);
         console.log('Due questions by category:', dueByCategory);
         
-        // Store priorities and due states for potential UI features
-        setQuestionPriorities(priorities);
-        setDueQuestions(due);
-        setDueQuestionsByCategory(dueByCategory);
-        
-        // Set the questions in state
-        setQuestions(shuffledQuestions);
-        setError(null);
+        setQuestions(combinedQuestions);
+      setError(null);
       }
-    } catch (err) {
-      console.error('Error fetching questions:', err);
+    } catch (e) {
+      console.error('Error fetching questions:', e);
       setError('Failed to fetch questions. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Helper function to cache questions for future due calculations
-  const cacheAllQuestions = (questions) => {
-    if (!Array.isArray(questions) || questions.length === 0) return;
-    
-    try {
-      // Get existing cache
-      const existingCache = localStorage.getItem('all_questions_cache');
-      let allQuestions = [];
-      
-      if (existingCache) {
-        try {
-          allQuestions = JSON.parse(existingCache);
-        } catch (err) {
-          console.error('Error parsing existing questions cache:', err);
-          allQuestions = [];
-        }
-      }
-      
-      // Create a map of existing questions by ID
-      const existingQuestionsMap = {};
-      allQuestions.forEach(q => {
-        if (q && q.id) {
-          existingQuestionsMap[q.id] = true;
-        }
-      });
-      
-      // Add new questions to the cache if they don't already exist
-      const newQuestions = questions.filter(q => q && q.id && !existingQuestionsMap[q.id]);
-      
-      if (newQuestions.length > 0) {
-        console.log(`Adding ${newQuestions.length} new questions to cache`);
-        const updatedCache = [...allQuestions, ...newQuestions];
-        localStorage.setItem('all_questions_cache', JSON.stringify(updatedCache));
-        console.log(`Cache now contains ${updatedCache.length} questions`);
-      }
-    } catch (err) {
-      console.error('Error caching questions:', err);
     }
   };
 
@@ -1271,7 +1085,7 @@ function App() {
             if (cachedQuestions) {
               allQuestions = JSON.parse(cachedQuestions);
               console.log(`Using ${allQuestions.length} questions from cache`);
-            } else {
+    } else {
               allQuestions = [];
               console.log('No cached questions available');
             }
@@ -1372,46 +1186,64 @@ function App() {
     }
   }, []);
 
-  const handleStartTraining = (duration) => {
-    if (selectedCategories.length > 0) {
-      // Special case for the 5-second test timer (0.08 minutes)
-      const durationInSeconds = duration === 0.08 
-        ? 5  // 5 seconds for testing
-        : duration * 60;  // Regular conversion from minutes to seconds
-        
-      // Clear any existing animation frame timer
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      
-      // Store the session duration in state (used for other UI elements)
-      setSessionDuration(durationInSeconds);
-      
-      // Initialize with full duration (only used for initial state, not for updates)
-      setTimeRemaining(durationInSeconds);
-      
-      // Reset all question-related state before starting a new session
-      setSelectedAnswer(null);
-      setAnswered(false);
-      setUserInput('');
-      setFeedback('');
-      setHint('');
-      setExplanation('');
-      setAttempts(0);
-      setMatchingAnswers({});
-      setMatchingCorrect({});
-      setShowReinforcement(false);
-      setReinforcementInput('');
-      
-      // Start the vanilla JS timer which bypasses React rendering
-      startVanillaTimer(durationInSeconds);
-      
-      // Fetch questions
-      fetchQuestions(selectedCategories);
-    } else {
-      setError('Pick at least one category to start training!');
+  const handleStartTraining = () => {
+    if (selectedCategories.length === 0) {
+      setError("Please select at least one category");
+      return;
     }
+    
+    // Convert the selected duration from minutes to seconds
+    let durationInSeconds;
+    
+    // Check if this is the test timer (5 seconds)
+    if (selectedDuration === 0.08) {
+      durationInSeconds = 5; // 5 seconds for testing
+    } else {
+      durationInSeconds = selectedDuration * 60; // Normal conversion from minutes to seconds
+    }
+    
+    setSessionDuration(durationInSeconds);
+    
+    // Set training flags
+    setTrainingInProgress(true);
+    
+    // Check if we're in offline mode
+    const isOffline = !navigator.onLine;
+    console.log(`Network status: ${isOffline ? 'Offline' : 'Online'}`);
+    
+    // Set up the session
+    setCurrentTrainingState({
+      startTime: new Date(),
+      duration: durationInSeconds,
+      categories: selectedCategories,
+      questionsAnswered: 0,
+      correctAnswers: 0,
+      currentQuestionIndex: 0,
+      isOffline: isOffline
+    });
+    
+    // Load questions either from cache or Firestore based on network status
+    fetchQuestionsByCategories(selectedCategories, 30, true)
+      .then(questions => {
+        if (questions.length === 0) {
+          setError('No questions available for the selected categories. Please try different categories or check your internet connection.');
+          setTrainingInProgress(false);
+          return;
+        }
+        
+        setQuestions(questions);
+        setScreen('question');
+        
+        // Start preloading more questions in the background for better experience
+        if (navigator.onLine) {
+          preloadAllCategories(selectedCategories);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching questions:', error);
+        setError('Failed to load questions. Please try again.');
+        setTrainingInProgress(false);
+      });
   };
 
   useEffect(() => {
@@ -1590,39 +1422,30 @@ function App() {
     setUserHistory(updatedHistory);
 
     try {
-      const progressQuery = await getDocs(collection(db, `userProgress/${user.uid}/progress`));
-      let progressId = null;
-      progressQuery.forEach(doc => {
-        if (doc.data().questionId === questionId) {
-          progressId = doc.data().progressId;
-        }
-      });
-
-      if (!progressId) {
-        const progressDoc = await addDoc(collection(db, `userProgress/${user.uid}/progress`), {
-          progressId: Date.now(),
-          questionId,
-          firstSeen: currentHistory.firstSeen,
-          lastSeen: now
-        });
-        progressId = (await getDoc(progressDoc)).data().progressId;
-      } else {
-        await setDoc(doc(db, `userProgress/${user.uid}/progress`, String(progressId)), {
-          progressId,
-          questionId,
-          firstSeen: currentHistory.firstSeen,
-          lastSeen: now
-        });
+      // Get the current question's category
+      const currentQuestion = questions.find(q => q.id === questionId);
+      const category = currentQuestion ? currentQuestion.category : null;
+      
+      // Record the answer for batch syncing, using our optimized approach
+      // This adds to queue for later syncing and updates IndexedDB locally
+      await recordAnswer(questionId, isCorrect, user.uid, db, false, category);
+      
+      console.log(`Answer recorded locally: Question ${questionId}, Result: ${isCorrect ? 'Correct' : 'Incorrect'}`);
+      
+      // Determine if we should initiate a sync now (end of session)
+      const isSessionEnding = sessionExpired || (currentQuestionIndex === questions.length - 1);
+      if (isSessionEnding && navigator.onLine) {
+        console.log('End of session or last question - initiating sync');
+        // Background this operation so it doesn't block UI
+        setTimeout(() => {
+          forceSyncWithFirebase(user.uid, db).then(() => {
+            console.log('Session-end sync completed');
+          }).catch(err => {
+            console.error('Session-end sync failed:', err);
+          });
+        }, 0);
       }
-
-      await addDoc(collection(db, `userProgress/${user.uid}/attempts`), {
-        attemptId: Date.now(),
-        progressId,
-        timestamp: now,
-        correct: isCorrect,
-        timeSpent
-      });
-
+      
       // Update question priorities after submission
       if (spacedRepetitionEnabled) {
         const updatedPriorities = { ...questionPriorities };
@@ -1630,61 +1453,54 @@ function App() {
         setQuestionPriorities(updatedPriorities);
         
         try {
-          // Find the question to get its category
-          const questionSnapshot = await getDoc(doc(db, 'questions', questionId));
-          if (questionSnapshot.exists()) {
-            const question = questionSnapshot.data();
-            const category = question.category;
+          // Get the category from the current question in memory instead of Firestore
+          if (currentQuestion && currentQuestion.category) {
+            const category = currentQuestion.category;
             
-            if (category) {
-              // Recalculate due date
-              const newDueDate = calculateDueDate(updatedHistory[questionId]);
-              const isDue = new Date() >= newDueDate;
+            // Recalculate due date
+            const newDueDate = calculateDueDate(updatedHistory[questionId]);
+            const isDue = new Date() >= newDueDate;
+            
+            // Update due questions list
+            let newDueQuestions = [...dueQuestions];
+            let newDueByCategory = { ...dueQuestionsByCategory };
+            
+            if (isDue && !dueQuestions.includes(questionId)) {
+              // Add to due lists
+              newDueQuestions.push(questionId);
               
-              // Update due questions list
-              let newDueQuestions = [...dueQuestions];
-              let newDueByCategory = { ...dueQuestionsByCategory };
+              // Make sure the category exists in dueByCategory
+              if (!newDueByCategory[category]) {
+                newDueByCategory[category] = [];
+              }
               
-              if (isDue && !dueQuestions.includes(questionId)) {
-                // Add to due lists
-                newDueQuestions.push(questionId);
-                
-                // Make sure the category exists in dueByCategory
-                if (!newDueByCategory[category]) {
-                  newDueByCategory[category] = [];
-                }
-                
-                if (!newDueByCategory[category].includes(questionId)) {
-                  newDueByCategory[category] = [...newDueByCategory[category], questionId];
-                }
-                
-                setDueQuestions(newDueQuestions);
-                setDueQuestionsByCategory(newDueByCategory);
-                
-                console.log(`Added question ${questionId} to ${category} due list (total: ${newDueByCategory[category].length})`);
-              } else if (!isDue && dueQuestions.includes(questionId)) {
-                // Remove from due lists
-                newDueQuestions = newDueQuestions.filter(id => id !== questionId);
-                
-                if (newDueByCategory[category]) {
-                  newDueByCategory[category] = newDueByCategory[category].filter(id => id !== questionId);
-                }
-                
-                setDueQuestions(newDueQuestions);
-                setDueQuestionsByCategory(newDueByCategory);
-                
-                console.log(`Removed question ${questionId} from ${category} due list (remaining: ${newDueByCategory[category]?.length || 0})`);
+              if (!newDueByCategory[category].includes(questionId)) {
+                newDueByCategory[category] = [...newDueByCategory[category], questionId];
+              }
+            } else if (!isDue && dueQuestions.includes(questionId)) {
+              // Remove from due lists
+              newDueQuestions = newDueQuestions.filter(id => id !== questionId);
+              
+              if (newDueByCategory[category]) {
+                newDueByCategory[category] = newDueByCategory[category].filter(id => id !== questionId);
               }
             }
+            
+            setDueQuestions(newDueQuestions);
+            setDueQuestionsByCategory(newDueByCategory);
           }
-        } catch (err) {
-          console.error('Error updating due status for question:', err);
+        } catch (error) {
+          console.error('Error updating due questions after submission:', error);
         }
       }
-
-      console.log(`History updated for q${questionId} with timeSpent: ${timeSpent}s`);
-    } catch (e) {
-      console.error('Error updating history:', e);
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
+    
+    // If we're in offline mode, show a toast or notification
+    if (!navigator.onLine) {
+      console.log('Answer recorded offline - will sync when back online');
+      // You could add a toast notification here
     }
   };
 
@@ -1769,28 +1585,33 @@ function App() {
       animationFrameRef.current = null;
     }
     
-    // Reset all state
-    setQuestions([]);
+    // Force sync any pending changes to Firestore
+    if (user && getPendingSyncsCount() > 0) {
+      console.log('Syncing pending changes before abandoning session...');
+      forceSyncWithFirebase(user.uid, db);
+    }
+    
+    // Reset session states
     setCurrentQuestionIndex(0);
     setScore(0);
+    setQuestions([]);
+    setSelectedCategories([]);
+    setSessionDuration(null);
+    setTimeRemaining(null);
+    setSessionExpired(false);
     setSelectedAnswer(null);
     setAnswered(false);
     setUserInput('');
     setFeedback('');
     setHint('');
-    setExplanation('');  // Make sure explanation is cleared
+    setExplanation('');
     setAttempts(0);
     setMatchingAnswers({});
     setMatchingCorrect({});
     setShowReinforcement(false);
     setReinforcementInput('');
-    setSelectedCategories([]);
-    setSessionDuration(null);
-    setTimeRemaining(null);
-    setSessionExpired(false);
-    setMode('training');
-    // Don't show completion modal when abandoning
-    setShowCompletionModal(false);
+    
+    setMode(null);
   };
 
   const handleResendVerificationEmail = async () => {
@@ -1898,82 +1719,67 @@ function App() {
 
   // Add an effect to fetch categories when the app loads
   useEffect(() => {
-    // Default hardcoded categories to use as fallback
-    const defaultCategories = [
-      { id: 'History', name: 'History' },
-      { id: 'Science', name: 'Science' },
-      { id: 'Literature', name: 'Literature' },
-      { id: 'Geography', name: 'Geography' },
-      { id: 'Sports', name: 'Sports' },
-      { id: 'Entertainment', name: 'Entertainment' },
-      { id: 'Art', name: 'Art' },
-      { id: 'Pop Culture', name: 'Pop Culture' },
-      { id: 'General Knowledge', name: 'General Knowledge' }
-    ];
-    
     const fetchCategories = async () => {
       try {
-        // Try to get categories from Firestore
+        console.log('Fetching categories from Firestore...');
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
         const categoriesData = [];
         categoriesSnapshot.forEach(doc => {
-          categoriesData.push({ id: doc.id, ...doc.data() });
+          categoriesData.push({ id: doc.id, name: doc.data().name });
         });
         
-        // If we got categories from Firestore, use them
-        if (categoriesData.length > 0) {
-          console.log('Using categories from Firestore:', categoriesData);
-          setCategories(categoriesData);
+        console.log('Retrieved categories:', categoriesData);
+        
+        if (categoriesData.length === 0) {
+          console.log('No categories found in Firestore, using fallback categories');
+          // Use fallback categories if none found in Firestore
+          const fallbackCategories = [
+            { id: 'History', name: 'History' },
+            { id: 'Science', name: 'Science' },
+            { id: 'Literature', name: 'Literature' },
+            { id: 'Geography', name: 'Geography' },
+            { id: 'Sports', name: 'Sports' },
+            { id: 'Entertainment', name: 'Entertainment' },
+            { id: 'Art', name: 'Art' },
+            { id: 'Pop Culture', name: 'Pop Culture' },
+            { id: 'General Knowledge', name: 'General Knowledge' }
+          ];
+          setCategories(fallbackCategories);
         } else {
-          // If the collection exists but has no documents, try to populate it
-          console.log('No categories found in Firestore, attempting to create them');
-          try {
-            if (user && isAdmin) {
-              // First, check if the current user is an admin before trying to add categories
-              console.log('Attempting to create default categories in Firestore');
-              
-              // Create the categories in Firestore
-              for (const category of defaultCategories) {
-                await setDoc(doc(db, 'categories', category.id), {
-                  name: category.name,
-                  createdAt: new Date().toISOString()
-                });
-                console.log(`Created category: ${category.name}`);
-              }
-              
-              // Now try fetching again
-              const newCategoriesSnapshot = await getDocs(collection(db, 'categories'));
-              const newCategoriesData = [];
-              newCategoriesSnapshot.forEach(doc => {
-                newCategoriesData.push({ id: doc.id, ...doc.data() });
-              });
-              
-              if (newCategoriesData.length > 0) {
-                console.log('Successfully created and fetched categories:', newCategoriesData);
-                setCategories(newCategoriesData);
-                return;
-              }
-            } else {
-              console.log('User is not an admin, using default categories instead');
-            }
-          } catch (createErr) {
-            console.error('Error creating categories:', createErr);
-          }
-          
-          // Fall back to default categories if creation failed
-          console.log('Using default categories');
-          setCategories(defaultCategories);
+          setCategories(categoriesData);
         }
-      } catch (err) {
-        console.error('Error fetching categories:', err);
-        // On error, fall back to hardcoded categories
-        console.log('Error fetching categories from Firestore, using default categories');
-        setCategories(defaultCategories);
+        
+        // Preload all categories in the background if we have a user
+        if (user && navigator.onLine) {
+          try {
+            console.log('Preloading questions for categories...');
+            const categoryIds = categoriesData.map(cat => cat.id);
+            preloadAllCategories(categoryIds);
+          } catch (preloadError) {
+            console.error('Error preloading categories:', preloadError);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        
+        // Use fallback categories if there's an error
+        const fallbackCategories = [
+          { id: 'History', name: 'History' },
+          { id: 'Science', name: 'Science' },
+          { id: 'Literature', name: 'Literature' },
+          { id: 'Geography', name: 'Geography' },
+          { id: 'Sports', name: 'Sports' },
+          { id: 'Entertainment', name: 'Entertainment' },
+          { id: 'Art', name: 'Art' },
+          { id: 'Pop Culture', name: 'Pop Culture' },
+          { id: 'General Knowledge', name: 'General Knowledge' }
+        ];
+        setCategories(fallbackCategories);
       }
     };
     
     fetchCategories();
-  }, [user, isAdmin]);
+  }, [user, db]);
 
   // Add an effect to log category information when it changes
   useEffect(() => {
@@ -2000,6 +1806,180 @@ function App() {
       console.warn('Mismatched categories between categories and dueByCategory:', mismatchedCategories);
     }
   }, [categories, dueQuestionsByCategory, dueQuestions]);
+
+  // Debug function to test sync functionality
+  const debugSyncStatus = async () => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    console.log('-------- SYNC DEBUG INFO --------');
+    console.log('Pending syncs:', getPendingSyncsCount());
+    
+    try {
+      // Get compressed learning state from Firestore
+      const spacedDoc = await getDoc(doc(db, `users/${user.uid}/data/spaced`));
+      if (spacedDoc.exists()) {
+        const data = spacedDoc.data();
+        const questionStates = data.questionStates || {};
+        console.log('Stored question states:', Object.keys(questionStates).length);
+        
+        // Show example of compressed state if available
+        if (Object.keys(questionStates).length > 0) {
+          const exampleKey = Object.keys(questionStates)[0];
+          console.log('Example compressed state:');
+          console.log(questionStates[exampleKey]);
+          
+          // Calculate next review date
+          const nextReview = new Date(questionStates[exampleKey].due);
+          console.log('Next review date:', nextReview.toLocaleString());
+        }
+        
+        // Show last sync time
+        if (data.syncTime) {
+          console.log('Last sync time:', new Date(data.syncTime).toLocaleString());
+        }
+      } else {
+        console.log('No spaced repetition data found');
+      }
+    } catch (error) {
+      console.error('Error accessing spaced repetition data:', error);
+    }
+    console.log('-------------------------------');
+  };
+
+  // Call debug function on component mount if in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && user) {
+      // Wait a bit for user data to load
+      const timer = setTimeout(() => {
+        console.log('Running sync debug...');
+        debugSyncStatus();
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  // Function to load due questions for review
+  const loadDueQuestionsForReview = async () => {
+    if (!user) {
+      setError('You must be logged in to review questions');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Get questions that are due for review from IndexedDB
+      const dueQuestions = await getDueQuestions();
+      
+      if (dueQuestions.length === 0) {
+        setError('No questions are due for review at this time.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log(`Found ${dueQuestions.length} questions due for review`);
+      
+      // Fetch the full question details for each due question
+      const questionPromises = dueQuestions.map(dueItem => 
+        fetchQuestionById(dueItem.questionId)
+      );
+      
+      // Wait for all questions to be fetched
+      const fetchedQuestions = await Promise.all(questionPromises);
+      
+      // Filter out any null results (questions that couldn't be fetched)
+      const validQuestions = fetchedQuestions.filter(q => q !== null);
+      
+      if (validQuestions.length === 0) {
+        setError('Could not load any review questions. Please try again later.');
+        setLoading(false);
+        return;
+      }
+      
+      // Start a review session with these questions
+      setQuestions(validQuestions);
+      setCurrentTrainingState({
+        startTime: new Date(),
+        duration: 1800, // 30 minutes for review sessions
+        isReviewMode: true,
+        questionsAnswered: 0,
+        correctAnswers: 0,
+        currentQuestionIndex: 0
+      });
+      
+      setTrainingInProgress(true);
+      setScreen('question');
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading review questions:', error);
+      setError('Failed to load review questions. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  // Setup and handle background sync during idle time
+  useEffect(() => {
+    // Only set up idle sync if user is logged in
+    if (!user || !db) return;
+    
+    // Function to request background sync when browser is idle
+    const requestIdleSync = () => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(async () => {
+          // Check if there are pending syncs and user is online
+          if (navigator.onLine) {
+            const pendingSyncs = await getPendingSyncsCount();
+            if (pendingSyncs > 0) {
+              console.log(`Performing background sync of ${pendingSyncs} changes during idle time`);
+              await forceSyncWithFirebase(user.uid, db);
+            }
+          }
+          // Schedule next idle check
+          setTimeout(requestIdleSync, 5 * 60 * 1000); // Check every 5 minutes
+        }, { timeout: 10000 });
+      }
+    };
+    
+    // Function to sync when tab becomes hidden (user switches tabs/minimizes)
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden' && navigator.onLine) {
+        const pendingSyncs = await getPendingSyncsCount();
+        if (pendingSyncs > 0) {
+          console.log(`Syncing ${pendingSyncs} changes on tab hide`);
+          await forceSyncWithFirebase(user.uid, db);
+        }
+      }
+    };
+    
+    // Initialize the sync system
+    initSyncSystem(user.uid, db);
+    
+    // Start idle sync checks
+    requestIdleSync();
+    
+    // Add visibility change listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Add a periodic sync check (every 30 minutes)
+    const periodicSyncInterval = setInterval(async () => {
+      if (navigator.onLine) {
+        const pendingSyncs = await getPendingSyncsCount();
+        if (pendingSyncs > 0) {
+          console.log(`Performing periodic sync of ${pendingSyncs} changes`);
+          await forceSyncWithFirebase(user.uid, db);
+        }
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(periodicSyncInterval);
+    };
+  }, [user, db]);
 
   if (awaitingVerification || isVerifying) {
     return (
@@ -2081,6 +2061,7 @@ function App() {
 
   return (
     <div className="App">
+      <NetworkStatus />
       <Header 
         user={user}
         username={username}
@@ -2116,7 +2097,14 @@ function App() {
             } />
             <Route path="/profile" element={
               <PrivateRoute>
-                <Profile user={user} username={username} onSignOut={handleSignOut} />
+                <Profile 
+                  user={user} 
+                  username={username} 
+                  onSignOut={handleSignOut} 
+                  onAdminClick={handleAdminClick}
+                  isAdmin={isAdmin}
+                  debugSyncStatus={debugSyncStatus}
+                />
               </PrivateRoute>
             } />
             <Route path="/admin" element={
