@@ -11,5 +11,8 @@ service cloud.firestore {
     match /userProgress/{userId}/{subCollection=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId && request.auth.token.email_verified;
     }
+    match /users/{userId}/data/{document} {
+      allow read, write: if request.auth != null && request.auth.uid == userId && request.auth.token.email_verified;
+    }
   }
 }
