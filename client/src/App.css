@@ -28,7 +28,7 @@ body {
 h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -48,7 +48,7 @@ p {
 }
 
 button {
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   color: white;
   border: none;
   padding: 0.8rem 1.5rem;
@@ -109,7 +109,7 @@ button:disabled {
 }
 
 .random-category {
-  background: linear-gradient(90deg, #9d50bb, #6e48aa);
+  background: #a896f9;
 }
 
 /* Question UI */

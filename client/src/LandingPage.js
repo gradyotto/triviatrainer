@@ -773,54 +773,54 @@ const LandingPage = ({
         <NeuralBackground />
         <div className="content-wrapper">
           <Logo />
-          <h1>TriviaTrainer</h1>
-          <p className="tagline">Set Your Username</p>
-          <form className="auth-form" onSubmit={handleUsernameSubmit}>
-            <div className="username-input-container" style={{ position: 'relative', width: '100%' }}>
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                maxLength={20}
+        <h1>TriviaTrainer</h1>
+        <p className="tagline">Set Your Username</p>
+        <form className="auth-form" onSubmit={handleUsernameSubmit}>
+          <div className="username-input-container" style={{ position: 'relative', width: '100%' }}>
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            maxLength={20}
+              style={{ 
+                width: '100%',
+                borderColor: isUsernameAvailable === true ? '#4cd964' : 
+                           isUsernameAvailable === false ? '#ff4444' : 
+                           '#6e48aa'
+              }}
+            />
+            {username.length >= 3 && (
+              <span 
                 style={{ 
-                  width: '100%',
-                  borderColor: isUsernameAvailable === true ? '#4cd964' : 
-                            isUsernameAvailable === false ? '#ff4444' : 
-                            '#6e48aa'
+                  position: 'absolute', 
+                  right: '10px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: isUsernameAvailable ? '#4cd964' : '#ff4444',
+                  fontSize: '1.2rem'
                 }}
-              />
-              {username.length >= 3 && (
-                <span 
-                  style={{ 
-                    position: 'absolute', 
-                    right: '10px', 
-                    top: '50%', 
-                    transform: 'translateY(-50%)',
-                    color: isUsernameAvailable ? '#4cd964' : '#ff4444',
-                    fontSize: '1.2rem'
-                  }}
-                >
-                  {isUsernameAvailable === true ? '✓' : 
-                  isUsernameAvailable === false ? '✗' : ''}
-                </span>
-              )}
-            </div>
-            {usernameError && (
-              <p className={isUsernameAvailable ? 'success' : 'error'}>
-                {usernameError}
-              </p>
+              >
+                {isUsernameAvailable === true ? '✓' : 
+                 isUsernameAvailable === false ? '✗' : ''}
+              </span>
             )}
-            <button 
-              type="submit" 
-              className="cta-button"
-              disabled={!isUsernameAvailable && username.length >= 3}
-            >
-              Submit
-            </button>
-            {localError && <p className="error">{localError}</p>}
-          </form>
+          </div>
+          {usernameError && (
+            <p className={isUsernameAvailable ? 'success' : 'error'}>
+              {usernameError}
+            </p>
+          )}
+          <button 
+            type="submit" 
+            className="cta-button"
+            disabled={!isUsernameAvailable && username.length >= 3}
+          >
+            Submit
+          </button>
+          {localError && <p className="error">{localError}</p>}
+        </form>
         </div>
       </div>
     );
@@ -831,36 +831,36 @@ const LandingPage = ({
       <NeuralBackground />
       <div className="content-wrapper">
         <Logo />
-        <h1>TriviaTrainer</h1>
+      <h1>TriviaTrainer</h1>
         <p className="tagline">Train your brain with fun!</p>
-        <form className="auth-form" onSubmit={handleEmailAuth}>
+      <form className="auth-form" onSubmit={handleEmailAuth}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+          <label htmlFor="email">Email</label>
             <div className="input-with-icon">
               <Mail className="input-icon" size={18} />
-              <input
-                id="email"
-                type="email"
+        <input
+            id="email"
+          type="email"
                 placeholder="your.email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        </div>
           </div>
           
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <label htmlFor="password">Password</label>
             <div className="input-with-icon">
               <Lock className="input-icon" size={18} />
-              <input
-                id="password"
+        <input
+            id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="********"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
               <button
                 type="button"
                 className="password-toggle"
@@ -870,95 +870,74 @@ const LandingPage = ({
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-          </div>
-          
+        </div>
+        
           <div className="form-footer">
-            <div className="remember-me">
-              <input
-                type="checkbox" 
-                id="remember" 
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              <label htmlFor="remember">Remember me?</label>
-            </div>
-            
-            {isSignIn && (
-              <div className="forgot-password">
-                <button 
-                  onClick={handleForgotPassword} 
-                  className="link-button"
-                  type="button"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            )}
+        <div className="remember-me">
+            <input
+            type="checkbox" 
+            id="remember" 
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+          />
+          <label htmlFor="remember">Remember me?</label>
+        </div>
+        
+        {isSignIn && (
+          <div className="forgot-password">
+            <button 
+              onClick={handleForgotPassword} 
+              className="link-button"
+              type="button"
+            >
+              Forgot Password?
+            </button>
+          </div>
+        )}
           </div>
           
           <button type="submit" className="cta-button login-button">
             <LogIn size={18} />
             <span>{isSignIn ? 'LOGIN' : 'SIGN UP'}</span>
           </button>
-          
-          <div className="divider">
-            <span>OR</span>
-          </div>
-          
-          <button 
-            type="button" 
-            className="google-button"
-            onClick={isSignIn ? handleGoogleSignIn : handleGoogleSignUp}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              backgroundColor: 'white',
-              color: '#333',
-              fontWeight: 500,
-              padding: '12px 0',
-              borderRadius: '6px',
-              border: '1px solid rgba(0, 0, 0, 0.05)',
-              cursor: 'pointer',
-              fontSize: '0.95rem'
-            }}
-          >
-            <span style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: '10px',
-              width: '18px',
-              height: '18px'
-            }}>
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-            </span>
+        
+        <div className="divider">
+          <span>OR</span>
+        </div>
+        
+        <button 
+          type="button" 
+          className="google-button"
+          onClick={isSignIn ? handleGoogleSignIn : handleGoogleSignUp}
+        >
+          <span className="google-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+          </span>
             Sign in with Google
-          </button>
-          
-          <div className="account-toggle">
+        </button>
+        
+        <div className="account-toggle">
             Need an account? <button 
-              onClick={toggleAuthMode} 
+            onClick={toggleAuthMode} 
               className="link-button signup-link"
-              type="button"
+            type="button"
               style={{
                 color: '#9482ee',
                 fontWeight: 600,
@@ -971,13 +950,13 @@ const LandingPage = ({
               }}
             >
               SIGN UP
-            </button>
-          </div>
-          
-          {(localError || parentError) && (
-            <p className="error">{localError || parentError}</p>
-          )}
-        </form>
+          </button>
+        </div>
+        
+        {(localError || parentError) && (
+          <p className="error">{localError || parentError}</p>
+        )}
+      </form>
       </div>
 
       {/* Password Reset Modal */}
