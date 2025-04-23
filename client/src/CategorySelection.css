@@ -1,135 +1,264 @@
-.category-selection {
-  text-align: center;
-  padding: 20px;
+/* Fix sizing and overflow issues */
+html, body, #root, .App {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  width: 100%;
+  height: 100%;
+  background-color: #121216;
+  box-sizing: border-box;
 }
 
+/* Base styles */
+.category-selection {
+  text-align: center;
+  padding: 0;
+  color: white;
+  height: 100vh; /* Use height instead of min-height */
+  max-height: 100vh; /* Prevent overflow */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding-top: 60px; /* Exactly the height of the header */
+  overflow: hidden; /* Hide any overflow */
+  margin: 0; /* Remove any margins */
+  width: 100%; /* Ensure full width */
+  box-sizing: border-box; /* Include padding in element's total width/height */
+  overscroll-behavior: none; /* Prevent bounce/overscroll effect */
+  -webkit-overflow-scrolling: none; /* Disable momentum scrolling on iOS */
+}
+
+/* Fix for scrollbar issue - add global styles */
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: #121216;
+}
+
+/* Apply specific styles to the route that contains CategorySelection */
+.route-container-categoryselection {
+  overflow: hidden !important;
+}
+
+.category-selection::before {
+  content: none;
+}
+
+.category-selection h2 {
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  margin-top: 2rem;
+  font-weight: 600;
+  color: white;
+  z-index: 1;
+  position: relative;
+}
+
+/* Categories grid - adjust sizing for better fit */
 .categories {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 20px;
-  max-width: 600px;
+  gap: 15px;
+  margin-bottom: 25px;
+  max-width: 900px;
+  width: calc(100% - 40px); /* Account for side padding */
   margin-left: auto;
   margin-right: auto;
+  z-index: 1;
+  position: relative;
+  padding: 0 20px;
 }
 
-.category-button {
-  background-color: #6b5b95; /* Purple by default */
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background-color 0.3s;
+/* IMPORTANT - Override all App.css button styling */
+.category-selection .categories button.category-button {
+  background: #1e1e1e !important;
+  color: white !important;
+  padding: 15px 20px !important;
+  border: none !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  font-size: 18px !important;
+  transition: all 0.3s ease !important;
+  height: 60px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+  transform: none !important;
+  margin: 0 !important;
+  text-transform: none !important;
+  text-decoration: none !important;
 }
 
-.category-button:hover {
-  background-color: #8a7db5; /* Lighter purple on hover */
+.category-selection .categories button.category-button:hover {
+  background-color: #9b87f5 !important; /* Updated to match neural background color */
+  box-shadow: 0 0 15px rgba(155, 135, 245, 0.3) !important;
+  transform: none !important;
 }
 
-.category-button.selected {
-  background-color: #4a4066; /* Darker purple when selected */
+.category-selection .categories button.category-button.selected {
+  background-color: #9b87f5 !important; /* Updated to match neural background color */
+  background: #9b87f5 !important; /* Updated to match neural background color */
+  background-image: none !important;
+  box-shadow: 0 0 15px rgba(155, 135, 245, 0.5) !important;
 }
 
+/* Fix the badge */
+.category-selection .categories button.category-button .category-due-badge {
+  position: absolute !important;
+  top: -12px !important;
+  right: -12px !important;
+  display: block !important;
+  background-color: #9b87f5 !important; /* Updated to match neural background color */
+  color: white !important;
+  font-size: 12px !important;
+  padding: 3px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+  z-index: 10 !important;
+  min-width: 35px !important; 
+  height: 20px !important;
+  line-height: 14px !important;
+  text-align: center !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+
+/* Duration selection section - reduce vertical space */
 .duration-selection {
-  margin: 20px 0;
+  margin-top: 30px;
+  width: 100%;
+  max-width: 900px;
+  z-index: 1;
+  position: relative;
 }
 
 .duration-selection h3 {
-  margin-bottom: 10px;
-  color: white; /* White text */
+  margin-bottom: 20px;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: normal;
 }
 
 .duration-buttons {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-/* Target duration buttons with high specificity */
-.category-selection .duration-buttons button.duration-button {
-  background: #1e1e1e !important; /* Gray by default, override gradient */
-  color: white !important; /* Always white text */
-  padding: 8px 15px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.3s;
+/* Duration buttons - using more specific selectors */
+.category-selection .duration-selection .duration-buttons .duration-button {
+  background: #1e1e1e !important; /* Dark background for unselected */
+  color: white !important;
+  padding: 10px 15px !important;
+  border: none !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all 0.3s ease !important;
+  min-width: 80px !important;
+  height: 42px !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
-.category-selection .duration-buttons button.duration-button:hover {
-  background: linear-gradient(90deg, #6e48aa, #9d50bb) !important; /* Lighter gray on hover */
+.category-selection .duration-selection .duration-buttons .duration-button:hover {
+  background: #9b87f5 !important; /* Updated to match neural background color */
+  box-shadow: 0 0 10px rgba(155, 135, 245, 0.3) !important;
+  transform: none !important;
 }
 
-.category-selection .duration-buttons button.duration-button.selected {
-  background: linear-gradient(90deg, #6e48aa, #9d50bb) !important; /* Purple when selected */
+.category-selection .duration-selection .duration-buttons .duration-button.selected {
+  background: #9b87f5 !important; /* Updated to match neural background color */
+  box-shadow: 0 0 10px rgba(155, 135, 245, 0.5) !important;
+  background-image: none !important;
 }
 
-.category-selection .duration-buttons button.duration-button.selected:hover {
-  background: linear-gradient(90deg, #6e48aa, #9d50bb)!important; /* Lighter purple on hover when selected */
+/* Test button with more specific selector */
+.category-selection .duration-selection .duration-buttons .test-button {
+  background-color: #1e1e1e !important;
+  border: 1px solid #333 !important;
+  font-weight: normal !important;
+  color: #ccc !important;
+  font-size: 14px !important;
+  transform: none !important;
 }
 
+.category-selection .duration-selection .duration-buttons .test-button:hover {
+  background-color: #9b87f5 !important; /* Updated to match neural background color */
+  transform: none !important;
+}
+
+.category-selection .duration-selection .duration-buttons .test-button.selected {
+  background-color: #9b87f5 !important; /* Updated to match neural background color */
+  color: white !important;
+}
+
+/* Error messages */
 .error {
-  color: red;
+  color: #ff5252;
   margin: 10px 0;
 }
 
-.start-button {
-  background-color: #6b5b95;
-  color: white;
-  padding: 10px 30px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 18px;
-  transition: background-color 0.3s;
+/* Begin Training button with more specific selector */
+.category-selection .start-button {
+  background-color: #9b87f5 !important; /* Updated to match neural background color */
+  color: white !important;
+  padding: 12px 35px !important;
+  border: none !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 10px rgba(155, 135, 245, 0.3) !important;
+  z-index: 10 !important; /* Keep high z-index but not too high */
+  position: relative !important;
+  margin-top: 30px !important;
+  height: 50px !important;
+  min-width: 200px !important;
+  transform: none !important;
 }
 
-.start-button:hover:not(:disabled) {
-  background-color: #8a7db5;
+.category-selection .start-button:hover:not(:disabled) {
+  background-color: #8073d6 !important; /* Slightly darker variant */
+  box-shadow: 0 6px 15px rgba(155, 135, 245, 0.4) !important;
+  transform: translateY(-2px) !important;
 }
 
-.start-button:disabled {
-  background-color: #999; /* Gray when disabled */
-  cursor: not-allowed;
+.category-selection .start-button:disabled {
+  background-color: #555 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  opacity: 0.7 !important;
+  transform: none !important;
 }
 
-.test-button {
-  background-color: #ffb74d;
-  border: 2px dashed #e65100;
-  font-weight: bold;
-  color: #333;
-}
-
-.test-button:hover {
-  background-color: #ffa726;
-}
-
-.test-button.selected {
-  background-color: #ff9800;
-  color: #fff;
-}
-
-/* Add these styles for the spaced repetition toggle and badges */
-
+/* Spaced repetition toggle and badges */
 .spaced-repetition-toggle {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 10px 15px;
-  background-color: rgba(66, 133, 244, 0.1);
-  border-radius: 8px;
+  margin-bottom: 30px;
+  padding: 10px 20px;
+  background-color: rgba(155, 135, 245, 0.1); /* Updated to match neural background color */
+  border-radius: 30px;
+  z-index: 1;
+  position: relative;
+  box-shadow: none;
 }
 
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 46px;
+  width: 50px;
   height: 24px;
-  margin-right: 10px;
+  margin-right: 12px;
 }
 
 .toggle-switch input {
@@ -145,9 +274,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: #333;
   transition: .4s;
-  border-radius: 24px;
+  border-radius: 30px;
 }
 
 .toggle-slider:before {
@@ -163,53 +292,50 @@
 }
 
 input:checked + .toggle-slider {
-  background-color: #4285f4;
+  background-color: #9b87f5; /* Updated to match neural background color */
 }
 
 input:checked + .toggle-slider:before {
-  transform: translateX(22px);
+  transform: translateX(26px);
 }
 
 .toggle-label {
   font-size: 16px;
   display: flex;
   align-items: center;
+  color: white;
 }
 
 .due-badge {
   display: inline-block;
-  background-color: #4285f4;
+  background-color: #9b87f5; /* Updated to match neural background color */
   color: white;
   font-size: 12px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   border-radius: 12px;
-  margin-left: 8px;
+  margin-left: 10px;
+  font-weight: 500;
 }
 
-.category-due-badge {
-  display: inline-block;
-  background-color: #4285f4;
-  color: white;
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 10px;
-  margin-left: 6px;
-  vertical-align: top;
-}
+
 
 .spaced-repetition-info {
   margin-top: 20px;
-  padding: 15px;
-  background-color: rgba(66, 133, 244, 0.1);
-  border-left: 3px solid #4285f4;
+  padding: 15px 25px;
+  background-color: rgba(155, 135, 245, 0.1); /* Updated to match neural background color */
   border-radius: 5px;
+  max-width: 800px;
+  width: 100%;
+  z-index: 1;
+  position: relative;
+  margin-bottom: 30px; /* Add space at the bottom */
 }
 
 .spaced-repetition-info p {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
-  color: #555;
+  color: #aaa;
 }
 
 /* Help icon and popup */
@@ -220,18 +346,18 @@ input:checked + .toggle-slider:before {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background-color: rgba(66, 133, 244, 0.2);
-  color: #4285f4;
+  background-color: rgba(155, 135, 245, 0.2); /* Updated to match neural background color */
+  color: #9b87f5; /* Updated to match neural background color */
   font-weight: bold;
   font-size: 14px;
   margin-left: 10px;
   cursor: pointer;
   border: none;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .help-icon:hover {
-  background-color: rgba(66, 133, 244, 0.4);
+  background-color: rgba(155, 135, 245, 0.4); /* Updated to match neural background color */
 }
 
 .help-popup {
@@ -240,43 +366,45 @@ input:checked + .toggle-slider:before {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
+  z-index: 1000; /* Higher z-index to ensure it appears above everything */
+  animation: fadeIn 0.3s ease-out;
 }
 
 .help-popup-content {
   background-color: #1e1e1e;
   border-radius: 10px;
-  padding: 25px;
+  padding: 30px;
   max-width: 600px;
   width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   color: #f8f9fa;
   border: 1px solid #333;
+  position: relative; /* Added to ensure proper stacking context */
+  z-index: 1001; /* Higher than the overlay */
 }
 
 .help-popup-content h3 {
-  color: #4285f4;
+  color: #9b87f5; /* Updated to match neural background color */
   margin-top: 0;
-  font-size: 22px;
+  font-size: 24px;
   margin-bottom: 15px;
 }
 
 .help-popup-content h4 {
   color: #f8f9fa;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-size: 18px;
 }
 
 .help-popup-content p {
   margin-bottom: 15px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .help-popup-content ul {
@@ -285,29 +413,30 @@ input:checked + .toggle-slider:before {
 }
 
 .help-popup-content li {
-  margin-bottom: 8px;
-  line-height: 1.4;
+  margin-bottom: 10px;
+  line-height: 1.5;
 }
 
 .help-popup-content li ul {
-  margin-top: 5px;
-  margin-bottom: 5px;
+  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
 .close-help {
-  background-color: #4285f4;
+  background-color: #9b87f5; /* Updated to match neural background color */
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 20px;
   border-radius: 5px;
-  margin-top: 15px;
+  margin-top: 20px;
   cursor: pointer;
   font-weight: 500;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .close-help:hover {
-  background-color: #3367d6;
+  background-color: #8073d6; /* Slightly darker variant */
+  transform: translateY(-2px);
 }
 
 @keyframes fadeIn {
@@ -317,4 +446,35 @@ input:checked + .toggle-slider:before {
   to {
     opacity: 1;
   }
+}
+
+/* Media queries for responsiveness */
+@media (max-width: 768px) {
+  .categories {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .categories {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Background style that covers the entire page including under the header */
+.category-selection::after {
+  display: none;
+}
+
+/* Apply bg to App to ensure starry background is visible under transparent header */
+.App {
+  background-color: #121216;
+  background-image: 
+    radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 2px, transparent 2px);
+  background-size: 30px 30px, 80px 80px;
+  background-position: 0 0, 15px 15px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }

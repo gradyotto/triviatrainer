@@ -5,15 +5,21 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
+  position: relative;
+  z-index: 1;
+  color: white;
+  padding-top: 60px;
 }
 
 .profile-container {
-  background-color: #000000;
+  background-color: rgba(30, 30, 30, 0.7);
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   padding: 1.5rem;
   flex: 1;
   min-width: 300px;
+  position: relative;
+  z-index: 2;
 }
 
 .profile-container h1 {
@@ -39,21 +45,64 @@
   color: #9d50bb;
 }
 
+.profile-info button {
+  background-color: #9b87f5;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.profile-info button:hover {
+  background-color: #8073d6;
+}
+
 .edit-username-form {
   margin: 1rem 0;
+  position: relative;
+  z-index: 5;
 }
 
 .edit-username-form input {
   padding: 0.5rem;
   width: 100%;
   margin-bottom: 0.5rem;
-  border: 1px solid #000000;
+  border: 1px solid #444;
   border-radius: 4px;
+  background-color: #1e1e1e;
+  color: white;
 }
 
 .form-buttons {
   display: flex;
   gap: 0.5rem;
+}
+
+.form-buttons button {
+  background-color: #9b87f5;
+  color: white;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.form-buttons button:hover {
+  background-color: #8073d6;
+}
+
+.form-buttons button:last-child {
+  background-color: #333;
+}
+
+.form-buttons button:last-child:hover {
+  background-color: #444;
 }
 
 .error {
@@ -68,29 +117,31 @@
 }
 
 .sign-out-button {
-  background-color: #f44336;
+  background-color: rgba(244, 67, 54, 0.8);
   color: white;
   padding: 10px 15px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 .sign-out-button:hover {
-  background-color: #d32f2f;
+  background-color: rgba(211, 47, 47, 0.9);
 }
 
 .admin-button {
-  background-color: #2196F3;
+  background-color: rgba(155, 135, 245, 0.8);
   color: white;
   padding: 10px 15px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.3s;
 }
 
 .admin-button:hover {
-  background-color: #0b7dda;
+  background-color: rgba(128, 115, 214, 0.9);
 }
 
 .debug-button {
@@ -107,12 +158,14 @@
 }
 
 .activity-section {
-  background-color: #000000;
+  background-color: rgba(30, 30, 30, 0.7);
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   padding: 1.5rem;
   flex: 1;
   min-width: 300px;
+  position: relative;
+  z-index: 2;
 }
 
 .activity-section h2 {
@@ -149,51 +202,51 @@
 
 .activity-graph {
   display: flex;
-  justify-content: center; /* Center the grid */
+  justify-content: center;
   margin-top: 1rem;
 }
 
 .weeks-container {
   display: flex;
   flex-direction: column;
-  gap: 4px; /* Increased gap for larger squares */
+  gap: 4px;
 }
 
 .week {
   display: flex;
   flex-direction: row;
-  gap: 4px; /* Increased gap for larger squares */
+  gap: 4px;
 }
 
 .activity-square {
-  width: 20px; /* Larger size to fill the box */
+  width: 20px;
   height: 20px;
-  border-radius: 3px; /* Slightly larger radius */
-  background-color: #f2f0f7; /* Default for empty */
+  border-radius: 3px;
+  background-color: rgba(242, 240, 247, 0.15);
 }
 
 .activity-square.empty {
-  background-color: transparent;
+  background-color: rgba(242, 240, 247, 0.1);
 }
 
 .intensity-0 {
-  background-color: #f2f0f7;
+  background-color: rgba(242, 240, 247, 0.15);
 }
 
 .intensity-1 {
-  background-color: #d4c4e3;
+  background-color: rgba(212, 196, 227, 0.4);
 }
 
 .intensity-2 {
-  background-color: #b39ddb;
+  background-color: rgba(179, 157, 219, 0.6);
 }
 
 .intensity-3 {
-  background-color: #9575cd;
+  background-color: rgba(149, 117, 205, 0.8);
 }
 
 .intensity-4 {
-  background-color: #6e48aa;
+  background-color: #9b87f5;
 }
 
 .activity-square.future {
@@ -208,14 +261,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px; /* Slightly larger gap for readability */
+  gap: 6px;
   margin-top: 1rem;
-  font-size: 0.9rem; /* Slightly larger text */
-  color: #666;
+  font-size: 0.9rem;
+  color: #ccc;
 }
 
 .legend-square {
-  width: 14px; /* Slightly larger to match squares */
+  width: 14px;
   height: 14px;
   border-radius: 2px;
 }
@@ -226,7 +279,7 @@
   }
   
   .activity-square {
-    width: 16px; /* Slightly smaller on mobile */
+    width: 16px;
     height: 16px;
   }
   
@@ -242,4 +295,18 @@
     width: 12px;
     height: 12px;
   }
+}
+
+/* Special styling for the Edit Username button to match screenshot */
+button.edit-username-button {
+  background-color: #9b87f5 !important; /* Match neural background */
+  color: white !important;
+  padding: 10px 20px !important;
+  border: none !important;
+  border-radius: 25px !important; /* Rounded corners to match screenshot */
+  cursor: pointer !important;
+  font-weight: 500 !important;
+  font-size: 16px !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 3px 6px rgba(155, 135, 245, 0.3) !important;
 }

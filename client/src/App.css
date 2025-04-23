@@ -19,10 +19,15 @@ body {
 }
 
 .App {
-  min-height: 100vh; /* Full viewport height */
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #121212; /* Match profile background */
+  background-color: #121216;
+  background-image: 
+    radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 2px, transparent 2px);
+  background-size: 30px 30px, 80px 80px;
+  background-position: 0 0, 15px 15px;
 }
 
 h1 {
@@ -99,12 +104,12 @@ button:disabled {
 }
 
 .category-button:hover {
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   transform: translateY(-3px);
 }
 
 .category-button.selected {
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   color: white;
 }
 
@@ -244,11 +249,11 @@ ul li.incorrect {
 }
 
 .app-content {
-  margin-top: 60px; /* Matches header height */
-  flex: 1 0 auto; /* Grows to fill space, doesn't shrink below content */
-  overflow-y: auto; /* Enables vertical scrolling */
-  padding: 2rem;
-  max-height: calc(100vh - 60px); /* Limits height to viewport minus header */
+  flex: 1;
+  position: relative;
+  z-index: 1; /* Ensure content is above background */
+  /* Add padding for the fixed header */
+  padding-top: 60px;
 }
 
 .question-container {

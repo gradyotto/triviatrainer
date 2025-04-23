@@ -27,6 +27,7 @@ import {
   calculateDueCounts
 } from './utils/indexedDB';
 import NetworkStatus from './components/NetworkStatus';
+import NeuralBackground from './components/NeuralBackground';
 
 const functions = getFunctions(app);
 
@@ -1192,6 +1193,8 @@ function App() {
       return;
     }
     
+    console.log("handleStartTraining called, setting up training session");
+    
     // Convert the selected duration from minutes to seconds
     let durationInSeconds;
     
@@ -1231,8 +1234,22 @@ function App() {
           return;
         }
         
+        console.log(`Fetched ${questions.length} questions, attempting to start training session`);
         setQuestions(questions);
-        setScreen('question');
+        
+        // Using React Router for navigation instead of screen state
+        console.log("Questions set, navigating to /training");
+        // Use navigate from react-router if available
+        if (window.location.pathname !== '/training') {
+          // Manually navigate to training route
+          window.history.pushState({}, '', '/training');
+          // Force a re-render
+          window.dispatchEvent(new Event('popstate'));
+        }
+        
+        // Start the vanilla timer with the session duration
+        console.log(`Starting timer with duration: ${durationInSeconds} seconds`);
+        startVanillaTimer(durationInSeconds);
         
         // Start preloading more questions in the background for better experience
         if (navigator.onLine) {
@@ -2061,6 +2078,7 @@ function App() {
 
   return (
     <div className="App">
+      <NeuralBackground />
       <NetworkStatus />
       <Header 
         user={user}

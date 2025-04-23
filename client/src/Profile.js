@@ -241,7 +241,7 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
               </div>
             </form>
           ) : (
-            <button onClick={() => setIsEditing(true)}>Edit Username</button>
+            <button className="edit-username-button" onClick={() => setIsEditing(true)}>Edit Username</button>
           )}
           <p><strong>Email:</strong> {user.email}</p>
           <p><strong>Joined:</strong> {joinDate}</p>
