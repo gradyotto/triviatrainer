@@ -24,10 +24,11 @@
     display: flex;
     align-items: center;
     gap: 0.5rem; /* gap-2 equivalent */
+    font-weight: 700;
   }
   
   .header-user span {
-    color: #6c5ce7;
+    color: #7e63f4;
     opacity: 0.7; /* text-muted-foreground equivalent */
     margin-right: 0.5rem; /* mr-2 equivalent */
   }

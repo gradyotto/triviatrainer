@@ -25,7 +25,7 @@
 .profile-container h1 {
   font-size: 3.5rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -42,7 +42,7 @@
 }
 
 .profile-info strong {
-  color: #9d50bb;
+  color: #a896f9;
 }
 
 .profile-info button {
@@ -145,7 +145,7 @@
 }
 
 .debug-button {
-  background-color: #9c27b0;
+  background-color: #a896f9;
   color: white;
   padding: 10px 15px;
   border: none;
@@ -154,7 +154,7 @@
 }
 
 .debug-button:hover {
-  background-color: #7b1fa2;
+  background-color: #a896f9;
 }
 
 .activity-section {
@@ -171,7 +171,7 @@
 .activity-section h2 {
   font-size: 3.5rem;
   font-weight: 700;
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

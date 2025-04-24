@@ -343,7 +343,7 @@ button {
   padding: 0.5rem 1rem;
   border-radius: 20px;
   border: none;
-  background: linear-gradient(90deg, #6e48aa, #9d50bb);
+  background: #a896f9;
   color: white;
   cursor: pointer;
 }
@@ -587,7 +587,7 @@ button:disabled {
 }
 
 .completion-modal h2 {
-  color: #4285f4;
+  color: #a896f9;
   margin-top: 0;
   margin-bottom: 15px;
   font-size: 24px;
@@ -601,7 +601,7 @@ button:disabled {
 }
 
 .completion-modal button {
-  background-color: #4285f4;
+  background-color: #a896f9;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -612,7 +612,7 @@ button:disabled {
 }
 
 .completion-modal button:hover {
-  background-color: #3367d6;
+  background-color: #a896f9;
 }
 
 /* Enhance network status indicator */
