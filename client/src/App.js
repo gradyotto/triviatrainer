@@ -54,6 +54,18 @@ const normalizeNumber = (input) => {
     'ninety': '90', 'ninety-one': '91', 'ninety-two': '92', 'ninety-three': '93', 'ninety-four': '94',
     'ninety-five': '95', 'ninety-six': '96', 'ninety-seven': '97', 'ninety-eight': '98', 'ninety-nine': '99'
   };
+  
+  // Check if input is a digit (like "2")
+  if (!isNaN(Number(input)) && Number(input) >= 0 && Number(input) <= 99) {
+    // Convert from digit to word
+    const number = Number(input);
+    const reversedMap = Object.fromEntries(
+      Object.entries(numMap).map(([word, digit]) => [digit, word])
+    );
+    return reversedMap[String(number)] || input;
+  }
+  
+  // Handle conversion from word to digit (e.g., "two" to "2")
   const lowerInput = input.toLowerCase().replace(/\s+/g, '-');
   return numMap[lowerInput] || input;
 };
@@ -62,9 +74,11 @@ const normalizeAnswer = (input) => {
   // Handle empty or falsy inputs
   if (!input) return '';
   
-  // Handle numbers with a normalization function
-  if (!isNaN(Number(input))) {
-    return normalizeNumber(input);
+  // Normalize numbers (both digits and written form)
+  // This handles both converting digits to words and words to digits
+  const normalizedNumber = normalizeNumber(input);
+  if (normalizedNumber !== input) {
+    return normalizedNumber;
   }
   
   // Convert to string, trim, and convert to lowercase
@@ -418,7 +432,10 @@ function App() {
     const ensureOptionsArray = (options) => {
       if (!options) return [];
       if (Array.isArray(options)) return options;
-      if (typeof options === 'string') return options.split(',').map(opt => opt.trim());
+      if (typeof options === 'string') {
+        // Only split if the string contains commas, otherwise treat as a single option
+        return options.includes(',') ? options.split(',').map(opt => opt.trim()) : [options];
+      }
       if (typeof options === 'object') return Object.values(options);
       return [];
     };

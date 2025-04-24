@@ -455,14 +455,9 @@ const QuestionScreen = ({
                           disabled={answered}
                         >
                           <option value="">Select</option>
-                          {Array.isArray(currentQuestion.options) ? 
-                            currentQuestion.options.map((option, index) => (
-                              <option key={`${option}-${index}`} value={option}>{option}</option>
-                            )) : 
-                            Object.values(currentQuestion.options || {}).map((option, index) => (
-                              <option key={`${option}-${index}`} value={option}>{option}</option>
-                            ))
-                          }
+                          {shuffledAnswers.map((option, index) => (
+                            <option key={`${option}-${index}`} value={option}>{option}</option>
+                          ))}
                         </select>
                       )}
                     </div>

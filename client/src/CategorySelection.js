@@ -117,7 +117,7 @@ function CategorySelection({
         <div className="spaced-repetition-info">
           <p>
             With spaced repetition enabled, the system will prioritize questions that you need to review 
-            based on your past performance. Questions you find difficult will appear more frequently.
+            based on your past performance. Questions you find difficult will appear more frequently. The more you train, the better Trivia will get!
           </p>
         </div>
       )}
