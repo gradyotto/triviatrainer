@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import '../App.css';
 import { getPendingSyncsCount } from '../utils/syncUtils';
+import { getFirestoreReadCount } from '../utils/questionService';
+import './NetworkStatus.css';
 
 const NetworkStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingSyncs, setPendingSyncs] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState(null);
+  const [showReadCount, setShowReadCount] = useState(false);
+  const [readCount, setReadCount] = useState({ daily: 0, session: 0 });
 
   useEffect(() => {
     // Handler to update the state whenever network status changes
@@ -32,11 +36,23 @@ const NetworkStatus = () => {
     checkPendingSyncs();
     const interval = setInterval(checkPendingSyncs, 60000); // Check every minute
 
+    // Update read count periodically
+    const updateReadCount = () => {
+      setReadCount(getFirestoreReadCount());
+    };
+    
+    // Initial update
+    updateReadCount();
+    
+    // Update every 30 seconds
+    const intervalId = setInterval(updateReadCount, 30000);
+
     // Clean up event listeners and interval on component unmount
     return () => {
       window.removeEventListener('online', handleStatusChange);
       window.removeEventListener('offline', handleStatusChange);
       clearInterval(interval);
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -61,7 +77,16 @@ const NetworkStatus = () => {
   return (
     <div className={`network-status-container ${isOnline ? 'online' : 'offline'}`}>
       <div className="network-status">
-        {isOnline ? 'Online' : 'Offline'}
+        <div className={`status-indicator ${isOnline ? 'online' : 'offline'}`} 
+             onClick={() => setShowReadCount(!showReadCount)}>
+          <span>{isOnline ? '🟢 Online' : '🔴 Offline'}</span>
+          {showReadCount && (
+            <div className="read-count-popup">
+              <p>Firestore Reads Today: {readCount.daily}</p>
+              <p>Session Reads: {readCount.session}</p>
+            </div>
+          )}
+        </div>
       </div>
       {pendingSyncs > 0 && (
         <div className="sync-status">
