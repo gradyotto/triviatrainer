@@ -16,8 +16,9 @@ function CategorySelection({
   questionPriorities,
   dueQuestionsByCategory
 }) {
-  const durationOptions = [5, 10, 15, 20, 25, 30];
+  const durationOptions = [5, 10, 15];
   const [showHelp, setShowHelp] = useState(false);
+  const [maxCategoriesMessage, setMaxCategoriesMessage] = useState(false);
   
   const handleStart = () => {
     console.log('Begin Training clicked');
@@ -39,6 +40,27 @@ function CategorySelection({
 
   const totalDueQuestions = dueQuestions?.length || 0;
 
+  const handleCategorySelect = (categoryId) => {
+    // If category is already selected, allow deselection
+    if (selectedCategories.includes(categoryId)) {
+      onCategorySelect(categoryId);
+      return;
+    }
+    
+    // If not already selected, only allow selection if fewer than 3 categories are selected
+    if (selectedCategories.length < 3) {
+      onCategorySelect(categoryId);
+    } else {
+      // Show the max categories message
+      setMaxCategoriesMessage(true);
+      
+      // Hide the message after 3 seconds
+      setTimeout(() => {
+        setMaxCategoriesMessage(false);
+      }, 3000);
+    }
+  };
+
   return (
     <div 
       className="category-selection" 
@@ -49,6 +71,16 @@ function CategorySelection({
       }}
     >
       <h2>Choose Your Training Categories</h2>
+      
+      {/* Category Selection Limit Notice */}
+      <p className="category-limit-notice">Select up to 3 categories</p>
+      
+      {/* Max Categories Message */}
+      {maxCategoriesMessage && (
+        <div className="max-categories-message">
+          Maximum of 3 categories allowed. Please deselect a category first.
+        </div>
+      )}
       
       {/* Spaced Repetition Toggle */}
       {spacedRepetitionEnabled !== undefined && (
@@ -71,18 +103,23 @@ function CategorySelection({
       )}
       
       <div className="categories">
-        {categories.map(category => (
-          <button
-            key={category.id}
-            className={`category-button ${selectedCategories.includes(category.id) ? 'selected' : ''}`}
-            onClick={() => onCategorySelect(category.id)}
-          >
-            {category.name}
-            {spacedRepetitionEnabled && getDueQuestionCount(category.id) > 0 && (
-              <span className="category-due-badge">{getDueQuestionCount(category.id)} due</span>
-            )}
-          </button>
-        ))}
+        {categories.map(category => {
+          const isSelected = selectedCategories.includes(category.id);
+          const isDisabled = !isSelected && selectedCategories.length >= 3;
+          return (
+            <button
+              key={category.id}
+              className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+              onClick={() => handleCategorySelect(category.id)}
+              disabled={isDisabled}
+            >
+              {category.name}
+              {spacedRepetitionEnabled && getDueQuestionCount(category.id) > 0 && (
+                <span className="category-due-badge">{getDueQuestionCount(category.id)} due</span>
+              )}
+            </button>
+          );
+        })}
       </div>
       <div className="duration-selection">
         <h3>How long would you like to train?</h3>
