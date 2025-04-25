@@ -2128,6 +2128,7 @@ function App() {
                 dueQuestions={dueQuestions}
                 questionPriorities={questionPriorities}
                 dueQuestionsByCategory={dueQuestionsByCategory}
+                isAdmin={isAdmin}
               />
             } />
             <Route path="/profile" element={
@@ -2164,6 +2165,7 @@ function App() {
                     dueQuestions={dueQuestions}
                     questionPriorities={questionPriorities}
                     dueQuestionsByCategory={dueQuestionsByCategory}
+                    isAdmin={isAdmin}
                   />
                 ) : showReinforcement ? (
                   <ReinforcementTask
