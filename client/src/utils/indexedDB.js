@@ -788,4 +788,35 @@ export const syncWithServer = async (userId, apiEndpoint) => {
     console.error('Sync error:', error);
     return { success: false, message: error.message };
   }
+};
+
+/**
+ * Force refresh due questions from IndexedDB - useful after answering questions
+ * @returns {Promise<{dueQuestions: Array, dueByCategory: Object}>} Object containing due questions and their categories
+ */
+export const forceRefreshDueQuestions = async () => {
+  const allDueQuestions = await getDueQuestions();
+  
+  // Extract question IDs
+  const dueQuestionIds = allDueQuestions.map(q => q.qid);
+  
+  // Group by category
+  const dueByCategory = {};
+  allDueQuestions.forEach(q => {
+    const category = q.category;
+    if (category) {
+      if (!dueByCategory[category]) {
+        dueByCategory[category] = [];
+      }
+      dueByCategory[category].push(q.qid);
+    }
+  });
+  
+  console.log(`Force refreshed ${dueQuestionIds.length} due questions`);
+  console.log('Due questions by category:', dueByCategory);
+  
+  return {
+    dueQuestions: dueQuestionIds,
+    dueByCategory: dueByCategory
+  };
 }; 

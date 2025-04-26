@@ -127,9 +127,12 @@ const calculateLevel = (binaryHistory) => {
  * @returns {number} - Next due date timestamp
  */
 const calculateNextDueDate = (level, timestamp, binaryHistory) => {
-  // If the last answer was incorrect, review after 1 day
+  // If the last answer was incorrect, make it due immediately
+  // This guarantees incorrect answers show up as due right away
   if (binaryHistory && binaryHistory[0] === '0') {
-    return timestamp + (24 * 60 * 60 * 1000);
+    // Set due date to the current timestamp or even slightly in the past
+    // to ensure it shows up immediately in the due list
+    return timestamp - (1000); // Due 1 second in the past to ensure it's processed immediately
   }
   
   // Fibonacci-based intervals

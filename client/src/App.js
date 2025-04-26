@@ -24,7 +24,8 @@ import {
   getAllLearningStates,
   initLearningDB,
   getDueQuestions,
-  calculateDueCounts
+  calculateDueCounts,
+  forceRefreshDueQuestions
 } from './utils/indexedDB';
 import NetworkStatus from './components/NetworkStatus';
 import NeuralBackground from './components/NeuralBackground';
@@ -1466,6 +1467,22 @@ function App() {
       
       console.log(`Answer recorded locally: Question ${questionId}, Result: ${isCorrect ? 'Correct' : 'Incorrect'}`);
       
+      // For incorrect answers, force a refresh of due questions from IndexedDB
+      if (!isCorrect && spacedRepetitionEnabled) {
+        console.log('Incorrect answer detected, forcing refresh of due questions');
+        // Wait a small amount of time for IndexedDB to update
+        setTimeout(async () => {
+          try {
+            const refreshedDueData = await forceRefreshDueQuestions();
+            setDueQuestions(refreshedDueData.dueQuestions);
+            setDueQuestionsByCategory(refreshedDueData.dueByCategory);
+            console.log('Due questions refreshed after incorrect answer');
+          } catch (err) {
+            console.error('Error refreshing due questions:', err);
+          }
+        }, 100);
+      }
+      
       // Determine if we should initiate a sync now (end of session)
       const isSessionEnding = sessionExpired || (currentQuestionIndex === questions.length - 1);
       if (isSessionEnding && navigator.onLine) {
@@ -1491,9 +1508,15 @@ function App() {
           if (currentQuestion && currentQuestion.category) {
             const category = currentQuestion.category;
             
-            // Recalculate due date
-            const newDueDate = calculateDueDate(updatedHistory[questionId]);
-            const isDue = new Date() >= newDueDate;
+            // For incorrect answers, always mark as due immediately
+            let isDue = false;
+            if (!isCorrect) {
+              isDue = true;
+            } else {
+              // For correct answers, calculate due date normally
+              const newDueDate = calculateDueDate(updatedHistory[questionId]);
+              isDue = new Date() >= newDueDate;
+            }
             
             // Update due questions list
             let newDueQuestions = [...dueQuestions];
@@ -1501,6 +1524,7 @@ function App() {
             
             if (isDue && !dueQuestions.includes(questionId)) {
               // Add to due lists
+              console.log(`Adding question ${questionId} to due list`);
               newDueQuestions.push(questionId);
               
               // Make sure the category exists in dueByCategory
@@ -1509,6 +1533,7 @@ function App() {
               }
               
               if (!newDueByCategory[category].includes(questionId)) {
+                console.log(`Adding question ${questionId} to category ${category} due list`);
                 newDueByCategory[category] = [...newDueByCategory[category], questionId];
               }
             } else if (!isDue && dueQuestions.includes(questionId)) {
@@ -1522,6 +1547,7 @@ function App() {
             
             setDueQuestions(newDueQuestions);
             setDueQuestionsByCategory(newDueByCategory);
+            console.log('Updated due questions by category:', newDueByCategory);
           }
         } catch (error) {
           console.error('Error updating due questions after submission:', error);
