@@ -21,6 +21,7 @@ const CategorySelection = ({
   tierFeatures = TIER_FEATURES[SUBSCRIPTION_TIERS.FREE]
 }) => {
   const [localError, setLocalError] = useState(null);
+  const [maxCategoriesMessage, setMaxCategoriesMessage] = useState(false);
 
   const handleStart = () => {
     if (selectedCategories.length === 0) {
@@ -35,162 +36,174 @@ const CategorySelection = ({
     onStart();
   };
 
-  const handleSpacedRepetitionToggle = () => {
-    onToggleSpacedRepetition(!spacedRepetitionEnabled);
-  };
-
-  // Get the number of due questions for selected categories
-  const getSelectedDueCount = () => {
-    if (!selectedCategories || selectedCategories.length === 0) return 0;
-    
-    let count = 0;
-    selectedCategories.forEach(category => {
-      if (dueQuestionsByCategory[category]) {
-        count += dueQuestionsByCategory[category].length;
-      }
-    });
-    return count;
-  };
-
-  // Function to get tier badge icon/text
-  const getTierBadge = () => {
-    switch(subscriptionTier) {
-      case SUBSCRIPTION_TIERS.PREMIUM:
-        return <span className="tier-badge premium">Premium</span>;
-      case SUBSCRIPTION_TIERS.PROFESSIONAL:
-        return <span className="tier-badge professional">Professional</span>;
-      default:
-        return <span className="tier-badge free">Free</span>;
+  // Count due questions per category
+  const getDueQuestionCount = (categoryId) => {
+    if (!spacedRepetitionEnabled || !dueQuestionsByCategory) {
+      return 0;
     }
+    
+    const categoryDueQuestions = dueQuestionsByCategory[categoryId] || [];
+    return categoryDueQuestions.length;
   };
 
-  // Calculate remaining sessions if applicable
-  const getRemainingSessionsText = () => {
-    if (!tierFeatures) return null;
-    
-    const maxSessions = tierFeatures.maxSessions;
-    if (maxSessions === null) return "Unlimited sessions available";
-    
-    // For the MVP, we're not tracking actual usage yet, so just show the max
-    return `Up to ${maxSessions} sessions per day`;
-  };
+  const totalDueQuestions = dueQuestions?.length || 0;
 
   return (
     <div className="category-selection">
-      <h1>{mode === 'training' ? 'Choose Your Categories' : 'Review Due Questions'}</h1>
+      <h2>Choose Your Training Categories</h2>
       
-      {/* Subscription tier info */}
+      {/* Subscription tier info - keep this from the new version */}
       <div className="subscription-info-bar">
         <div className="subscription-status">
-          {getTierBadge()}
-          <span className="remaining-sessions">{getRemainingSessionsText()}</span>
+          {subscriptionTier === SUBSCRIPTION_TIERS.PREMIUM ? (
+            <span className="tier-badge premium">Premium</span>
+          ) : subscriptionTier === SUBSCRIPTION_TIERS.PROFESSIONAL ? (
+            <span className="tier-badge professional">Professional</span>
+          ) : (
+            <span className="tier-badge free">Free</span>
+          )}
+          <span className="remaining-sessions">
+            {tierFeatures?.maxSessions === null 
+              ? "Unlimited sessions available" 
+              : `Up to ${tierFeatures?.maxSessions} sessions per day`}
+          </span>
         </div>
         <a href="/profile" className="upgrade-link">
           {subscriptionTier === SUBSCRIPTION_TIERS.FREE ? 'Upgrade' : 'Manage Subscription'}
         </a>
       </div>
       
-      <div className="category-grid">
+      {/* Category selection limit notice */}
+      <p className="category-limit-info">
+        Select up to {tierFeatures?.maxCategories === null ? 'unlimited' : tierFeatures?.maxCategories} categories
+      </p>
+      
+      {/* Max Categories Message */}
+      {maxCategoriesMessage && (
+        <div className="max-categories-message">
+          Maximum of {tierFeatures?.maxCategories} categories allowed. Please deselect a category first.
+        </div>
+      )}
+      
+      {/* Spaced Repetition Toggle */}
+      {spacedRepetitionEnabled !== undefined && (
+        <div className="spaced-repetition-toggle">
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={spacedRepetitionEnabled}
+              onChange={() => onToggleSpacedRepetition(!spacedRepetitionEnabled)}
+              disabled={!tierFeatures?.spacedRepetition}
+            />
+            <span className="toggle-slider"></span>
+          </label>
+          <span className="toggle-label">
+            Spaced Repetition {spacedRepetitionEnabled ? 'Enabled' : 'Disabled'}
+            {spacedRepetitionEnabled && totalDueQuestions > 0 && (
+              <span className="due-badge">{totalDueQuestions} due</span>
+            )}
+          </span>
+        </div>
+      )}
+      
+      {/* Categories Grid - restored to original style */}
+      <div className="categories">
         {categories.map(category => {
           const isSelected = selectedCategories.includes(category.id);
-          const dueCount = dueQuestionsByCategory[category.id]?.length || 0;
-          const hasOverdueQuestions = dueCount > 0;
+          const isDisabled = !isSelected && selectedCategories.length >= tierFeatures?.maxCategories;
+          const dueCount = getDueQuestionCount(category.id);
           
           return (
-            <div 
+            <button
               key={category.id}
-              className={`category-card ${isSelected ? 'selected' : ''} ${hasOverdueQuestions ? 'has-due' : ''}`}
+              className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
               onClick={() => onCategorySelect(category.id)}
+              disabled={isDisabled}
             >
-              <h3>{category.name}</h3>
-              {hasOverdueQuestions && (
-                <div className="due-badge">{dueCount}</div>
+              {category.name}
+              {spacedRepetitionEnabled && dueCount > 0 && (
+                <span className="category-due-badge">{dueCount} due</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>
       
-      {/* Category selection limit info */}
-      <div className="selection-limit-info">
-        Selected: {selectedCategories.length} / {tierFeatures?.maxCategories === null ? '∞' : tierFeatures?.maxCategories}
-      </div>
-      
-      <div className="options-container">
-        <h2>Session Options</h2>
-        
-        <div className="duration-selector">
-          <h3>Duration</h3>
-          <div className="duration-buttons">
-            <button 
-              className={selectedDuration === 5 ? 'selected' : ''}
-              onClick={() => onDurationSelect(5)}
+      {/* Duration Selection */}
+      <div className="duration-selection">
+        <h3>How long would you like to train?</h3>
+        <div className="duration-buttons">
+          {isAdmin && (
+            <button
+              className={`duration-button test-button ${selectedDuration === 0.08 ? 'selected' : ''}`}
+              onClick={() => onDurationSelect(0.08)}
             >
-              5 min
+              5 sec (test)
             </button>
-            <button 
-              className={selectedDuration === 10 ? 'selected' : ''}
-              onClick={() => onDurationSelect(10)}
-            >
-              10 min
-            </button>
-            <button 
-              className={selectedDuration === 15 ? 'selected' : ''}
-              onClick={() => onDurationSelect(15)}
-            >
-              15 min
-            </button>
-            <button 
-              className={selectedDuration === 30 ? 'selected' : ''}
-              onClick={() => onDurationSelect(30)}
-            >
-              30 min
-            </button>
-          </div>
-        </div>
-        
-        <div className="spaced-repetition-toggle">
-          <label className="toggle-container">
-            <span>Spaced Repetition</span>
-            <div className={`toggle ${spacedRepetitionEnabled ? 'on' : 'off'} ${!tierFeatures?.spacedRepetition ? 'disabled' : ''}`}>
-              <input 
-                type="checkbox" 
-                checked={spacedRepetitionEnabled} 
-                onChange={handleSpacedRepetitionToggle} 
-                disabled={!tierFeatures?.spacedRepetition}
-              />
-              <span className="slider"></span>
-            </div>
-          </label>
-          {!tierFeatures?.spacedRepetition && 
-            <div className="feature-lock-info">
-              <span className="lock-icon">🔒</span>
-              <span>Upgrade to unlock Spaced Repetition</span>
-            </div>
-          }
-          
-          {spacedRepetitionEnabled && (
-            <div className="due-info">
-              <span>{getSelectedDueCount()} questions due in selected categories</span>
-              <span>{dueQuestions.length} questions due in total</span>
-            </div>
           )}
-        </div>
-        
-        <div className="question-limit-info">
-          <span>Session question limit: {tierFeatures?.maxQuestionsPerSession === null ? 'Unlimited' : tierFeatures?.maxQuestionsPerSession} questions</span>
+          <button
+            className={`duration-button ${selectedDuration === 5 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(5)}
+          >
+            5 min
+          </button>
+          <button
+            className={`duration-button ${selectedDuration === 10 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(10)}
+          >
+            10 min
+          </button>
+          <button
+            className={`duration-button ${selectedDuration === 15 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(15)}
+          >
+            15 min
+          </button>
+          <button
+            className={`duration-button ${selectedDuration === 20 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(20)}
+          >
+            20 min
+          </button>
+          <button
+            className={`duration-button ${selectedDuration === 25 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(25)}
+          >
+            25 min
+          </button>
+          <button
+            className={`duration-button ${selectedDuration === 30 ? 'selected' : ''}`}
+            onClick={() => onDurationSelect(30)}
+          >
+            30 min
+          </button>
         </div>
       </div>
       
-      {(error || localError) && <div className="error-message">{error || localError}</div>}
+      {/* Question limit info from subscription features */}
+      <div className="question-limit-info">
+        <span>Session question limit: {tierFeatures?.maxQuestionsPerSession === null ? 'Unlimited' : tierFeatures?.maxQuestionsPerSession} questions</span>
+      </div>
       
-      <button 
-        className={`start-button ${selectedCategories.length === 0 || !selectedDuration ? 'disabled' : ''}`} 
+      {(error || localError) && <p className="error">Oops! {error || localError}</p>}
+      
+      <button
+        className="start-button"
         onClick={handleStart}
         disabled={selectedCategories.length === 0 || !selectedDuration}
       >
-        Start Session
+        Begin Training
       </button>
+      
+      {spacedRepetitionEnabled && (
+        <div className="spaced-repetition-info">
+          <p>
+            With spaced repetition enabled, the system will prioritize questions that you need to review 
+            based on your past performance. Questions you find difficult will appear more frequently. 
+            The more you train, the better Trivia will get!
+          </p>
+        </div>
+      )}
     </div>
   );
 };
