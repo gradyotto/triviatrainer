@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
 import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import './Profile.css';
+import { 
+  getUserSubscriptionTier, 
+  getSubscriptionDetails, 
+  updateSubscription, 
+  SUBSCRIPTION_TIERS, 
+  TIER_FEATURES 
+} from './utils/subscriptionService';
 
 const bannedWords = [
   'fuck', 'shit', 'damn', 'ass', 'bitch', 'cock', 'cunt', 'dick', 'pussy', 'bastard',
@@ -15,6 +22,12 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
   const [error, setError] = useState(null);
   const [activityData, setActivityData] = useState({});
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [subscription, setSubscription] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [selectedTier, setSelectedTier] = useState(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(null);
 
   const joinDate = user.metadata?.creationTime 
     ? new Date(user.metadata.creationTime).toLocaleDateString()
@@ -23,6 +36,26 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
   useEffect(() => {
     setUsername(parentUsername || ''); // Sync with parent username
   }, [parentUsername]);
+
+  useEffect(() => {
+    const fetchSubscriptionData = async () => {
+      if (!user || !user.uid) return;
+      
+      try {
+        setIsLoading(true);
+        // Get subscription details
+        const details = await getSubscriptionDetails(user.uid, db);
+        setSubscription(details);
+      } catch (err) {
+        console.error("Failed to fetch subscription data:", err);
+        setError("Failed to load subscription information");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSubscriptionData();
+  }, [user]);
 
   useEffect(() => {
     const fetchActivityData = async () => {
@@ -101,6 +134,68 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
       console.error('Error updating username:', e);
       setError('Failed to update username');
     }
+  };
+
+  const handleUpgradeClick = () => {
+    setShowSubscriptionModal(true);
+    setSelectedTier(null);
+    setPaymentSuccess(null);
+  };
+
+  const handleTierSelect = (tier) => {
+    setSelectedTier(tier);
+  };
+
+  const handleSubscribe = async () => {
+    if (!selectedTier) {
+      setError('Please select a subscription tier');
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    setError(null);
+
+    try {
+      // This is a mock payment flow - in a real app, you would integrate with a payment processor
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Process the subscription update
+      const result = await updateSubscription(user.uid, selectedTier, db);
+      
+      if (result.success) {
+        setPaymentSuccess({
+          tier: selectedTier,
+          expiresAt: result.expirationDate
+        });
+        
+        // Update local subscription state
+        setSubscription({
+          ...subscription,
+          tier: selectedTier,
+          expirationDate: result.expirationDate,
+          autoRenew: true
+        });
+      } else {
+        setError(`Payment failed: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('Error processing subscription:', err);
+      setError('An error occurred while processing your payment');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowSubscriptionModal(false);
+    setSelectedTier(null);
+    setPaymentSuccess(null);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
   };
 
   const getActivityGraph = () => {
@@ -220,6 +315,115 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
     );
   };
 
+  // Subscription modal component
+  const SubscriptionModal = () => {
+    if (!showSubscriptionModal) return null;
+
+    return (
+      <div className="modal-overlay">
+        <div className="subscription-modal">
+          <div className="modal-header">
+            <h2>{paymentSuccess ? 'Subscription Updated' : 'Choose Your Subscription'}</h2>
+            <button className="close-button" onClick={handleCloseModal}>×</button>
+          </div>
+
+          {paymentSuccess ? (
+            <div className="payment-success">
+              <div className="success-icon">✓</div>
+              <h3>Thank you for subscribing!</h3>
+              <p>You have successfully subscribed to the {TIER_FEATURES[paymentSuccess.tier].name} plan.</p>
+              <p>Your subscription is valid until: {formatDate(paymentSuccess.expiresAt)}</p>
+              <button className="primary-button" onClick={handleCloseModal}>Continue</button>
+            </div>
+          ) : (
+            <>
+              <div className="subscription-options">
+                {Object.keys(TIER_FEATURES).map(tier => (
+                  <div 
+                    key={tier}
+                    className={`subscription-option ${selectedTier === tier ? 'selected' : ''} ${subscription?.tier === tier ? 'current' : ''}`}
+                    onClick={() => handleTierSelect(tier)}
+                  >
+                    <div className="option-header">
+                      <h3>{TIER_FEATURES[tier].name}</h3>
+                      {subscription?.tier === tier && <span className="current-plan">Current Plan</span>}
+                    </div>
+                    <div className="option-price">
+                      ${TIER_FEATURES[tier].price.toFixed(2)}<span>/month</span>
+                    </div>
+                    <div className="option-features">
+                      <ul>
+                        <li>Up to {TIER_FEATURES[tier].maxQuestionsPerSession === null ? 'Unlimited' : TIER_FEATURES[tier].maxQuestionsPerSession} questions per session</li>
+                        <li>Up to {TIER_FEATURES[tier].maxCategories === null ? 'Unlimited' : TIER_FEATURES[tier].maxCategories} categories</li>
+                        <li>Up to {TIER_FEATURES[tier].maxSessions === null ? 'Unlimited' : TIER_FEATURES[tier].maxSessions} sessions per day</li>
+                        <li>{TIER_FEATURES[tier].spacedRepetition ? '✓' : '✗'} Spaced Repetition</li>
+                        <li>{TIER_FEATURES[tier].customCategories ? '✓' : '✗'} Custom Categories</li>
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {error && <div className="error-message">{error}</div>}
+
+              <div className="modal-footer">
+                <button 
+                  className="primary-button"
+                  onClick={handleSubscribe}
+                  disabled={isProcessingPayment || !selectedTier || selectedTier === subscription?.tier}
+                >
+                  {isProcessingPayment ? 'Processing...' : selectedTier === subscription?.tier ? 'Current Plan' : 'Subscribe'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Render subscription information section
+  const renderSubscriptionInfo = () => {
+    if (isLoading) {
+      return <div className="loading-spinner">Loading subscription info...</div>;
+    }
+
+    if (!subscription) {
+      return <div>Subscription information not available</div>;
+    }
+
+    const tierFeatures = TIER_FEATURES[subscription.tier];
+
+    return (
+      <div className="subscription-info">
+        <div className="subscription-header">
+          <h3>Current Subscription: {tierFeatures.name}</h3>
+          <button className="upgrade-button" onClick={handleUpgradeClick}>
+            {subscription.tier === SUBSCRIPTION_TIERS.FREE ? 'Upgrade' : 'Manage Subscription'}
+          </button>
+        </div>
+        
+        {subscription.expirationDate && (
+          <p className="expiration-date">
+            Valid until: {formatDate(subscription.expirationDate)}
+            {subscription.autoRenew && ' (Auto-renews)'}
+          </p>
+        )}
+        
+        <div className="plan-features">
+          <h4>Your Plan Includes:</h4>
+          <ul>
+            <li>Up to {tierFeatures.maxQuestionsPerSession === null ? 'Unlimited' : tierFeatures.maxQuestionsPerSession} questions per session</li>
+            <li>Up to {tierFeatures.maxCategories === null ? 'Unlimited' : tierFeatures.maxCategories} categories</li>
+            <li>Up to {tierFeatures.maxSessions === null ? 'Unlimited' : tierFeatures.maxSessions} sessions per day</li>
+            <li>{tierFeatures.spacedRepetition ? '✓' : '✗'} Spaced Repetition</li>
+            <li>{tierFeatures.customCategories ? '✓' : '✗'} Custom Categories</li>
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="profile-page">
       <div className="profile-container">
@@ -248,15 +452,19 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
           <p><strong>Stats:</strong> Coming soon! (Questions answered, accuracy, etc.)</p>
         </div>
         {error && <p className="error">{error}</p>}
-        <div className="profile-buttons">
-          <button onClick={onSignOut} className="sign-out-button">Sign Out</button>
-          {isAdmin && <button onClick={onAdminClick} className="admin-button">Admin Panel</button>}
-          {process.env.NODE_ENV === 'development' && 
-            <button onClick={debugSyncStatus} className="debug-button">Debug Sync Status</button>
-          }
-        </div>
+        
+        {/* Subscription information */}
+        {renderSubscriptionInfo()}
+        
+        {/* Activity graph */}
+        {getActivityGraph()}
+        
+        <button className="sign-out-button" onClick={onSignOut}>Sign Out</button>
+        {isAdmin && <button className="admin-button" onClick={onAdminClick}>Admin Panel</button>}
       </div>
-      {getActivityGraph()}
+      
+      {/* Subscription modal */}
+      <SubscriptionModal />
     </div>
   );
 };

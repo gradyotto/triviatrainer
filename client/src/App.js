@@ -29,6 +29,14 @@ import {
 } from './utils/indexedDB';
 import NetworkStatus from './components/NetworkStatus';
 import NeuralBackground from './components/NeuralBackground';
+import { 
+  getUserSubscriptionTier, 
+  getTierFeatures, 
+  checkFeatureLimit, 
+  trackDailyUsage,
+  getTodayUsage,
+  SUBSCRIPTION_TIERS
+} from './utils/subscriptionService';
 
 const functions = getFunctions(app);
 
@@ -163,6 +171,12 @@ function App() {
     accuracy: 0,
     timeSpent: 0
   });
+  // Subscription-related state
+  const [subscriptionTier, setSubscriptionTier] = useState(SUBSCRIPTION_TIERS.FREE);
+  const [tierFeatures, setTierFeatures] = useState(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModalMessage, setLimitModalMessage] = useState('');
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(false);
   
   // Refs
   const verificationIntervalRef = useRef(null);
@@ -176,6 +190,16 @@ function App() {
   const fetchUserHistory = async (uid) => {
     try {
       console.log('Fetching user history for:', uid);
+      
+      // Fetch subscription tier information
+      setIsLoadingSubscription(true);
+      const tier = await getUserSubscriptionTier(uid, db);
+      const features = getTierFeatures(tier);
+      setSubscriptionTier(tier);
+      setTierFeatures(features);
+      setIsLoadingSubscription(false);
+      
+      console.log('User subscription tier:', tier);
       
       // Initialize IndexedDB
       await initLearningDB();
@@ -1030,19 +1054,44 @@ function App() {
     setTimeRemaining(null);
   };
 
-  const handleCategorySelect = (categoryId) => {
-    setSelectedCategories(prev => 
-      prev.includes(categoryId) 
-        ? prev.filter(id => id !== categoryId) 
-        : [...prev, categoryId]
-    );
+  const handleCategorySelect = async (categoryId) => {
+    // If removing a category, always allow
+    if (selectedCategories.includes(categoryId)) {
+      setSelectedCategories(prev => prev.filter(id => id !== categoryId));
+      return;
+    }
+    
+    // If adding a category, check if we're at the limit
+    if (!selectedCategories.includes(categoryId)) {
+      const newCount = selectedCategories.length + 1;
+      
+      // Check category limit
+      const { hasAccess, message, limit } = await checkFeatureAccess('maxCategories', newCount);
+      
+      if (!hasAccess) {
+        showSubscriptionLimitModal(message);
+        return;
+      }
+    }
+    
+    // If within limits, add the category
+    setSelectedCategories(prev => [...prev, categoryId]);
   };
 
   const handleDurationSelect = (duration) => {
     setSelectedDuration(prev => prev === duration ? null : duration);
   };
 
-  const handleToggleSpacedRepetition = (enabled) => {
+  const handleToggleSpacedRepetition = async (enabled) => {
+    // Check if user has access to spaced repetition
+    if (enabled) {
+      const { hasAccess, message } = await checkFeatureAccess('spacedRepetition');
+      if (!hasAccess) {
+        showSubscriptionLimitModal(message);
+        return;
+      }
+    }
+    
     setSpacedRepetitionEnabled(enabled);
     
     // Save the preference to localStorage
@@ -1205,10 +1254,22 @@ function App() {
     }
   }, []);
 
-  const handleStartTraining = () => {
+  const handleStartTraining = async () => {
     if (selectedCategories.length === 0) {
       setError("Please select at least one category");
       return;
+    }
+    
+    // Check daily session limit
+    if (user) {
+      const todaySessions = await getTodayUsage(user.uid, 'sessions', db);
+      
+      const { hasAccess, message } = await checkFeatureAccess('maxSessions', todaySessions + 1);
+      
+      if (!hasAccess) {
+        showSubscriptionLimitModal(message);
+        return;
+      }
     }
     
     console.log("handleStartTraining called, setting up training session");
@@ -1245,15 +1306,28 @@ function App() {
     
     // Load questions either from cache or Firestore based on network status
     fetchQuestionsByCategories(selectedCategories, 30, true)
-      .then(questions => {
+      .then(async questions => {
         if (questions.length === 0) {
           setError('No questions available for the selected categories. Please try different categories or check your internet connection.');
           setTrainingInProgress(false);
           return;
         }
         
-        console.log(`Fetched ${questions.length} questions, attempting to start training session`);
-        setQuestions(questions);
+        // Check questions limit based on subscription tier
+        const maxQuestions = tierFeatures.maxQuestionsPerSession;
+        let limitedQuestions = questions;
+        
+        if (maxQuestions !== null) {
+          limitedQuestions = questions.slice(0, maxQuestions);
+          
+          // Show a notice if we limited the questions
+          if (limitedQuestions.length < questions.length) {
+            console.log(`Limited questions from ${questions.length} to ${limitedQuestions.length} based on subscription`);
+          }
+        }
+        
+        console.log(`Fetched ${limitedQuestions.length} questions, attempting to start training session`);
+        setQuestions(limitedQuestions);
         
         // Using React Router for navigation instead of screen state
         console.log("Questions set, navigating to /training");
@@ -1263,6 +1337,11 @@ function App() {
           window.history.pushState({}, '', '/training');
           // Force a re-render
           window.dispatchEvent(new Event('popstate'));
+        }
+        
+        // Track this session in usage stats
+        if (user) {
+          await trackDailyUsage(user.uid, 'sessions', db);
         }
         
         // Start the vanilla timer with the session duration
@@ -2041,6 +2120,80 @@ function App() {
     };
   }, [user, db]);
 
+  // Add helper function to check feature access
+  const checkFeatureAccess = async (featureName, currentValue) => {
+    if (!user) return { hasAccess: false, message: 'Please sign in to access this feature' };
+    
+    // Different handling for boolean features vs. limit-based features
+    if (typeof tierFeatures[featureName] === 'boolean') {
+      const hasAccess = tierFeatures[featureName];
+      return { 
+        hasAccess, 
+        message: hasAccess ? null : `The ${featureName} feature is only available with a premium subscription.`
+      };
+    } else {
+      // For limit-based features
+      const { hasReachedLimit, limit } = await checkFeatureLimit(
+        user.uid, 
+        featureName, 
+        currentValue, 
+        db
+      );
+      
+      return {
+        hasAccess: !hasReachedLimit,
+        message: hasReachedLimit ? 
+          `You've reached the limit of ${limit} ${featureName} for your current subscription tier.` : 
+          null,
+        limit
+      };
+    }
+  };
+
+  // Add a function to show limit modal
+  const showSubscriptionLimitModal = (message) => {
+    setLimitModalMessage(message);
+    setShowLimitModal(true);
+  };
+
+  // Create a modal component to show subscription limit notices
+  const SubscriptionLimitModal = () => {
+    if (!showLimitModal) return null;
+    
+    return (
+      <div className="modal-overlay">
+        <div className="limit-modal">
+          <div className="modal-header">
+            <h2>Subscription Limit Reached</h2>
+            <button className="close-button" onClick={() => setShowLimitModal(false)}>×</button>
+          </div>
+          <div className="modal-content">
+            <p>{limitModalMessage}</p>
+            <p>Upgrade your subscription to access more features and higher limits.</p>
+          </div>
+          <div className="modal-footer">
+            <button 
+              className="secondary-button" 
+              onClick={() => setShowLimitModal(false)}
+            >
+              Cancel
+            </button>
+            <button 
+              className="primary-button" 
+              onClick={() => {
+                setShowLimitModal(false);
+                window.history.pushState({}, '', '/profile');
+                window.dispatchEvent(new Event('popstate'));
+              }}
+            >
+              View Subscription Options
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (awaitingVerification || isVerifying) {
     return (
       <div className="verification-screen">
@@ -2155,6 +2308,8 @@ function App() {
                 questionPriorities={questionPriorities}
                 dueQuestionsByCategory={dueQuestionsByCategory}
                 isAdmin={isAdmin}
+                subscriptionTier={subscriptionTier}
+                tierFeatures={tierFeatures}
               />
             } />
             <Route path="/profile" element={
@@ -2192,6 +2347,8 @@ function App() {
                     questionPriorities={questionPriorities}
                     dueQuestionsByCategory={dueQuestionsByCategory}
                     isAdmin={isAdmin}
+                    subscriptionTier={subscriptionTier}
+                    tierFeatures={tierFeatures}
                   />
                 ) : showReinforcement ? (
                   <ReinforcementTask
@@ -2236,6 +2393,7 @@ function App() {
                     dueQuestions={dueQuestions}
                     questionPriorities={questionPriorities}
                     userHistory={userHistory}
+                    subscriptionTier={subscriptionTier}
                   />
                 )}
               </PrivateRoute>
@@ -2246,6 +2404,7 @@ function App() {
       
       {/* Render the completion modal */}
       <CompletionModal />
+      <SubscriptionLimitModal />
     </div>
   );
 }
