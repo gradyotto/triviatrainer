@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './CategorySelection.css';
 import { SUBSCRIPTION_TIERS, TIER_FEATURES } from './utils/subscriptionService';
 
@@ -23,6 +23,16 @@ const CategorySelection = ({
   const [localError, setLocalError] = useState(null);
   const [maxCategoriesMessage, setMaxCategoriesMessage] = useState(false);
 
+  // Show category limit message when needed
+  useEffect(() => {
+    if (maxCategoriesMessage) {
+      const timer = setTimeout(() => {
+        setMaxCategoriesMessage(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [maxCategoriesMessage]);
+
   const handleStart = () => {
     if (selectedCategories.length === 0) {
       setLocalError("Please select at least one category.");
@@ -34,6 +44,31 @@ const CategorySelection = ({
     }
     setLocalError(null);
     onStart();
+  };
+  
+  // Add a specific handler for the spaced repetition toggle
+  const handleSpacedRepetitionToggle = () => {
+    if (tierFeatures?.spacedRepetition) {
+      onToggleSpacedRepetition(!spacedRepetitionEnabled);
+    }
+  };
+
+  // Intercept category selection to show limit message
+  const handleCategorySelect = (categoryId) => {
+    // If removing a category, always allow
+    if (selectedCategories.includes(categoryId)) {
+      onCategorySelect(categoryId);
+      return;
+    }
+    
+    // If adding a category, check if we're at the limit
+    if (selectedCategories.length >= tierFeatures?.maxCategories) {
+      setMaxCategoriesMessage(true);
+      return;
+    }
+    
+    // If within limits, proceed with selection
+    onCategorySelect(categoryId);
   };
 
   // Count due questions per category
@@ -85,14 +120,14 @@ const CategorySelection = ({
         </div>
       )}
       
-      {/* Spaced Repetition Toggle */}
+      {/* Spaced Repetition Toggle - Fixed toggle functionality */}
       {spacedRepetitionEnabled !== undefined && (
         <div className="spaced-repetition-toggle">
           <label className="toggle-switch">
             <input
               type="checkbox"
               checked={spacedRepetitionEnabled}
-              onChange={() => onToggleSpacedRepetition(!spacedRepetitionEnabled)}
+              onChange={handleSpacedRepetitionToggle}
               disabled={!tierFeatures?.spacedRepetition}
             />
             <span className="toggle-slider"></span>
@@ -103,6 +138,12 @@ const CategorySelection = ({
               <span className="due-badge">{totalDueQuestions} due</span>
             )}
           </span>
+          {!tierFeatures?.spacedRepetition && (
+            <span className="feature-lock-info">
+              <span className="lock-icon">🔒</span>
+              <span>Upgrade to unlock</span>
+            </span>
+          )}
         </div>
       )}
       
@@ -117,7 +158,7 @@ const CategorySelection = ({
             <button
               key={category.id}
               className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-              onClick={() => onCategorySelect(category.id)}
+              onClick={() => handleCategorySelect(category.id)}
               disabled={isDisabled}
             >
               {category.name}
@@ -159,24 +200,6 @@ const CategorySelection = ({
           >
             15 min
           </button>
-          <button
-            className={`duration-button ${selectedDuration === 20 ? 'selected' : ''}`}
-            onClick={() => onDurationSelect(20)}
-          >
-            20 min
-          </button>
-          <button
-            className={`duration-button ${selectedDuration === 25 ? 'selected' : ''}`}
-            onClick={() => onDurationSelect(25)}
-          >
-            25 min
-          </button>
-          <button
-            className={`duration-button ${selectedDuration === 30 ? 'selected' : ''}`}
-            onClick={() => onDurationSelect(30)}
-          >
-            30 min
-          </button>
         </div>
       </div>
       
@@ -187,13 +210,16 @@ const CategorySelection = ({
       
       {(error || localError) && <p className="error">Oops! {error || localError}</p>}
       
-      <button
-        className="start-button"
-        onClick={handleStart}
-        disabled={selectedCategories.length === 0 || !selectedDuration}
-      >
-        Begin Training
-      </button>
+      {/* Begin Training button with correct styling */}
+      <div className="start-button-container">
+        <button
+          className="start-button"
+          onClick={handleStart}
+          disabled={selectedCategories.length === 0 || !selectedDuration}
+        >
+          Begin Training
+        </button>
+      </div>
       
       {spacedRepetitionEnabled && (
         <div className="spaced-repetition-info">

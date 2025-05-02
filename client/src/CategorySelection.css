@@ -87,6 +87,7 @@ body, html {
   height: 80px;
   position: relative;
   overflow: hidden;
+  font-weight: bold;
 }
 
 .category-selection .categories button.category-button:hover {
@@ -194,7 +195,29 @@ body, html {
   margin: 15px 0;
 }
 
-/* Start button */
+/* Start button container to center the button properly */
+.start-button-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin: 25px 0;
+}
+
+/* Feature lock info styling for the spaced repetition toggle */
+.feature-lock-info {
+  display: flex;
+  align-items: center;
+  margin-left: 10px;
+  color: #ff6b6b;
+  font-size: 12px;
+}
+
+.lock-icon {
+  margin-right: 5px;
+  font-size: 14px;
+}
+
+/* Ensure the start button has the right styling */
 .category-selection .start-button {
   background: linear-gradient(45deg, #6e48aa, #9d50bb);
   color: white;
@@ -203,13 +226,14 @@ body, html {
   font-size: 18px;
   border-radius: 30px;
   cursor: pointer;
-  margin-top: 20px;
   transition: all 0.3s ease;
   box-shadow: 0 5px 15px rgba(110, 72, 170, 0.4);
   position: relative;
   overflow: hidden;
   font-weight: 600;
   letter-spacing: 1px;
+  min-width: 200px;
+  text-align: center;
 }
 
 .category-selection .start-button:hover:not(:disabled) {
@@ -225,30 +249,21 @@ body, html {
   opacity: 0.7;
 }
 
-/* Spaced Repetition Toggle */
-.spaced-repetition-toggle {
-  display: flex;
-  align-items: center;
-  margin: 15px 0;
-  padding: 10px;
-  background-color: rgba(30, 30, 45, 0.5);
-  border-radius: 30px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Toggle Switch */
+/* Ensure the toggle is properly styled to be interactive */
 .toggle-switch {
   position: relative;
   display: inline-block;
   width: 50px;
   height: 24px;
   margin-right: 10px;
+  cursor: pointer;
 }
 
 .toggle-switch input {
   opacity: 0;
   width: 0;
   height: 0;
+  cursor: pointer;
 }
 
 .toggle-slider {
@@ -281,6 +296,26 @@ input:checked + .toggle-slider {
 
 input:checked + .toggle-slider:before {
   transform: translateX(26px);
+}
+
+input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Make the spaced repetition toggle more visually appealing */
+.spaced-repetition-toggle {
+  display: flex;
+  align-items: center;
+  margin: 15px 0;
+  padding: 12px 20px;
+  background-color: rgba(30, 30, 45, 0.5);
+  border-radius: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .toggle-label {
@@ -506,15 +541,23 @@ input:checked + .toggle-slider:before {
 }
 
 .max-categories-message {
-  background-color: rgba(255, 107, 107, 0.1);
+  background-color: rgba(255, 107, 107, 0.2);
   color: #ff6b6b;
-  padding: 8px 15px;
+  padding: 10px 15px;
   border-radius: 8px;
   font-size: 14px;
   margin-bottom: 15px;
   max-width: 700px;
   width: 100%;
   text-align: center;
+  animation: fadeInOut 3s ease;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .category-button.disabled {
@@ -553,4 +596,19 @@ input:checked + .toggle-slider:before {
   text-align: center;
   max-width: 700px;
   width: 100%;
+}
+
+/* Update category-due-badge to make it more visible */
+.category-due-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: #ff6b6b;
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: bold;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
