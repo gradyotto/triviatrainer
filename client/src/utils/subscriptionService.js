@@ -81,7 +81,7 @@ export const checkFeatureLimit = async (userId, limitName, currentValue, db) => 
     if (limit === null) return { hasReachedLimit: false, limit };
     
     return {
-      hasReachedLimit: currentValue >= limit,
+      hasReachedLimit: currentValue > limit,
       limit
     };
   } catch (error) {
@@ -89,7 +89,7 @@ export const checkFeatureLimit = async (userId, limitName, currentValue, db) => 
     // Default to the free tier limit as a fallback
     const fallbackLimit = TIER_FEATURES[SUBSCRIPTION_TIERS.FREE][limitName];
     return {
-      hasReachedLimit: currentValue >= fallbackLimit,
+      hasReachedLimit: currentValue > fallbackLimit,
       limit: fallbackLimit
     };
   }

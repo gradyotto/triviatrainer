@@ -53,24 +53,6 @@ const CategorySelection = ({
     }
   };
 
-  // Intercept category selection to show limit message
-  const handleCategorySelect = (categoryId) => {
-    // If removing a category, always allow
-    if (selectedCategories.includes(categoryId)) {
-      onCategorySelect(categoryId);
-      return;
-    }
-    
-    // If adding a category, check if we're at the limit
-    if (selectedCategories.length >= tierFeatures?.maxCategories) {
-      setMaxCategoriesMessage(true);
-      return;
-    }
-    
-    // If within limits, proceed with selection
-    onCategorySelect(categoryId);
-  };
-
   // Count due questions per category
   const getDueQuestionCount = (categoryId) => {
     if (!spacedRepetitionEnabled || !dueQuestionsByCategory) {
@@ -151,14 +133,15 @@ const CategorySelection = ({
       <div className="categories">
         {categories.map(category => {
           const isSelected = selectedCategories.includes(category.id);
-          const isDisabled = !isSelected && selectedCategories.length >= tierFeatures?.maxCategories;
+          // Only disable buttons when we've EXACTLY reached the maximum limit (not before)
+          const isDisabled = !isSelected && tierFeatures?.maxCategories !== null && selectedCategories.length >= tierFeatures?.maxCategories;
           const dueCount = getDueQuestionCount(category.id);
           
           return (
             <button
               key={category.id}
               className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-              onClick={() => handleCategorySelect(category.id)}
+              onClick={() => onCategorySelect(category.id)}
               disabled={isDisabled}
             >
               {category.name}
