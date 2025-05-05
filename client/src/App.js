@@ -1054,7 +1054,14 @@ function App() {
     setTimeRemaining(null);
   };
 
-  const handleCategorySelect = async (categoryId) => {
+  const handleCategorySelect = async (categoryId, limitExceeded) => {
+    // If this is a limit exceeded click, show the modal directly
+    if (limitExceeded) {
+      const message = `You've reached the limit of ${tierFeatures?.maxCategories} categories for your current subscription tier.`;
+      showSubscriptionLimitModal(message);
+      return;
+    }
+    
     // If removing a category, always allow
     if (selectedCategories.includes(categoryId)) {
       setSelectedCategories(prev => prev.filter(id => id !== categoryId));

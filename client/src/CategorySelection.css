@@ -562,8 +562,9 @@ input:disabled + .toggle-slider {
 
 .category-button.disabled {
   opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
+  cursor: pointer;
+  background-color: rgba(30, 30, 45, 0.7);
+  position: relative;
 }
 
 .category-button.disabled::after {

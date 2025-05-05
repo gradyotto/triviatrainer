@@ -63,6 +63,19 @@ const CategorySelection = ({
     return categoryDueQuestions.length;
   };
 
+  // New function to handle category button clicks with limit logic  
+  const handleCategoryButtonClick = (categoryId, isDisabled) => {
+    if (isDisabled) {
+      // Show upgrade modal with appropriate message
+      const message = `You've reached the limit of ${tierFeatures.maxCategories} categories for your current subscription tier.`;
+      // Call the parent's onCategorySelect with a special flag to show the modal
+      onCategorySelect(categoryId, true); // Pass true to indicate this is a limit-exceeded click
+    } else {
+      // Normal select/deselect behavior
+      onCategorySelect(categoryId);
+    }
+  };
+
   const totalDueQuestions = dueQuestions?.length || 0;
 
   return (
@@ -141,8 +154,8 @@ const CategorySelection = ({
             <button
               key={category.id}
               className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-              onClick={() => onCategorySelect(category.id)}
-              disabled={isDisabled}
+              onClick={() => handleCategoryButtonClick(category.id, isDisabled)}
+              // Remove the disabled attribute so the button remains clickable
             >
               {category.name}
               {spacedRepetitionEnabled && dueCount > 0 && (
