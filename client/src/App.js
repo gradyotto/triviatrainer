@@ -157,7 +157,7 @@ function App() {
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [spacedRepetitionEnabled, setSpacedRepetitionEnabled] = useState(true);
+  const [spacedRepetitionEnabled, setSpacedRepetitionEnabled] = useState(false); // Start with spaced repetition off by default
   const [questionPriorities, setQuestionPriorities] = useState({});
   const [dueQuestions, setDueQuestions] = useState([]);
   const [dueQuestionsByCategory, setDueQuestionsByCategory] = useState({});
@@ -197,6 +197,14 @@ function App() {
       const features = getTierFeatures(tier);
       setSubscriptionTier(tier);
       setTierFeatures(features);
+      
+      // Ensure spaced repetition is disabled for free tier users
+      if (!features.spacedRepetition && spacedRepetitionEnabled) {
+        console.log('Disabling spaced repetition for free tier user');
+        setSpacedRepetitionEnabled(false);
+        localStorage.setItem('spacedRepetitionEnabled', 'false');
+      }
+      
       setIsLoadingSubscription(false);
       
       console.log('User subscription tier:', tier);
@@ -1256,10 +1264,24 @@ function App() {
   useEffect(() => {
     // Load spaced repetition preference from localStorage
     const savedPreference = localStorage.getItem('spacedRepetitionEnabled');
+    
     if (savedPreference !== null) {
-      setSpacedRepetitionEnabled(JSON.parse(savedPreference));
+      // If the user's tier allows spaced repetition, use the saved preference
+      if (tierFeatures?.spacedRepetition) {
+        setSpacedRepetitionEnabled(JSON.parse(savedPreference));
+      } else {
+        // For users without spaced repetition access, always keep it disabled
+        setSpacedRepetitionEnabled(false);
+        
+        // Update localStorage to match the enforced setting
+        localStorage.setItem('spacedRepetitionEnabled', 'false');
+      }
+    } else if (tierFeatures?.spacedRepetition === false) {
+      // For new users without the feature, make sure it's disabled
+      setSpacedRepetitionEnabled(false);
+      localStorage.setItem('spacedRepetitionEnabled', 'false');
     }
-  }, []);
+  }, [tierFeatures]);
 
   const handleStartTraining = async () => {
     if (selectedCategories.length === 0) {

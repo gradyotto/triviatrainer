@@ -14,19 +14,19 @@ html, body, #root, .App {
   text-align: center;
   padding: 0;
   color: white;
-  height: 100vh; /* Use height instead of min-height */
-  max-height: 100vh; /* Prevent overflow */
+  min-height: 100vh; /* Maintain minimum height */
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
-  padding-top: 60px; /* Exactly the height of the header */
-  overflow: hidden; /* Hide any overflow */
-  margin: 0; /* Remove any margins */
-  width: 100%; /* Ensure full width */
-  box-sizing: border-box; /* Include padding in element's total width/height */
-  overscroll-behavior: none; /* Prevent bounce/overscroll effect */
-  -webkit-overflow-scrolling: none; /* Disable momentum scrolling on iOS */
+  padding-top: 50px; /* Reduced from 60px */
+  padding-bottom: 20px; /* Reduced from 100px */
+  overflow: visible;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: none;
 }
 
 /* Fix for scrollbar issue - add global styles */
@@ -46,10 +46,11 @@ body, html {
   content: none;
 }
 
+/* Compress vertical spacing */
 .category-selection h2 {
-  font-size: 2.8rem;
+  font-size: 2.5rem; /* Slightly smaller */
+  margin-bottom: 1rem; /* Reduced margin */
   text-align: center;
-  margin-bottom: 1.5rem;
   color: #fff;
   text-shadow: 0 0 10px rgba(155, 135, 245, 0.5);
   background: linear-gradient(90deg, #b388ff, #805acb);
@@ -58,24 +59,61 @@ body, html {
   color: transparent;
 }
 
-/* Categories grid layout - restored to original 3x3 format */
+/* Subscription info bar styling - enhance to include category limits */
+.subscription-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 700px;
+  background-color: rgba(30, 30, 45, 0.7);
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 15px; /* Reduced from 20px */
+}
+
+.subscription-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subscription-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.remaining-sessions {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.category-limit-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500; /* Make it slightly more prominent */
+}
+
+/* Categories grid with tighter spacing */
 .categories {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin: 15px 0;
+  gap: 12px; /* Reduced from 15px */
+  margin: 12px 0; /* Reduced from 15px 0 */
   width: 100%;
   max-width: 700px;
 }
 
-/* Category buttons */
+/* Make category buttons slightly smaller */
 .category-selection .categories button.category-button {
   background-color: rgba(30, 30, 45, 0.7);
   color: white;
   border: 1px solid rgba(155, 135, 245, 0.3);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border-radius: 10px;
-  padding: 15px 10px;
+  padding: 12px 10px; /* Reduced padding */
   font-size: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -84,7 +122,7 @@ body, html {
   align-items: center;
   justify-content: center;
   text-align: center;
-  height: 80px;
+  height: 70px; /* Reduced from 80px */
   position: relative;
   overflow: hidden;
   font-weight: bold;
@@ -119,17 +157,17 @@ body, html {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Duration selection */
+/* Duration section with compressed spacing */
 .duration-selection {
   width: 100%;
   max-width: 700px;
-  margin: 20px 0;
+  margin: 15px 0; /* Reduced from 20px */
   text-align: center;
 }
 
 .duration-selection h3 {
-  font-size: 1.5rem;
-  margin-bottom: 15px;
+  font-size: 1.4rem; /* Reduced from 1.5rem */
+  margin-bottom: 10px; /* Reduced from 15px */
   color: #ffffff;
   text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
@@ -137,7 +175,7 @@ body, html {
 .duration-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px; /* Reduced from 12px */
   justify-content: center;
 }
 
@@ -146,11 +184,11 @@ body, html {
   color: white;
   border: 1px solid rgba(155, 135, 245, 0.3);
   border-radius: 25px;
-  padding: 10px 20px;
-  font-size: 16px;
+  padding: 8px 15px; /* Reduced from 10px 20px */
+  font-size: 15px; /* Reduced from 16px */
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Reduced shadow */
 }
 
 .category-selection .duration-selection .duration-buttons .duration-button:hover {
@@ -195,12 +233,15 @@ body, html {
   margin: 15px 0;
 }
 
-/* Start button container to center the button properly */
+/* Start button with reduced margins */
 .start-button-container {
   width: 100%;
   display: flex;
   justify-content: center;
-  margin: 25px 0;
+  margin: 25px 0; /* Reduced from 35px */
+  padding: 10px; /* Reduced from 15px */
+  position: relative;
+  z-index: 10;
 }
 
 /* Feature lock info styling for the spaced repetition toggle */
@@ -222,24 +263,24 @@ body, html {
   background: linear-gradient(45deg, #6e48aa, #9d50bb);
   color: white;
   border: none;
-  padding: 15px 35px;
-  font-size: 18px;
+  padding: 15px 30px; /* Reduced from 18px 40px */
+  font-size: 18px; /* Reduced from 20px */
   border-radius: 30px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 5px 15px rgba(110, 72, 170, 0.4);
+  box-shadow: 0 6px 15px rgba(110, 72, 170, 0.5); /* Reduced shadow */
   position: relative;
   overflow: hidden;
   font-weight: 600;
   letter-spacing: 1px;
-  min-width: 200px;
+  min-width: 200px; /* Reduced from 240px */
   text-align: center;
 }
 
 .category-selection .start-button:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(110, 72, 170, 0.5);
-  background: linear-gradient(45deg, #7d54c0, #a95cc8);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px rgba(110, 72, 170, 0.7);
+  background: linear-gradient(45deg, #8056d2, #b361e0);
 }
 
 .category-selection .start-button:disabled {
@@ -307,8 +348,8 @@ input:disabled + .toggle-slider {
 .spaced-repetition-toggle {
   display: flex;
   align-items: center;
-  margin: 15px 0;
-  padding: 12px 20px;
+  margin: 10px 0; /* Reduced from 15px */
+  padding: 8px 16px; /* Reduced from 12px 20px */
   background-color: rgba(30, 30, 45, 0.5);
   border-radius: 30px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -337,19 +378,19 @@ input:disabled + .toggle-slider {
 
 .spaced-repetition-info {
   background-color: rgba(30, 30, 45, 0.6);
-  border-radius: 12px;
-  padding: 15px;
+  border-radius: 10px; /* Reduced from 12px */
+  padding: 10px; /* Reduced from 15px */
   max-width: 700px;
-  margin: 20px auto;
+  margin: 10px auto; /* Reduced from 20px */
   border-left: 4px solid #a896f9;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .spaced-repetition-info p {
-  font-size: 14px;
+  font-size: 13px; /* Reduced from 14px */
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.4; /* Reduced from 1.6 */
 }
 
 /* Help icon */
@@ -471,24 +512,6 @@ input:disabled + .toggle-slider {
 }
 
 /* Add subscription-related styles */
-.subscription-info-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  max-width: 700px;
-  background-color: rgba(30, 30, 45, 0.7);
-  border-radius: 8px;
-  padding: 10px 15px;
-  margin-bottom: 20px;
-}
-
-.subscription-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .tier-badge {
   padding: 4px 10px;
   border-radius: 15px;
@@ -511,11 +534,6 @@ input:disabled + .toggle-slider {
 .tier-badge.professional {
   background-color: #8b5cf6;
   color: white;
-}
-
-.remaining-sessions {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
 }
 
 .upgrade-link {
@@ -593,7 +611,7 @@ input:disabled + .toggle-slider {
   padding: 8px 15px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.8);
-  margin: 10px 0;
+  margin: 5px 0; /* Reduced from 10px */
   text-align: center;
   max-width: 700px;
   width: 100%;
@@ -612,4 +630,21 @@ input:disabled + .toggle-slider {
   font-weight: bold;
   z-index: 2;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.start-button-debug {
+  border: 3px solid #ff6b6b !important;
+  animation: pulse-debug 2s infinite;
+}
+
+@keyframes pulse-debug {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(255, 107, 107, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+  }
 }

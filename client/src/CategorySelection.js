@@ -82,32 +82,6 @@ const CategorySelection = ({
     <div className="category-selection">
       <h2>Choose Your Training Categories</h2>
       
-      {/* Subscription tier info - keep this from the new version */}
-      <div className="subscription-info-bar">
-        <div className="subscription-status">
-          {subscriptionTier === SUBSCRIPTION_TIERS.PREMIUM ? (
-            <span className="tier-badge premium">Premium</span>
-          ) : subscriptionTier === SUBSCRIPTION_TIERS.PROFESSIONAL ? (
-            <span className="tier-badge professional">Professional</span>
-          ) : (
-            <span className="tier-badge free">Free</span>
-          )}
-          <span className="remaining-sessions">
-            {tierFeatures?.maxSessions === null 
-              ? "Unlimited sessions available" 
-              : `Up to ${tierFeatures?.maxSessions} sessions per day`}
-          </span>
-        </div>
-        <a href="/profile" className="upgrade-link">
-          {subscriptionTier === SUBSCRIPTION_TIERS.FREE ? 'Upgrade' : 'Manage Subscription'}
-        </a>
-      </div>
-      
-      {/* Category selection limit notice */}
-      <p className="category-limit-info">
-        Select up to {tierFeatures?.maxCategories === null ? 'unlimited' : tierFeatures?.maxCategories} categories
-      </p>
-      
       {/* Max Categories Message */}
       {maxCategoriesMessage && (
         <div className="max-categories-message">
@@ -209,7 +183,7 @@ const CategorySelection = ({
       {/* Begin Training button with correct styling */}
       <div className="start-button-container">
         <button
-          className="start-button"
+          className="start-button start-button-debug"
           onClick={handleStart}
           disabled={selectedCategories.length === 0 || !selectedDuration}
         >
