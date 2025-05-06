@@ -355,7 +355,16 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
                       <ul>
                         <li>Up to {TIER_FEATURES[tier].maxQuestionsPerSession === null ? 'Unlimited' : TIER_FEATURES[tier].maxQuestionsPerSession} questions per session</li>
                         <li>Up to {TIER_FEATURES[tier].maxCategories === null ? 'Unlimited' : TIER_FEATURES[tier].maxCategories} categories</li>
-                        <li>Up to {TIER_FEATURES[tier].maxSessions === null ? 'Unlimited' : TIER_FEATURES[tier].maxSessions} sessions per day</li>
+                        {TIER_FEATURES[tier].sessionsInterval === 'week' ? (
+                          <li>Up to {TIER_FEATURES[tier].maxSessions === null ? 'Unlimited' : TIER_FEATURES[tier].maxSessions} sessions per week</li>
+                        ) : (
+                          <li>Up to {TIER_FEATURES[tier].maxSessions === null ? 'Unlimited' : TIER_FEATURES[tier].maxSessions} sessions per day</li>
+                        )}
+                        {TIER_FEATURES[tier].maxSessionDuration !== null ? (
+                          <li>Maximum {TIER_FEATURES[tier].maxSessionDuration} minute sessions</li>
+                        ) : (
+                          <li>Unlimited session duration</li>
+                        )}
                         <li>{TIER_FEATURES[tier].spacedRepetition ? '✓' : '✗'} Spaced Repetition</li>
                         <li>{TIER_FEATURES[tier].customCategories ? '✓' : '✗'} Custom Categories</li>
                       </ul>
@@ -415,7 +424,16 @@ const Profile = ({ user, username: parentUsername, onSignOut, onAdminClick, isAd
           <ul>
             <li>Up to {tierFeatures.maxQuestionsPerSession === null ? 'Unlimited' : tierFeatures.maxQuestionsPerSession} questions per session</li>
             <li>Up to {tierFeatures.maxCategories === null ? 'Unlimited' : tierFeatures.maxCategories} categories</li>
-            <li>Up to {tierFeatures.maxSessions === null ? 'Unlimited' : tierFeatures.maxSessions} sessions per day</li>
+            {tierFeatures.sessionsInterval === 'week' ? (
+              <li>Up to {tierFeatures.maxSessions === null ? 'Unlimited' : tierFeatures.maxSessions} sessions per week</li>
+            ) : (
+              <li>Up to {tierFeatures.maxSessions === null ? 'Unlimited' : tierFeatures.maxSessions} sessions per day</li>
+            )}
+            {tierFeatures.maxSessionDuration !== null ? (
+              <li>Maximum {tierFeatures.maxSessionDuration} minute sessions</li>
+            ) : (
+              <li>Unlimited session duration</li>
+            )}
             <li>{tierFeatures.spacedRepetition ? '✓' : '✗'} Spaced Repetition</li>
             <li>{tierFeatures.customCategories ? '✓' : '✗'} Custom Categories</li>
           </ul>

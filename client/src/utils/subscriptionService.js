@@ -11,9 +11,11 @@ export const SUBSCRIPTION_TIERS = {
 export const TIER_FEATURES = {
   [SUBSCRIPTION_TIERS.FREE]: {
     name: 'Free',
-    maxQuestionsPerSession: 10,
+    maxQuestionsPerSession: null, // Unlimited questions
     maxCategories: 3,
-    maxSessions: 2,
+    maxSessions: 7, // 7 sessions per week (not per day)
+    maxSessionDuration: 5, // Only 5 minute sessions
+    sessionsInterval: 'week', // Track weekly instead of daily
     spacedRepetition: false,
     customCategories: false,
     price: 0
@@ -23,6 +25,8 @@ export const TIER_FEATURES = {
     maxQuestionsPerSession: 50,
     maxCategories: 10,
     maxSessions: 10,
+    maxSessionDuration: null, // Any duration
+    sessionsInterval: 'day', // Daily tracking
     spacedRepetition: true,
     customCategories: false,
     price: 4.99
@@ -32,6 +36,8 @@ export const TIER_FEATURES = {
     maxQuestionsPerSession: 100,
     maxCategories: null, // unlimited
     maxSessions: null, // unlimited
+    maxSessionDuration: null, // Any duration
+    sessionsInterval: 'day', // Daily tracking
     spacedRepetition: true,
     customCategories: true,
     price: 9.99
@@ -70,6 +76,75 @@ export const hasFeatureAccess = async (userId, feature, db) => {
   }
 };
 
+// Track daily or weekly usage of features
+export const trackDailyUsage = async (userId, featureType, db) => {
+  try {
+    const usageRef = doc(db, `users/${userId}/usage/${featureType}`);
+    const usageDoc = await getDoc(usageRef);
+    
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Get the start of the current week (Sunday)
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+    const weekStr = startOfWeek.toISOString().split('T')[0]; // YYYY-MM-DD of Sunday
+    
+    let usageData = usageDoc.exists() ? usageDoc.data() : { daily: {}, weekly: {} };
+    
+    // Initialize if not exists
+    if (!usageData.daily) usageData.daily = {};
+    if (!usageData.weekly) usageData.weekly = {};
+    
+    // Update daily count
+    usageData.daily[todayStr] = (usageData.daily[todayStr] || 0) + 1;
+    
+    // Update weekly count
+    usageData.weekly[weekStr] = (usageData.weekly[weekStr] || 0) + 1;
+    
+    // Save to Firestore
+    await setDoc(usageRef, usageData);
+    
+    return {
+      daily: usageData.daily[todayStr],
+      weekly: usageData.weekly[weekStr]
+    };
+  } catch (error) {
+    console.error('Error tracking usage:', error);
+    return { daily: 0, weekly: 0 };
+  }
+};
+
+// Get usage for today or current week
+export const getTodayUsage = async (userId, featureType, db) => {
+  try {
+    const usageRef = doc(db, `users/${userId}/usage/${featureType}`);
+    const usageDoc = await getDoc(usageRef);
+    
+    if (!usageDoc.exists()) return 0;
+    
+    const usageData = usageDoc.data();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Get the start of the current week (Sunday)
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+    const weekStr = startOfWeek.toISOString().split('T')[0]; // YYYY-MM-DD of Sunday
+    
+    // Return daily or weekly count based on user's tier
+    return {
+      daily: usageData.daily?.[todayStr] || 0,
+      weekly: usageData.weekly?.[weekStr] || 0
+    };
+  } catch (error) {
+    console.error('Error getting usage:', error);
+    return { daily: 0, weekly: 0 };
+  }
+};
+
 // Check if user has reached the limit for a given feature
 export const checkFeatureLimit = async (userId, limitName, currentValue, db) => {
   try {
@@ -80,6 +155,28 @@ export const checkFeatureLimit = async (userId, limitName, currentValue, db) => 
     // If limit is null, it means unlimited
     if (limit === null) return { hasReachedLimit: false, limit };
     
+    // For session limits, check if we need to use weekly or daily tracking
+    if (limitName === 'maxSessions' && features.sessionsInterval) {
+      const usage = await getTodayUsage(userId, 'sessions', db);
+      const interval = features.sessionsInterval;
+      const currentUsage = interval === 'week' ? usage.weekly : usage.daily;
+      
+      return {
+        hasReachedLimit: currentUsage >= limit,
+        limit,
+        interval
+      };
+    }
+    
+    // For duration limits, check if the selected duration exceeds the max
+    if (limitName === 'maxSessionDuration') {
+      return {
+        hasReachedLimit: currentValue > limit,
+        limit
+      };
+    }
+    
+    // For other features, compare directly with the current value
     return {
       hasReachedLimit: currentValue > limit,
       limit
@@ -151,48 +248,5 @@ export const updateSubscription = async (userId, tier, db) => {
       success: false,
       error: error.message
     };
-  }
-};
-
-// Track daily usage for limits (like number of sessions)
-export const trackDailyUsage = async (userId, usageType, db) => {
-  try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const usageRef = doc(db, `users/${userId}/usage/daily`);
-    
-    const usageDoc = await getDoc(usageRef);
-    let usageData = usageDoc.exists() ? usageDoc.data() : {};
-    
-    // Initialize or update today's usage
-    if (!usageData[today]) {
-      usageData[today] = {};
-    }
-    
-    // Increment the specific usage type
-    usageData[today][usageType] = (usageData[today][usageType] || 0) + 1;
-    
-    // Save the updated usage data
-    await setDoc(usageRef, usageData);
-    
-    return usageData[today][usageType];
-  } catch (error) {
-    console.error(`Error tracking ${usageType} usage:`, error);
-    return 1; // Return as if this is the first usage
-  }
-};
-
-// Get today's usage for a specific feature
-export const getTodayUsage = async (userId, usageType, db) => {
-  try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    const usageRef = doc(db, `users/${userId}/usage/daily`);
-    
-    const usageDoc = await getDoc(usageRef);
-    let usageData = usageDoc.exists() ? usageDoc.data() : {};
-    
-    return (usageData[today] && usageData[today][usageType]) || 0;
-  } catch (error) {
-    console.error(`Error getting ${usageType} usage:`, error);
-    return 0;
   }
 }; 

@@ -161,21 +161,37 @@ const CategorySelection = ({
           <button
             className={`duration-button ${selectedDuration === 10 ? 'selected' : ''}`}
             onClick={() => onDurationSelect(10)}
+            disabled={tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 10}
           >
             10 min
+            {tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 10 && 
+              <span className="feature-lock-info">
+                <span className="lock-icon">🔒</span>
+              </span>
+            }
           </button>
           <button
             className={`duration-button ${selectedDuration === 15 ? 'selected' : ''}`}
             onClick={() => onDurationSelect(15)}
+            disabled={tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15}
           >
             15 min
+            {tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15 && 
+              <span className="feature-lock-info">
+                <span className="lock-icon">🔒</span>
+              </span>
+            }
           </button>
         </div>
       </div>
       
-      {/* Question limit info from subscription features */}
+      {/* Update the limit info to show sessions per week for free users */}
       <div className="question-limit-info">
-        <span>Session question limit: {tierFeatures?.maxQuestionsPerSession === null ? 'Unlimited' : tierFeatures?.maxQuestionsPerSession} questions</span>
+        {tierFeatures?.sessionsInterval === 'week' ? (
+          <span>Weekly limit: {tierFeatures?.maxSessions === null ? 'Unlimited' : tierFeatures?.maxSessions} sessions</span>
+        ) : (
+          <span>Daily limit: {tierFeatures?.maxSessions === null ? 'Unlimited' : tierFeatures?.maxSessions} sessions</span>
+        )}
       </div>
       
       {(error || localError) && <p className="error">Oops! {error || localError}</p>}
@@ -183,7 +199,7 @@ const CategorySelection = ({
       {/* Begin Training button with correct styling */}
       <div className="start-button-container">
         <button
-          className="start-button start-button-debug"
+          className="start-button"
           onClick={handleStart}
           disabled={selectedCategories.length === 0 || !selectedDuration}
         >
@@ -196,7 +212,6 @@ const CategorySelection = ({
           <p>
             With spaced repetition enabled, the system will prioritize questions that you need to review 
             based on your past performance. Questions you find difficult will appear more frequently. 
-            The more you train, the better Trivia will get!
           </p>
         </div>
       )}

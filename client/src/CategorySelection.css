@@ -260,7 +260,7 @@ body, html {
 
 /* Ensure the start button has the right styling */
 .category-selection .start-button {
-  background: linear-gradient(45deg, #6e48aa, #9d50bb);
+  background: linear-gradient(90deg, #b388ff, #805acb);
   color: white;
   border: none;
   padding: 15px 30px; /* Reduced from 18px 40px */
@@ -280,7 +280,7 @@ body, html {
 .category-selection .start-button:hover:not(:disabled) {
   transform: translateY(-5px);
   box-shadow: 0 12px 30px rgba(110, 72, 170, 0.7);
-  background: linear-gradient(45deg, #8056d2, #b361e0);
+  background: linear-gradient(90deg, #b388ff, #805acb);
 }
 
 .category-selection .start-button:disabled {
@@ -633,7 +633,7 @@ input:disabled + .toggle-slider {
 }
 
 .start-button-debug {
-  border: 3px solid #ff6b6b !important;
+  border: #b388ff !important;
   animation: pulse-debug 2s infinite;
 }
 
@@ -647,4 +647,30 @@ input:disabled + .toggle-slider {
   100% {
     box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
   }
+}
+
+.category-selection .duration-selection .duration-buttons .duration-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: rgba(30, 30, 45, 0.5);
+  position: relative;
+}
+
+.category-selection .duration-selection .duration-buttons .duration-button:disabled .feature-lock-info {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 30, 45, 0.7);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+
+.category-selection .duration-selection .duration-buttons .duration-button:disabled .lock-icon {
+  margin: 0;
+  font-size: 12px;
 }

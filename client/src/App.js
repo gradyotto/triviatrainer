@@ -1289,14 +1289,28 @@ function App() {
       return;
     }
     
-    // Check daily session limit
+    // Check if the selected duration is allowed for the user's tier
+    if (tierFeatures.maxSessionDuration !== null) {
+      if (selectedDuration > tierFeatures.maxSessionDuration) {
+        const message = `Your current subscription tier only allows sessions up to ${tierFeatures.maxSessionDuration} minutes.`;
+        showSubscriptionLimitModal(message);
+        return;
+      }
+    }
+    
+    // Check session limit (weekly or daily based on tier)
     if (user) {
-      const todaySessions = await getTodayUsage(user.uid, 'sessions', db);
+      const sessionUsage = await getTodayUsage(user.uid, 'sessions', db);
+      const interval = tierFeatures.sessionsInterval || 'day';
+      const currentUsage = interval === 'week' ? sessionUsage.weekly : sessionUsage.daily;
       
-      const { hasAccess, message } = await checkFeatureAccess('maxSessions', todaySessions + 1);
+      const { hasAccess, message } = await checkFeatureAccess('maxSessions', currentUsage + 1);
       
       if (!hasAccess) {
-        showSubscriptionLimitModal(message);
+        const limitMessage = interval === 'week' 
+          ? `You've reached your limit of ${tierFeatures.maxSessions} sessions per week.` 
+          : `You've reached your limit of ${tierFeatures.maxSessions} sessions per day.`;
+        showSubscriptionLimitModal(message || limitMessage);
         return;
       }
     }
