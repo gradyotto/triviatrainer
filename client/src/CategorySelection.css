@@ -649,14 +649,24 @@ input:disabled + .toggle-slider {
   }
 }
 
-.category-selection .duration-selection .duration-buttons .duration-button:disabled {
+.category-selection .duration-selection .duration-buttons .duration-button.duration-disabled {
   opacity: 0.6;
-  cursor: not-allowed;
+  cursor: pointer; /* Change to pointer to show it's clickable for upgrade */
   background-color: rgba(30, 30, 45, 0.5);
   position: relative;
 }
 
-.category-selection .duration-selection .duration-buttons .duration-button:disabled .feature-lock-info {
+.category-selection .duration-selection .duration-buttons .duration-button.duration-disabled:hover {
+  background-color: rgba(40, 40, 60, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.category-selection .duration-selection .duration-buttons .duration-button.duration-disabled:hover .feature-lock-info {
+  background: rgba(255, 107, 107, 0.3);
+}
+
+.category-selection .duration-selection .duration-buttons .duration-button.duration-disabled .feature-lock-info {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -670,7 +680,7 @@ input:disabled + .toggle-slider {
   height: 24px;
 }
 
-.category-selection .duration-selection .duration-buttons .duration-button:disabled .lock-icon {
+.category-selection .duration-selection .duration-buttons .duration-button.duration-disabled .lock-icon {
   margin: 0;
   font-size: 12px;
 }

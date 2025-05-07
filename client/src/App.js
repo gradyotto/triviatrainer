@@ -1062,10 +1062,10 @@ function App() {
     setTimeRemaining(null);
   };
 
-  const handleCategorySelect = async (categoryId, limitExceeded) => {
+  const handleCategorySelect = async (categoryId, limitExceeded, customMessage) => {
     // If this is a limit exceeded click, show the modal directly
     if (limitExceeded) {
-      const message = `You've reached the limit of ${tierFeatures?.maxCategories} categories for your current subscription tier.`;
+      const message = customMessage || `You've reached the limit of ${tierFeatures?.maxCategories} categories for your current subscription tier.`;
       showSubscriptionLimitModal(message);
       return;
     }

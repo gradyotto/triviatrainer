@@ -53,6 +53,17 @@ const CategorySelection = ({
     }
   };
 
+  // Handle click on a duration button that's disabled due to subscription tier
+  const handleDisabledDurationClick = (duration) => {
+    // Only handle actual disabled buttons
+    if (tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < duration) {
+      // Show upgrade modal with appropriate message
+      const message = `Your current subscription only allows sessions up to ${tierFeatures.maxSessionDuration} minutes. Upgrade to access longer training sessions.`;
+      // Use the parent's callback with special parameters to show the modal
+      onCategorySelect(null, true, message); // Pass true and custom message
+    }
+  };
+
   // Count due questions per category
   const getDueQuestionCount = (categoryId) => {
     if (!spacedRepetitionEnabled || !dueQuestionsByCategory) {
@@ -159,9 +170,15 @@ const CategorySelection = ({
             5 min
           </button>
           <button
-            className={`duration-button ${selectedDuration === 10 ? 'selected' : ''}`}
-            onClick={() => onDurationSelect(10)}
-            disabled={tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 10}
+            className={`duration-button ${selectedDuration === 10 ? 'selected' : ''} 
+              ${tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 10 ? 'duration-disabled' : ''}`}
+            onClick={() => {
+              if (tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 10) {
+                handleDisabledDurationClick(10);
+              } else {
+                onDurationSelect(10);
+              }
+            }}
           >
             10 min
             {tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 10 && 
@@ -171,9 +188,15 @@ const CategorySelection = ({
             }
           </button>
           <button
-            className={`duration-button ${selectedDuration === 15 ? 'selected' : ''}`}
-            onClick={() => onDurationSelect(15)}
-            disabled={tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15}
+            className={`duration-button ${selectedDuration === 15 ? 'selected' : ''}
+              ${tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15 ? 'duration-disabled' : ''}`}
+            onClick={() => {
+              if (tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15) {
+                handleDisabledDurationClick(15);
+              } else {
+                onDurationSelect(15);
+              }
+            }}
           >
             15 min
             {tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15 && 
@@ -185,7 +208,7 @@ const CategorySelection = ({
         </div>
       </div>
       
-      {/* Update the limit info to show sessions per week for free users */}
+      {/* Update the limit info to show sessions per week/day and remove question limits */}
       <div className="question-limit-info">
         {tierFeatures?.sessionsInterval === 'week' ? (
           <span>Weekly limit: {tierFeatures?.maxSessions === null ? 'Unlimited' : tierFeatures?.maxSessions} sessions</span>

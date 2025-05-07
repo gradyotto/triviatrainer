@@ -13,7 +13,7 @@ export const TIER_FEATURES = {
     name: 'Free',
     maxQuestionsPerSession: null, // Unlimited questions
     maxCategories: 3,
-    maxSessions: 7, // 7 sessions per week (not per day)
+    maxSessions: 5, // 5 sessions per week (reduced from 7)
     maxSessionDuration: 5, // Only 5 minute sessions
     sessionsInterval: 'week', // Track weekly instead of daily
     spacedRepetition: false,
@@ -22,18 +22,18 @@ export const TIER_FEATURES = {
   },
   [SUBSCRIPTION_TIERS.PREMIUM]: {
     name: 'Premium',
-    maxQuestionsPerSession: 50,
-    maxCategories: 10,
-    maxSessions: 10,
+    maxQuestionsPerSession: null, // Unlimited questions
+    maxCategories: 5, // Reduced from 10 to 5
+    maxSessions: 10, // Now 10 sessions per week
     maxSessionDuration: null, // Any duration
-    sessionsInterval: 'day', // Daily tracking
+    sessionsInterval: 'week', // Weekly tracking (changed from daily)
     spacedRepetition: true,
     customCategories: false,
     price: 4.99
   },
   [SUBSCRIPTION_TIERS.PROFESSIONAL]: {
     name: 'Professional',
-    maxQuestionsPerSession: 100,
+    maxQuestionsPerSession: null, // Unlimited questions (changed from 100)
     maxCategories: null, // unlimited
     maxSessions: null, // unlimited
     maxSessionDuration: null, // Any duration
