@@ -19,6 +19,9 @@ const Header = ({ user, username, onSignOut, onLogoClick, onProfileClick, onAdmi
         <Link to="/profile" onClick={onProfileClick} className={isActive('/profile') ? 'active' : ''}>
           Profile
         </Link>
+        <Link to="/pricing" className={isActive('/pricing') ? 'active' : ''}>
+          Pricing
+        </Link>
         {isAdmin && (
           <Link 
             to="/admin" 

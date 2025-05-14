@@ -3,6 +3,7 @@ import { auth, functions } from './firebase';
 import { signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, browserLocalPersistence, browserSessionPersistence, setPersistence } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { Brain, Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import './LandingPage.css';
 
 // Logo Component
@@ -833,6 +834,11 @@ const LandingPage = ({
         <Logo />
       <h1>TriviaTrainer</h1>
         <p className="tagline">Train your brain with fun!</p>
+      
+      <div className="landing-nav">
+        <Link to="/pricing" className="pricing-link">View Pricing</Link>
+      </div>
+      
       <form className="auth-form" onSubmit={handleEmailAuth}>
           <div className="form-group">
           <label htmlFor="email">Email</label>

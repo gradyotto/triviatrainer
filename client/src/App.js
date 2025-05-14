@@ -11,6 +11,7 @@ import QuestionScreen from './QuestionScreen';
 import ReinforcementTask from './ReinforcementTask';
 import Profile from './Profile';
 import AdminPage from './AdminPage';
+import PricingPage from './PricingPage';
 import './App.css';
 import { initSyncSystem, forceSyncWithFirebase, getPendingSyncsCount, recordAnswer } from './utils/syncUtils';
 import { 
@@ -2368,6 +2369,9 @@ function App() {
               <AdminRoute>
                 <AdminPage />
               </AdminRoute>
+            } />
+            <Route path="/pricing" element={
+              <PricingPage />
             } />
             <Route path="/training" element={
               <PrivateRoute>

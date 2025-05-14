@@ -136,6 +136,30 @@
     color: rgba(255, 255, 255, 0.8);
   }
   
+  .landing-nav {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    width: 100%;
+  }
+  
+  .pricing-link {
+    background: transparent;
+    color: #a896f9;
+    border: 1px solid #a896f9;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+  
+  .pricing-link:hover {
+    background: rgba(168, 150, 249, 0.1);
+    transform: translateY(-2px);
+  }
+  
   .auth-form {
     display: flex;
     flex-direction: column;
