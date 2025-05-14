@@ -64,14 +64,10 @@ const normalizeNumber = (input) => {
     'ninety-five': '95', 'ninety-six': '96', 'ninety-seven': '97', 'ninety-eight': '98', 'ninety-nine': '99'
   };
   
-  // Check if input is a digit (like "2")
+  // Convert all inputs to a standard format for comparison purposes
+  // If it's a number (like "2"), no need to convert it
   if (!isNaN(Number(input)) && Number(input) >= 0 && Number(input) <= 99) {
-    // Convert from digit to word
-    const number = Number(input);
-    const reversedMap = Object.fromEntries(
-      Object.entries(numMap).map(([word, digit]) => [digit, word])
-    );
-    return reversedMap[String(number)] || input;
+    return input;
   }
   
   // Handle conversion from word to digit (e.g., "two" to "2")
@@ -83,8 +79,7 @@ const normalizeAnswer = (input) => {
   // Handle empty or falsy inputs
   if (!input) return '';
   
-  // Normalize numbers (both digits and written form)
-  // This handles both converting digits to words and words to digits
+  // Normalize numbers (only words to digits, not vice versa)
   const normalizedNumber = normalizeNumber(input);
   if (normalizedNumber !== input) {
     return normalizedNumber;
@@ -1924,7 +1919,8 @@ function App() {
             { id: 'Entertainment', name: 'Entertainment' },
             { id: 'Art', name: 'Art' },
             { id: 'Pop Culture', name: 'Pop Culture' },
-            { id: 'General Knowledge', name: 'General Knowledge' }
+            { id: 'General Knowledge', name: 'General Knowledge' },
+            { id: 'Current Events', name: 'Current Events' }
           ];
           setCategories(fallbackCategories);
         } else {
@@ -1954,7 +1950,8 @@ function App() {
           { id: 'Entertainment', name: 'Entertainment' },
           { id: 'Art', name: 'Art' },
           { id: 'Pop Culture', name: 'Pop Culture' },
-          { id: 'General Knowledge', name: 'General Knowledge' }
+          { id: 'General Knowledge', name: 'General Knowledge' },
+          { id: 'Current Events', name: 'Current Events' }
         ];
         setCategories(fallbackCategories);
       }

@@ -74,8 +74,24 @@ const CategorySelection = ({
     return categoryDueQuestions.length;
   };
 
+  // Check if a category is a premium category
+  const isPremiumCategory = (categoryId) => {
+    return tierFeatures?.premiumCategories && 
+           Array.isArray(tierFeatures.premiumCategories) && 
+           !tierFeatures.premiumCategories.includes(categoryId) && // Not in current tier's allowed list
+           TIER_FEATURES[SUBSCRIPTION_TIERS.PRO].premiumCategories.includes(categoryId); // But is in PRO tier's list
+  };
+
   // New function to handle category button clicks with limit logic  
-  const handleCategoryButtonClick = (categoryId, isDisabled) => {
+  const handleCategoryButtonClick = (categoryId, isDisabled, isPremium) => {
+    // Handle premium category click
+    if (isPremium) {
+      const message = `"${categoryId}" is only available with a Pro subscription. Upgrade to access this category.`;
+      onCategorySelect(categoryId, true, message);
+      return;
+    }
+    
+    // Handle disabled due to category limit
     if (isDisabled) {
       // Show upgrade modal with appropriate message
       const message = `You've reached the limit of ${tierFeatures.maxCategories} categories for your current subscription tier.`;
@@ -134,15 +150,19 @@ const CategorySelection = ({
           // Only disable buttons when we've EXACTLY reached the maximum limit (not before)
           const isDisabled = !isSelected && tierFeatures?.maxCategories !== null && selectedCategories.length >= tierFeatures?.maxCategories;
           const dueCount = getDueQuestionCount(category.id);
+          const isPremium = isPremiumCategory(category.id);
           
           return (
             <button
               key={category.id}
-              className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-              onClick={() => handleCategoryButtonClick(category.id, isDisabled)}
+              className={`category-button ${isSelected ? 'selected' : ''} ${isDisabled || isPremium ? 'disabled' : ''} ${category.id === 'Current Events' ? 'current-events' : ''}`}
+              onClick={() => handleCategoryButtonClick(category.id, isDisabled, isPremium)}
               // Remove the disabled attribute so the button remains clickable
             >
               {category.name}
+              {isPremium && (
+                <span className="premium-category-badge">PRO</span>
+              )}
               {spacedRepetitionEnabled && dueCount > 0 && (
                 <span className="category-due-badge">{dueCount} due</span>
               )}
@@ -188,7 +208,7 @@ const CategorySelection = ({
             }
           </button>
           <button
-            className={`duration-button ${selectedDuration === 15 ? 'selected' : ''}
+            className={`duration-button ${selectedDuration === 15 ? 'selected' : ''} 
               ${tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15 ? 'duration-disabled' : ''}`}
             onClick={() => {
               if (tierFeatures?.maxSessionDuration !== null && tierFeatures?.maxSessionDuration < 15) {

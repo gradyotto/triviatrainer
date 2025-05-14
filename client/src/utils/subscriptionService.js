@@ -3,8 +3,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 // Define subscription tiers
 export const SUBSCRIPTION_TIERS = {
   FREE: 'free',
-  PREMIUM: 'premium',
-  PROFESSIONAL: 'professional'
+  PRO: 'pro'
 };
 
 // Define features per tier
@@ -13,34 +12,25 @@ export const TIER_FEATURES = {
     name: 'Free',
     maxQuestionsPerSession: null, // Unlimited questions
     maxCategories: 3,
-    maxSessions: 5, // 5 sessions per week (reduced from 7)
+    maxSessions: 5, // 5 sessions per week
     maxSessionDuration: 5, // Only 5 minute sessions
     sessionsInterval: 'week', // Track weekly instead of daily
     spacedRepetition: false,
     customCategories: false,
+    premiumCategories: [], // No premium categories for free tier
     price: 0
   },
-  [SUBSCRIPTION_TIERS.PREMIUM]: {
-    name: 'Premium',
+  [SUBSCRIPTION_TIERS.PRO]: {
+    name: 'Pro',
     maxQuestionsPerSession: null, // Unlimited questions
-    maxCategories: 5, // Reduced from 10 to 5
-    maxSessions: 10, // Now 10 sessions per week
-    maxSessionDuration: null, // Any duration
-    sessionsInterval: 'week', // Weekly tracking (changed from daily)
-    spacedRepetition: true,
-    customCategories: false,
-    price: 4.99
-  },
-  [SUBSCRIPTION_TIERS.PROFESSIONAL]: {
-    name: 'Professional',
-    maxQuestionsPerSession: null, // Unlimited questions (changed from 100)
     maxCategories: null, // unlimited
     maxSessions: null, // unlimited
     maxSessionDuration: null, // Any duration
     sessionsInterval: 'day', // Daily tracking
     spacedRepetition: true,
     customCategories: true,
-    price: 9.99
+    premiumCategories: ['Current Events'], // Premium categories only for Pro tier
+    price: 4.99
   }
 };
 
@@ -50,7 +40,16 @@ export const getUserSubscriptionTier = async (userId, db) => {
     const userDoc = await getDoc(doc(db, 'users', userId));
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      return userData.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+      // Handle legacy subscription tiers
+      let tier = userData.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+      
+      // Check if tier needs migration
+      if (tier === 'premium' || tier === 'professional') {
+        // Call migration function to update database
+        tier = await migrateSubscriptionTier(userId, tier, db);
+      }
+      
+      return tier;
     }
     return SUBSCRIPTION_TIERS.FREE;
   } catch (error) {
@@ -248,5 +247,30 @@ export const updateSubscription = async (userId, tier, db) => {
       success: false,
       error: error.message
     };
+  }
+};
+
+// Function to migrate users from old subscription tiers to new ones
+export const migrateSubscriptionTier = async (userId, oldTier, db) => {
+  if (!userId || !db) return;
+  
+  try {
+    // Only migrate if the old tier is premium or professional
+    if (oldTier === 'premium' || oldTier === 'professional') {
+      console.log(`Migrating user ${userId} from ${oldTier} to ${SUBSCRIPTION_TIERS.PRO}`);
+      
+      await updateDoc(doc(db, 'users', userId), {
+        subscriptionTier: SUBSCRIPTION_TIERS.PRO,
+        subscriptionMigratedAt: new Date().toISOString(),
+        subscriptionMigratedFrom: oldTier
+      });
+      
+      return SUBSCRIPTION_TIERS.PRO;
+    }
+    
+    return oldTier;
+  } catch (error) {
+    console.error('Error migrating subscription tier:', error);
+    return oldTier;
   }
 }; 

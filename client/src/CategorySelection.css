@@ -106,6 +106,13 @@ body, html {
   max-width: 700px;
 }
 
+/* Center the 10th (Current Events) category button in its own row */
+.categories button.category-button:nth-child(10) {
+  grid-column: 2; /* Position in the middle column */
+  margin: 10px auto 5px; /* Add margin to visually separate as a new row */
+  width: 100%; /* Maintain same width as other buttons */
+}
+
 /* Make category buttons slightly smaller */
 .category-selection .categories button.category-button {
   background-color: rgba(30, 30, 45, 0.7);
@@ -126,6 +133,104 @@ body, html {
   position: relative;
   overflow: hidden;
   font-weight: bold;
+}
+
+/* Glimmer effect for Current Events category */
+.category-selection .categories button.category-button.current-events {
+  background: linear-gradient(
+    to right,
+    rgba(30, 30, 45, 0.7) 0%,
+    rgba(30, 30, 45, 0.7) 20%,
+    rgba(155, 135, 245, 0.4) 50%,
+    rgba(30, 30, 45, 0.7) 80%,
+    rgba(30, 30, 45, 0.7) 100%
+  );
+  background-size: 300% 100%;
+  animation: glimmer 4s ease-in-out infinite alternate;
+  border: 1px solid rgba(155, 135, 245, 0.5);
+  box-shadow: 0 4px 10px rgba(155, 135, 245, 0.3);
+}
+
+/* Premium category badge */
+.premium-category-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhance disabled premium categories */
+.category-selection .categories button.category-button.disabled.current-events {
+  position: relative;
+  overflow: hidden;
+  opacity: 0.8;
+  border: 1px solid rgba(155, 135, 245, 0.3);
+}
+
+.category-selection .categories button.category-button.disabled.current-events::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(20, 20, 30, 0.5);
+  z-index: 1;
+  backdrop-filter: blur(1px);
+}
+
+.category-selection .categories button.category-button.disabled.current-events::after {
+  content: "🔒";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  z-index: 2;
+  opacity: 0.9;
+}
+
+.category-selection .categories button.category-button.disabled.current-events:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(155, 135, 245, 0.4);
+}
+
+.category-selection .categories button.category-button.current-events:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 14px rgba(155, 135, 245, 0.5);
+  border-color: rgba(155, 135, 245, 0.9);
+}
+
+.category-selection .categories button.category-button.current-events.selected {
+  background: linear-gradient(
+    to right,
+    rgba(155, 135, 245, 0.3) 0%,
+    rgba(155, 135, 245, 0.3) 20%,
+    rgba(155, 135, 245, 0.7) 50%,
+    rgba(155, 135, 245, 0.3) 80%,
+    rgba(155, 135, 245, 0.3) 100%
+  );
+  background-size: 300% 100%;
+  animation: glimmer 4s ease-in-out infinite alternate;
+  box-shadow: 0 0 15px rgba(155, 135, 245, 0.5);
+}
+
+@keyframes glimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
 }
 
 .category-selection .categories button.category-button:hover {
