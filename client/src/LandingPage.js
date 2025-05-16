@@ -835,10 +835,6 @@ const LandingPage = ({
       <h1>TriviaTrainer</h1>
         <p className="tagline">Train your brain with fun!</p>
       
-      <div className="landing-nav">
-        <Link to="/pricing" className="pricing-link">View Pricing</Link>
-      </div>
-      
       <form className="auth-form" onSubmit={handleEmailAuth}>
           <div className="form-group">
           <label htmlFor="email">Email</label>
