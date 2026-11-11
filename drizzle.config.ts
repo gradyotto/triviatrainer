@@ -3,9 +3,19 @@ import { config } from "dotenv";
 
 config({ path: ".env.local" });
 
-if (!process.env.DATABASE_URL) {
-  // Allow drizzle-kit commands to fail clearly when Neon isn't wired yet.
-  console.warn("DATABASE_URL is not set. Drizzle commands need Neon credentials.");
+const pooledUrl = process.env.DATABASE_URL?.trim();
+const directUrl = process.env.DATABASE_URL_UNPOOLED?.trim();
+// The Neon pooler rejects session-level DDL. Migrations use the direct URL.
+const databaseUrl = directUrl || pooledUrl || "";
+
+if (!databaseUrl) {
+  console.warn(
+    "DATABASE_URL is not set. Drizzle commands need Neon credentials.",
+  );
+} else if (!directUrl && pooledUrl?.includes("-pooler")) {
+  console.warn(
+    "DATABASE_URL points at a Neon pooler. Set DATABASE_URL_UNPOOLED to the direct connection before migrating.",
+  );
 }
 
 export default defineConfig({
@@ -13,7 +23,7 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
+    url: databaseUrl,
   },
   strict: true,
   verbose: true,
