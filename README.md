@@ -28,6 +28,17 @@ npm run db:seed
 
 Signed-in answers are written to `session_answers` and rolled up on `question_progress`. Spaced-repetition columns (`ease_factor`, `interval_days`, `repetition`, `lapses`, `next_review_at`) are reserved and left at their defaults.
 
+## Deploying / Vercel previews
+
+Vercel preview deployments (the `*.vercel.app` URL created for each push) need these four environment variables on the project, scoped to Preview. Set the names in the Vercel dashboard; do not commit values.
+
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `DATABASE_URL` — pooled Neon URL the app uses at runtime
+- `DATABASE_URL_UNPOOLED` — direct Neon URL, used when a preview runs migrations
+
+Clerk development keys (`pk_test_` / `sk_test_`) work on `vercel.app` preview domains. A custom production domain is what needs production keys.
+
 ## Checks
 
 ```bash
