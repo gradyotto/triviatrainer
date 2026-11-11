@@ -49,6 +49,12 @@ function AuthControls() {
         </SignUpButton>
       </Show>
       <Show when="signed-in">
+        <Link
+          href="/stats"
+          className="px-2 text-sm font-medium text-muted-foreground"
+        >
+          Stats
+        </Link>
         <UserButton />
       </Show>
     </>
