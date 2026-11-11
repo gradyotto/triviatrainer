@@ -39,7 +39,7 @@ export function CategoryPicker({
         <div className="flex flex-col gap-2">
           <Button
             type="button"
-            className="h-auto min-h-12 w-full justify-between px-4 py-3 text-base"
+            className="h-auto min-h-12 w-full justify-start px-4 py-3 text-base"
             onClick={() => onSelect(null)}
           >
             <span className="text-left">
@@ -54,13 +54,10 @@ export function CategoryPicker({
               key={category.slug}
               type="button"
               variant="outline"
-              className="h-auto min-h-12 w-full justify-between px-4 py-3 text-base"
+              className="h-auto min-h-12 w-full justify-start px-4 py-3 text-base"
               onClick={() => onSelect(category.slug)}
             >
-              <span>{category.name}</span>
-              <span className="text-sm font-normal text-muted-foreground">
-                {category.questionCount}
-              </span>
+              {category.name}
             </Button>
           ))}
         </div>
