@@ -1,15 +1,15 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
-  index,
-  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const questionTypeEnum = pgEnum("question_type", [
@@ -57,7 +57,7 @@ export const questions = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     categoryId: uuid("category_id")
       .notNull()
-      .references(() => categories.id),
+      .references(() => categories.id, { onDelete: "cascade" }),
     type: questionTypeEnum("type").notNull(),
     prompt: text("prompt").notNull(),
     answer: text("answer").notNull(),
@@ -85,6 +85,7 @@ export const questions = pgTable(
   (table) => [
     index("questions_category_idx").on(table.categoryId),
     index("questions_type_idx").on(table.type),
+    uniqueIndex("questions_legacy_id_idx").on(table.legacyId),
   ],
 );
 
@@ -92,10 +93,11 @@ export const sessions = pgTable(
   "sessions",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").references(() => users.id),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     anonymousId: varchar("anonymous_id", { length: 64 }),
-    categoryIds: jsonb("category_ids").$type<string[]>().notNull(),
-    durationSeconds: integer("duration_seconds").notNull(),
+    categoryIds: jsonb("category_ids").$type<string[]>().notNull().default([]),
+    categorySlug: varchar("category_slug", { length: 64 }),
+    durationSeconds: integer("duration_seconds").notNull().default(0),
     planSnapshot: planEnum("plan_snapshot").notNull().default("free"),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
@@ -107,6 +109,7 @@ export const sessions = pgTable(
   (table) => [
     index("sessions_user_idx").on(table.userId),
     index("sessions_anon_idx").on(table.anonymousId),
+    index("sessions_category_slug_idx").on(table.categorySlug),
   ],
 );
 
@@ -116,10 +119,10 @@ export const sessionAnswers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     sessionId: uuid("session_id")
       .notNull()
-      .references(() => sessions.id),
+      .references(() => sessions.id, { onDelete: "cascade" }),
     questionId: uuid("question_id")
       .notNull()
-      .references(() => questions.id),
+      .references(() => questions.id, { onDelete: "cascade" }),
     attempt: integer("attempt").notNull().default(1),
     response: text("response").notNull(),
     isCorrect: boolean("is_correct").notNull(),
@@ -128,14 +131,56 @@ export const sessionAnswers = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("session_answers_session_idx").on(table.sessionId)],
+  (table) => [
+    index("session_answers_session_idx").on(table.sessionId),
+    index("session_answers_question_idx").on(table.questionId),
+  ],
+);
+
+/**
+ * Per-user memory of a question. Counts and streak are updated by the train
+ * loop. Ease, interval, repetition, lapses, and nextReviewAt are reserved for
+ * spaced repetition and stay at their defaults until that ships.
+ */
+export const questionProgress = pgTable(
+  "question_progress",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    seenCount: integer("seen_count").notNull().default(0),
+    correctCount: integer("correct_count").notNull().default(0),
+    incorrectCount: integer("incorrect_count").notNull().default(0),
+    streak: integer("streak").notNull().default(0),
+    lastAnsweredAt: timestamp("last_answered_at", { withTimezone: true }),
+    lastCorrect: boolean("last_correct"),
+    easeFactor: integer("ease_factor").notNull().default(250),
+    intervalDays: integer("interval_days").notNull().default(0),
+    repetition: integer("repetition").notNull().default(0),
+    lapses: integer("lapses").notNull().default(0),
+    nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("question_progress_user_question_idx").on(
+      table.userId,
+      table.questionId,
+    ),
+    index("question_progress_due_idx").on(table.userId, table.nextReviewAt),
+  ],
 );
 
 export const usageCounters = pgTable(
   "usage_counters",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").references(() => users.id),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
     anonymousId: varchar("anonymous_id", { length: 64 }),
     weekKey: varchar("week_key", { length: 16 }).notNull(),
     sessionCount: integer("session_count").notNull().default(0),
@@ -151,3 +196,4 @@ export const usageCounters = pgTable(
 
 export type Question = typeof questions.$inferSelect;
 export type Category = typeof categories.$inferSelect;
+export type QuestionProgress = typeof questionProgress.$inferSelect;

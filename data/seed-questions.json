@@ -1,0 +1,1094 @@
+{
+  "categories": [
+    {
+      "slug": "history",
+      "name": "History",
+      "sortOrder": 0
+    },
+    {
+      "slug": "science",
+      "name": "Science",
+      "sortOrder": 1
+    },
+    {
+      "slug": "literature",
+      "name": "Literature",
+      "sortOrder": 2
+    },
+    {
+      "slug": "geography",
+      "name": "Geography",
+      "sortOrder": 3
+    },
+    {
+      "slug": "sports",
+      "name": "Sports",
+      "sortOrder": 4
+    },
+    {
+      "slug": "entertainment",
+      "name": "Entertainment",
+      "sortOrder": 5
+    },
+    {
+      "slug": "art",
+      "name": "Art",
+      "sortOrder": 6
+    },
+    {
+      "slug": "pop-culture",
+      "name": "Pop Culture",
+      "sortOrder": 7
+    },
+    {
+      "slug": "general-knowledge",
+      "name": "General Knowledge",
+      "sortOrder": 8
+    }
+  ],
+  "questions": [
+    {
+      "legacyId": 273,
+      "category": "history",
+      "type": "multiple_choice",
+      "prompt": "Which Russian leader was assassinated in 1881 by the group Narodnaya Volya?",
+      "answer": "Alexander II",
+      "aliases": [],
+      "options": [
+        "Nicholas II",
+        "Alexander II",
+        "Peter the Great",
+        "Ivan IV"
+      ],
+      "difficulty": "medium",
+      "hint": "He was known as the 'Tsar Liberator'.",
+      "explanation": "Alexander II was killed in 1881 by Narodnaya Volya, a revolutionary group, despite his reforms like emancipating the serfs in 1861.",
+      "tags": [
+        "Russia",
+        "19th century"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 274,
+      "category": "science",
+      "type": "fill_in",
+      "prompt": "The element discovered in the Sun’s corona during an 1868 eclipse is ____.",
+      "answer": "Helium",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It’s the second most abundant element in the universe.",
+      "explanation": "Helium was identified in the Sun’s corona by spectroscopy in 1868 by Pierre Janssen, before its earthly discovery in 1895.",
+      "tags": [
+        "astronomy",
+        "chemistry"
+      ],
+      "source": "NASA"
+    },
+    {
+      "legacyId": 275,
+      "category": "literature",
+      "type": "fill_in",
+      "prompt": "The novel 'One Flew Over the Cuckoo’s Nest' was inspired by the author’s work in a ____ hospital.",
+      "answer": "psychiatric",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s by Ken Kesey.",
+      "explanation": "Ken Kesey wrote 'One Flew Over the Cuckoo’s Nest' (1962) based on his experiences working in a psychiatric hospital, critiquing mental health care.",
+      "tags": [
+        "American literature",
+        "20th century"
+      ],
+      "source": "Wikipedia"
+    },
+    {
+      "legacyId": 276,
+      "category": "geography",
+      "type": "multiple_choice",
+      "prompt": "Which country’s flag features a cedar tree at its center?",
+      "answer": "Lebanon",
+      "aliases": [],
+      "options": [
+        "Syria",
+        "Lebanon",
+        "Jordan",
+        "Israel"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s in the Middle East.",
+      "explanation": "Lebanon’s flag, adopted in 1943, displays a green cedar tree, symbolizing strength and eternity, between red and white stripes.",
+      "tags": [
+        "flags",
+        "Middle East"
+      ],
+      "source": "CIA World Factbook"
+    },
+    {
+      "legacyId": 277,
+      "category": "sports",
+      "type": "multiple_choice",
+      "prompt": "Which Formula 1 driver won his first world championship at the age of 22?",
+      "answer": "Sebastian Vettel",
+      "aliases": [],
+      "options": [
+        "Lewis Hamilton",
+        "Sebastian Vettel",
+        "Ayrton Senna",
+        "Michael Schumacher"
+      ],
+      "difficulty": "hard",
+      "hint": "It was in 2010.",
+      "explanation": "Sebastian Vettel won his first Formula 1 World Championship in 2010 at age 22, driving for Red Bull, the youngest champion then.",
+      "tags": [
+        "Formula 1",
+        "racing"
+      ],
+      "source": "FIA"
+    },
+    {
+      "legacyId": 278,
+      "category": "entertainment",
+      "type": "fill_in",
+      "prompt": "The TV series 'The Wire' is primarily set in which U.S. city?",
+      "answer": "Baltimore",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s in Maryland.",
+      "explanation": "'The Wire' (2002-2008) is set in Baltimore, exploring its drug trade, education, and politics across five seasons.",
+      "tags": [
+        "TV",
+        "2000s"
+      ],
+      "source": "HBO"
+    },
+    {
+      "legacyId": 279,
+      "category": "art",
+      "type": "multiple_choice",
+      "prompt": "The painting 'The Last Supper' was commissioned for a monastery in which Italian city?",
+      "answer": "Milan",
+      "aliases": [],
+      "options": [
+        "Florence",
+        "Venice",
+        "Milan",
+        "Rome"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s by Leonardo da Vinci.",
+      "explanation": "Leonardo da Vinci painted 'The Last Supper' (1495-1498) for the Santa Maria delle Grazie monastery in Milan.",
+      "tags": [
+        "Renaissance",
+        "Italy"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 280,
+      "category": "pop-culture",
+      "type": "multiple_choice",
+      "prompt": "Which artist’s album 'Thriller' became the best-selling album of all time?",
+      "answer": "Michael Jackson",
+      "aliases": [],
+      "options": [
+        "Prince",
+        "Michael Jackson",
+        "Madonna",
+        "Whitney Houston"
+      ],
+      "difficulty": "medium",
+      "hint": "It was released in 1982.",
+      "explanation": "Michael Jackson’s 'Thriller' (1982) has sold over 66 million copies worldwide, making it the best-selling album ever.",
+      "tags": [
+        "music",
+        "1980s"
+      ],
+      "source": "RIAA"
+    },
+    {
+      "legacyId": 281,
+      "category": "general-knowledge",
+      "type": "fill_in",
+      "prompt": "The ancient library of Alexandria was located in which modern-day country?",
+      "answer": "Egypt",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s near the Nile Delta.",
+      "explanation": "The Library of Alexandria, a major center of learning in antiquity, was in Egypt, founded in the 3rd century BCE.",
+      "tags": [
+        "ancient history",
+        "libraries"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 282,
+      "category": "history",
+      "type": "multiple_choice",
+      "prompt": "The 1914 assassination of Archduke Franz Ferdinand sparked which global conflict?",
+      "answer": "World War I",
+      "aliases": [],
+      "options": [
+        "World War I",
+        "World War II",
+        "Russo-Japanese War",
+        "Spanish Civil War"
+      ],
+      "difficulty": "medium",
+      "hint": "It involved the Triple Entente.",
+      "explanation": "Archduke Franz Ferdinand’s assassination in Sarajevo in 1914 triggered World War I, drawing in global alliances.",
+      "tags": [
+        "World War I",
+        "20th century"
+      ],
+      "source": "History.com"
+    },
+    {
+      "legacyId": 283,
+      "category": "science",
+      "type": "fill_in",
+      "prompt": "The scientist who proposed the heliocentric model of the solar system was ____.",
+      "answer": "Nicolaus Copernicus",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "He was Polish.",
+      "explanation": "Nicolaus Copernicus published his heliocentric theory in 1543, asserting the Sun, not Earth, was the solar system’s center.",
+      "tags": [
+        "astronomy",
+        "Renaissance"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 285,
+      "category": "geography",
+      "type": "fill_in",
+      "prompt": "The only country in the world named after a woman is ____.",
+      "answer": "Saint Lucia",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It’s in the Caribbean.",
+      "explanation": "Saint Lucia, named after Saint Lucy of Syracuse, is the only sovereign country named for a woman, gaining independence in 1979.",
+      "tags": [
+        "countries",
+        "Caribbean"
+      ],
+      "source": "CIA World Factbook"
+    },
+    {
+      "legacyId": 286,
+      "category": "sports",
+      "type": "multiple_choice",
+      "prompt": "Which cricketer holds the record for the most Test match centuries?",
+      "answer": "Sachin Tendulkar",
+      "aliases": [],
+      "options": [
+        "Ricky Ponting",
+        "Sachin Tendulkar",
+        "Brian Lara",
+        "Steve Smith"
+      ],
+      "difficulty": "medium",
+      "hint": "He’s from India.",
+      "explanation": "Sachin Tendulkar scored 51 Test centuries in his career (1989-2013), a record in international cricket.",
+      "tags": [
+        "cricket",
+        "records"
+      ],
+      "source": "ICC"
+    },
+    {
+      "legacyId": 288,
+      "category": "art",
+      "type": "fill_in",
+      "prompt": "The artist who painted 'The Kiss' in 1907-1908 was from which country?",
+      "answer": "Austria",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It’s Gustav Klimt.",
+      "explanation": "Gustav Klimt, an Austrian, painted 'The Kiss' (1907-1908), a gold-leaf masterpiece of the Viennese Art Nouveau movement.",
+      "tags": [
+        "Art Nouveau",
+        "20th century"
+      ],
+      "source": "Belvedere Museum"
+    },
+    {
+      "legacyId": 289,
+      "category": "pop-culture",
+      "type": "multiple_choice",
+      "prompt": "The character Deadpool first appeared in which comic book publisher’s universe?",
+      "answer": "Marvel",
+      "aliases": [],
+      "options": [
+        "DC",
+        "Marvel",
+        "Image",
+        "Dark Horse"
+      ],
+      "difficulty": "medium",
+      "hint": "He’s a wise-cracking antihero.",
+      "explanation": "Deadpool debuted in Marvel’s 'New Mutants' #98 (1991), created by Rob Liefeld and Fabian Nicieza, known for breaking the fourth wall.",
+      "tags": [
+        "comics",
+        "1990s"
+      ],
+      "source": "Marvel"
+    },
+    {
+      "legacyId": 291,
+      "category": "history",
+      "type": "fill_in",
+      "prompt": "The 1929 Wall Street Crash marked the beginning of which economic event?",
+      "answer": "Great Depression",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It lasted through the 1930s.",
+      "explanation": "The Wall Street Crash of October 1929 triggered the Great Depression, a global economic downturn lasting a decade.",
+      "tags": [
+        "economics",
+        "20th century"
+      ],
+      "source": "History.com"
+    },
+    {
+      "legacyId": 293,
+      "category": "literature",
+      "type": "multiple_choice",
+      "prompt": "Which Russian novel features a character named Raskolnikov who commits a murder?",
+      "answer": "Crime and Punishment",
+      "aliases": [],
+      "options": [
+        "The Brothers Karamazov",
+        "Crime and Punishment",
+        "Anna Karenina",
+        "War and Peace"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s by Dostoevsky.",
+      "explanation": "Fyodor Dostoevsky’s 'Crime and Punishment' (1866) follows Raskolnikov, a student wrestling with guilt after murder.",
+      "tags": [
+        "Russian literature",
+        "19th century"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 294,
+      "category": "geography",
+      "type": "fill_in",
+      "prompt": "The world’s largest salt flat, Salar de Uyuni, is located in which country?",
+      "answer": "Bolivia",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It’s in South America.",
+      "explanation": "Salar de Uyuni in Bolivia spans over 10,000 square kilometers, a vast salt flat formed from prehistoric lakes.",
+      "tags": [
+        "landforms",
+        "South America"
+      ],
+      "source": "National Geographic"
+    },
+    {
+      "legacyId": 295,
+      "category": "sports",
+      "type": "fill_in",
+      "prompt": "The first modern Olympic Games to include women’s events were held in which year?",
+      "answer": "1900",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It was in Paris.",
+      "explanation": "The 1900 Paris Olympics were the first to include women, with events like tennis and golf, a milestone in sports history.",
+      "tags": [
+        "Olympics",
+        "women in sports"
+      ],
+      "source": "Olympic.org"
+    },
+    {
+      "legacyId": 296,
+      "category": "entertainment",
+      "type": "multiple_choice",
+      "prompt": "Which rock band’s name is derived from a term for a UFO sighting?",
+      "answer": "Foo Fighters",
+      "aliases": [],
+      "options": [
+        "Nirvana",
+        "Foo Fighters",
+        "Pearl Jam",
+        "Soundgarden"
+      ],
+      "difficulty": "hard",
+      "hint": "It was formed by Dave Grohl.",
+      "explanation": "Foo Fighters, named after WWII pilots’ term for UFOs, was founded by Dave Grohl in 1994 post-Nirvana.",
+      "tags": [
+        "music",
+        "1990s"
+      ],
+      "source": "Rolling Stone"
+    },
+    {
+      "legacyId": 297,
+      "category": "art",
+      "type": "fill_in",
+      "prompt": "The Dutch painter Hieronymus Bosch is best known for his triptych titled ____.",
+      "answer": "The Garden of Earthly Delights",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It’s a surreal vision of paradise and hell.",
+      "explanation": "Hieronymus Bosch’s 'The Garden of Earthly Delights' (circa 1490-1510) is a triptych depicting creation, sin, and damnation.",
+      "tags": [
+        "Renaissance",
+        "Netherlands"
+      ],
+      "source": "Prado Museum"
+    },
+    {
+      "legacyId": 298,
+      "category": "pop-culture",
+      "type": "fill_in",
+      "prompt": "The 1980s TV show 'Knight Rider' featured a talking car named ____.",
+      "answer": "KITT",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It stands for 'Knight Industries Two Thousand'.",
+      "explanation": "'Knight Rider' (1982-1986) starred David Hasselhoff with KITT, an AI-equipped Pontiac Trans Am.",
+      "tags": [
+        "TV",
+        "1980s"
+      ],
+      "source": "IMDb"
+    },
+    {
+      "legacyId": 299,
+      "category": "general-knowledge",
+      "type": "multiple_choice",
+      "prompt": "The first successful powered flight by the Wright brothers occurred in which U.S. state?",
+      "answer": "North Carolina",
+      "aliases": [],
+      "options": [
+        "Ohio",
+        "North Carolina",
+        "Virginia",
+        "Florida"
+      ],
+      "difficulty": "medium",
+      "hint": "It was at Kitty Hawk.",
+      "explanation": "The Wright brothers’ first powered flight took place on December 17, 1903, in Kitty Hawk, North Carolina.",
+      "tags": [
+        "aviation",
+        "history"
+      ],
+      "source": "Smithsonian"
+    },
+    {
+      "legacyId": 301,
+      "category": "science",
+      "type": "fill_in",
+      "prompt": "The strongest acid known, fluoroantimonic acid, contains which element discovered in 1783?",
+      "answer": "Antimony",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "Its symbol is Sb.",
+      "explanation": "Fluoroantimonic acid, the strongest superacid, includes antimony (Sb), discovered in 1783, enhancing its corrosive power.",
+      "tags": [
+        "chemistry",
+        "acids"
+      ],
+      "source": "Chemical Reviews"
+    },
+    {
+      "legacyId": 302,
+      "category": "literature",
+      "type": "multiple_choice",
+      "prompt": "The Pulitzer Prize-winning novel 'The Grapes of Wrath' is set during which historical event?",
+      "answer": "Great Depression",
+      "aliases": [],
+      "options": [
+        "World War I",
+        "Great Depression",
+        "Dust Bowl",
+        "Prohibition"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s by John Steinbeck.",
+      "explanation": "John Steinbeck’s 'The Grapes of Wrath' (1939) depicts a family’s struggles during the Great Depression and Dust Bowl.",
+      "tags": [
+        "American literature",
+        "20th century"
+      ],
+      "source": "Pulitzer.org"
+    },
+    {
+      "legacyId": 303,
+      "category": "history",
+      "type": "fill_in",
+      "prompt": "The 1453 fall of which city marked the end of the Byzantine Empire?",
+      "answer": "Constantinople",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s now Istanbul.",
+      "explanation": "Constantinople fell to the Ottoman Turks in 1453, ending the Byzantine Empire and shifting power in the Eastern Mediterranean.",
+      "tags": [
+        "Byzantine Empire",
+        "15th century"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 304,
+      "category": "science",
+      "type": "fill_in",
+      "prompt": "The scientist who discovered penicillin in 1928 was ____.",
+      "answer": "Alexander Fleming",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It was an accidental find.",
+      "explanation": "Alexander Fleming discovered penicillin in 1928 when mold contaminated a petri dish, revolutionizing antibiotics.",
+      "tags": [
+        "medicine",
+        "20th century"
+      ],
+      "source": "Nobel Prize"
+    },
+    {
+      "legacyId": 305,
+      "category": "literature",
+      "type": "multiple_choice",
+      "prompt": "Which poet’s work inspired the musical 'Cats'?",
+      "answer": "T.S. Eliot",
+      "aliases": [],
+      "options": [
+        "W.B. Yeats",
+        "T.S. Eliot",
+        "Robert Frost",
+        "Ezra Pound"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s from 'Old Possum’s Book of Practical Cats'.",
+      "explanation": "T.S. Eliot’s 1939 poetry collection 'Old Possum’s Book of Practical Cats' inspired Andrew Lloyd Webber’s musical 'Cats' (1981).",
+      "tags": [
+        "poetry",
+        "20th century"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 306,
+      "category": "geography",
+      "type": "fill_in",
+      "prompt": "The Gobi Desert spans parts of which two countries?",
+      "answer": "China and Mongolia",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s in East Asia.",
+      "explanation": "The Gobi Desert covers northern China and southern Mongolia, a vast arid region known for dinosaur fossils.",
+      "tags": [
+        "deserts",
+        "Asia"
+      ],
+      "source": "National Geographic"
+    },
+    {
+      "legacyId": 307,
+      "category": "sports",
+      "type": "multiple_choice",
+      "prompt": "Which country has won the most FIFA World Cup titles?",
+      "answer": "Brazil",
+      "aliases": [],
+      "options": [
+        "Germany",
+        "Brazil",
+        "Italy",
+        "Argentina"
+      ],
+      "difficulty": "medium",
+      "hint": "They’ve won five times.",
+      "explanation": "Brazil has won the FIFA World Cup five times (1958, 1962, 1970, 1994, 2002), more than any other nation.",
+      "tags": [
+        "soccer",
+        "World Cup"
+      ],
+      "source": "FIFA"
+    },
+    {
+      "legacyId": 308,
+      "category": "entertainment",
+      "type": "multiple_choice",
+      "prompt": "The film 'Citizen Kane' is loosely based on the life of which newspaper magnate?",
+      "answer": "William Randolph Hearst",
+      "aliases": [],
+      "options": [
+        "Joseph Pulitzer",
+        "William Randolph Hearst",
+        "Rupert Murdoch",
+        "Horace Greeley"
+      ],
+      "difficulty": "hard",
+      "hint": "It’s from 1941.",
+      "explanation": "Orson Welles’ 'Citizen Kane' (1941) mirrors William Randolph Hearst’s life, a powerful media tycoon, sparking controversy.",
+      "tags": [
+        "movies",
+        "1940s"
+      ],
+      "source": "IMDb"
+    },
+    {
+      "legacyId": 309,
+      "category": "art",
+      "type": "fill_in",
+      "prompt": "The Impressionist painter Claude Monet was born in which country?",
+      "answer": "France",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "He painted 'Water Lilies'.",
+      "explanation": "Claude Monet, born in France in 1840, was a founder of Impressionism, known for works like 'Impression, Sunrise'.",
+      "tags": [
+        "Impressionism",
+        "19th century"
+      ],
+      "source": "Musée d’Orsay"
+    },
+    {
+      "legacyId": 310,
+      "category": "pop-culture",
+      "type": "multiple_choice",
+      "prompt": "Which 1970s band’s name is inspired by a science fiction novel by Robert A. Heinlein?",
+      "answer": "Jefferson Starship",
+      "aliases": [],
+      "options": [
+        "The Doors",
+        "Jefferson Starship",
+        "The Who",
+        "Fleetwood Mac"
+      ],
+      "difficulty": "hard",
+      "hint": "It evolved from Jefferson Airplane.",
+      "explanation": "Jefferson Starship, formed in 1974, took its name partly from Heinlein’s 'Stranger in a Strange Land', succeeding Jefferson Airplane.",
+      "tags": [
+        "music",
+        "1970s"
+      ],
+      "source": "Rolling Stone"
+    },
+    {
+      "legacyId": 311,
+      "category": "general-knowledge",
+      "type": "fill_in",
+      "prompt": "The first Nobel Prize in Physics was awarded in 1901 to ____ for discovering X-rays.",
+      "answer": "Wilhelm Röntgen",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "He’s German.",
+      "explanation": "Wilhelm Röntgen received the first Nobel Prize in Physics in 1901 for discovering X-rays in 1895, advancing medical imaging.",
+      "tags": [
+        "physics",
+        "Nobel Prize"
+      ],
+      "source": "Nobel Prize"
+    },
+    {
+      "legacyId": 312,
+      "category": "history",
+      "type": "multiple_choice",
+      "prompt": "The Magna Carta was signed by which English king?",
+      "answer": "John",
+      "aliases": [],
+      "options": [
+        "Henry VIII",
+        "Richard I",
+        "John",
+        "Edward III"
+      ],
+      "difficulty": "medium",
+      "hint": "It was in 1215.",
+      "explanation": "King John signed the Magna Carta in 1215 at Runnymede, a foundational document limiting royal power in England.",
+      "tags": [
+        "medieval history",
+        "England"
+      ],
+      "source": "British Library"
+    },
+    {
+      "legacyId": 313,
+      "category": "science",
+      "type": "multiple_choice",
+      "prompt": "The largest moon in our solar system belongs to which planet?",
+      "answer": "Jupiter",
+      "aliases": [],
+      "options": [
+        "Saturn",
+        "Jupiter",
+        "Uranus",
+        "Neptune"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s Ganymede.",
+      "explanation": "Jupiter’s moon Ganymede is the largest in the solar system, bigger than Mercury, discovered by Galileo in 1610.",
+      "tags": [
+        "astronomy",
+        "moons"
+      ],
+      "source": "NASA"
+    },
+    {
+      "legacyId": 314,
+      "category": "literature",
+      "type": "fill_in",
+      "prompt": "The character Jay Gatsby is from a novel set during which decade?",
+      "answer": "1920s",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s by F. Scott Fitzgerald.",
+      "explanation": "Jay Gatsby appears in 'The Great Gatsby' (1925) by F. Scott Fitzgerald, set in the Roaring Twenties, exploring the Jazz Age.",
+      "tags": [
+        "American literature",
+        "20th century"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 315,
+      "category": "geography",
+      "type": "multiple_choice",
+      "prompt": "Which European country has the most active volcanoes?",
+      "answer": "Italy",
+      "aliases": [],
+      "options": [
+        "Iceland",
+        "Italy",
+        "Greece",
+        "Spain"
+      ],
+      "difficulty": "hard",
+      "hint": "Think of Mount Etna.",
+      "explanation": "Italy has the most active volcanoes in Europe, including Mount Etna, Vesuvius, and Stromboli, due to its tectonic setting.",
+      "tags": [
+        "volcanoes",
+        "Europe"
+      ],
+      "source": "USGS"
+    },
+    {
+      "legacyId": 316,
+      "category": "sports",
+      "type": "fill_in",
+      "prompt": "The Stanley Cup is awarded in which sport?",
+      "answer": "Hockey",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s played on ice.",
+      "explanation": "The Stanley Cup, first awarded in 1893, is the championship trophy of the National Hockey League (NHL).",
+      "tags": [
+        "hockey",
+        "NHL"
+      ],
+      "source": "NHL.com"
+    },
+    {
+      "legacyId": 317,
+      "category": "entertainment",
+      "type": "fill_in",
+      "prompt": "The TV show 'Breaking Bad' follows a chemistry teacher turned drug lord named ____.",
+      "answer": "Walter White",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "He’s played by Bryan Cranston.",
+      "explanation": "'Breaking Bad' (2008-2013) centers on Walter White, a teacher who becomes a methamphetamine kingpin after a cancer diagnosis.",
+      "tags": [
+        "TV",
+        "2000s"
+      ],
+      "source": "AMC"
+    },
+    {
+      "legacyId": 318,
+      "category": "art",
+      "type": "multiple_choice",
+      "prompt": "The sculpture 'David' by Michelangelo is housed in which Italian city?",
+      "answer": "Florence",
+      "aliases": [],
+      "options": [
+        "Rome",
+        "Florence",
+        "Venice",
+        "Naples"
+      ],
+      "difficulty": "medium",
+      "hint": "It’s in the Galleria dell’Accademia.",
+      "explanation": "Michelangelo’s 'David' (1501-1504) resides in Florence’s Galleria dell’Accademia, a symbol of Renaissance art.",
+      "tags": [
+        "Renaissance",
+        "Italy"
+      ],
+      "source": "Galleria dell’Accademia"
+    },
+    {
+      "legacyId": 319,
+      "category": "pop-culture",
+      "type": "fill_in",
+      "prompt": "The video game 'Pac-Man' was first released in which year?",
+      "answer": "1980",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s by Namco.",
+      "explanation": "'Pac-Man', created by Toru Iwatani for Namco, debuted in 1980, becoming an iconic arcade game.",
+      "tags": [
+        "gaming",
+        "1980s"
+      ],
+      "source": "IGN"
+    },
+    {
+      "legacyId": 320,
+      "category": "general-knowledge",
+      "type": "fill_in",
+      "prompt": "The currency of Brazil is the ____.",
+      "answer": "Real",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It replaced the Cruzeiro in 1994.",
+      "explanation": "The Brazilian Real (BRL) became Brazil’s currency in 1994, stabilizing its economy after hyperinflation.",
+      "tags": [
+        "currency",
+        "Brazil"
+      ],
+      "source": "CIA World Factbook"
+    },
+    {
+      "legacyId": 321,
+      "category": "history",
+      "type": "multiple_choice",
+      "prompt": "The ancient city of Carthage was located in which modern-day country?",
+      "answer": "Tunisia",
+      "aliases": [],
+      "options": [
+        "Algeria",
+        "Tunisia",
+        "Morocco",
+        "Libya"
+      ],
+      "difficulty": "hard",
+      "hint": "It fought the Punic Wars.",
+      "explanation": "Carthage, a major power in antiquity, is in modern-day Tunisia, near Tunis, and was Rome’s rival in the Punic Wars.",
+      "tags": [
+        "ancient history",
+        "North Africa"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 322,
+      "category": "science",
+      "type": "fill_in",
+      "prompt": "The human body’s largest organ by surface area is the ____.",
+      "answer": "skin",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It protects you from the outside world.",
+      "explanation": "The skin is the body’s largest organ, covering about 1.5-2 square meters, serving as a barrier and regulator.",
+      "tags": [
+        "biology",
+        "anatomy"
+      ],
+      "source": "Britannica"
+    },
+    {
+      "legacyId": 324,
+      "category": "geography",
+      "type": "fill_in",
+      "prompt": "The longest river in South America is the ____.",
+      "answer": "Amazon",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It flows through Brazil.",
+      "explanation": "The Amazon River, stretching over 6,575 km, is South America’s longest, vital to the rainforest ecosystem.",
+      "tags": [
+        "rivers",
+        "South America"
+      ],
+      "source": "National Geographic"
+    },
+    {
+      "legacyId": 325,
+      "category": "sports",
+      "type": "multiple_choice",
+      "prompt": "Which tennis player was the first to win all four Grand Slam titles in a single year?",
+      "answer": "Don Budge",
+      "aliases": [],
+      "options": [
+        "Rod Laver",
+        "Don Budge",
+        "Roger Federer",
+        "Rafael Nadal"
+      ],
+      "difficulty": "hard",
+      "hint": "It was in 1938.",
+      "explanation": "Don Budge achieved the first calendar-year Grand Slam in 1938, winning all four major tennis titles.",
+      "tags": [
+        "tennis",
+        "Grand Slam"
+      ],
+      "source": "ATP Tour"
+    },
+    {
+      "legacyId": 326,
+      "category": "entertainment",
+      "type": "fill_in",
+      "prompt": "The director of 'The Lord of the Rings' trilogy hails from which country?",
+      "answer": "New Zealand",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It’s Peter Jackson.",
+      "explanation": "Peter Jackson, from New Zealand, directed 'The Lord of the Rings' trilogy (2001-2003), filmed in his home country.",
+      "tags": [
+        "movies",
+        "2000s"
+      ],
+      "source": "IMDb"
+    },
+    {
+      "legacyId": 327,
+      "category": "art",
+      "type": "multiple_choice",
+      "prompt": "The painting 'Girl with a Pearl Earring' is often compared to the 'Mona Lisa' and was created by ____.",
+      "answer": "Johannes Vermeer",
+      "aliases": [],
+      "options": [
+        "Rembrandt",
+        "Johannes Vermeer",
+        "Frans Hals",
+        "Jan Steen"
+      ],
+      "difficulty": "hard",
+      "hint": "It’s Dutch Golden Age.",
+      "explanation": "Johannes Vermeer’s 'Girl with a Pearl Earring' (circa 1665) is a Dutch masterpiece, admired for its enigmatic subject.",
+      "tags": [
+        "Dutch art",
+        "17th century"
+      ],
+      "source": "Mauritshuis"
+    },
+    {
+      "legacyId": 328,
+      "category": "pop-culture",
+      "type": "fill_in",
+      "prompt": "The animated series 'The Simpsons' is set in a fictional town named ____.",
+      "answer": "Springfield",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It debuted in 1989.",
+      "explanation": "'The Simpsons', launched in 1989, takes place in the ambiguous Springfield, a satirical take on American life.",
+      "tags": [
+        "TV",
+        "animation"
+      ],
+      "source": "Fox"
+    },
+    {
+      "legacyId": 329,
+      "category": "general-knowledge",
+      "type": "multiple_choice",
+      "prompt": "The inventor of the telephone, credited in 1876, was ____.",
+      "answer": "Alexander Graham Bell",
+      "aliases": [],
+      "options": [
+        "Thomas Edison",
+        "Alexander Graham Bell",
+        "Nikola Tesla",
+        "Guglielmo Marconi"
+      ],
+      "difficulty": "medium",
+      "hint": "He was Scottish-born.",
+      "explanation": "Alexander Graham Bell patented the telephone in 1876, a breakthrough in communication technology.",
+      "tags": [
+        "inventions",
+        "19th century"
+      ],
+      "source": "Smithsonian"
+    },
+    {
+      "legacyId": 330,
+      "category": "history",
+      "type": "fill_in",
+      "prompt": "The Treaty of Versailles, ending World War I, was signed in which year?",
+      "answer": "1919",
+      "aliases": [],
+      "options": null,
+      "difficulty": "medium",
+      "hint": "It followed the armistice.",
+      "explanation": "The Treaty of Versailles was signed on June 28, 1919, formally ending World War I and imposing terms on Germany.",
+      "tags": [
+        "World War I",
+        "20th century"
+      ],
+      "source": "History.com"
+    },
+    {
+      "legacyId": 331,
+      "category": "science",
+      "type": "fill_in",
+      "prompt": "The deepest part of the world’s oceans is located in which trench?",
+      "answer": "Mariana",
+      "aliases": [],
+      "options": null,
+      "difficulty": "hard",
+      "hint": "It’s in the Pacific.",
+      "explanation": "The Mariana Trench in the Pacific Ocean reaches a depth of about 11,000 meters at the Challenger Deep.",
+      "tags": [
+        "oceanography",
+        "geology"
+      ],
+      "source": "National Geographic"
+    },
+    {
+      "legacyId": 332,
+      "category": "literature",
+      "type": "multiple_choice",
+      "prompt": "The Bronte sister who wrote 'Wuthering Heights' used which pseudonym?",
+      "answer": "Ellis Bell",
+      "aliases": [],
+      "options": [
+        "Currer Bell",
+        "Ellis Bell",
+        "Acton Bell",
+        "Anne Bronte"
+      ],
+      "difficulty": "hard",
+      "hint": "It’s Emily.",
+      "explanation": "Emily Bronte published 'Wuthering Heights' (1847) as Ellis Bell, concealing her gender in a male-dominated era.",
+      "tags": [
+        "Victorian literature",
+        "pseudonyms"
+      ],
+      "source": "Britannica"
+    }
+  ]
+}

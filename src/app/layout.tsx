@@ -11,6 +11,7 @@ import {
 import { shadcn } from "@clerk/ui/themes";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
+import { isClerkConfigured, readEnv } from "@/lib/env";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,9 +24,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
-  title: "TriviaTrainer",
-  description: "AI-powered trivia training with spaced repetition",
+  title: {
+    default: "TriviaTrainer",
+    template: "%s · TriviaTrainer",
+  },
+  description:
+    "Mobile-first trivia training for bar trivia and Jeopardy-minded players.",
 };
 
 function AuthControls() {
@@ -48,29 +55,66 @@ function AuthControls() {
   );
 }
 
+function Shell({
+  showAuth,
+  children,
+}: {
+  showAuth: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <Link href="/" className="text-sm font-semibold tracking-tight">
+          TriviaTrainer
+        </Link>
+        <nav className="flex items-center gap-2">
+          <Link
+            href="/train"
+            className="px-2 text-sm font-medium text-muted-foreground"
+          >
+            Train
+          </Link>
+          {showAuth ? (
+            <Suspense
+              fallback={
+                <span className="text-sm text-muted-foreground">…</span>
+              }
+            >
+              <AuthControls />
+            </Suspense>
+          ) : null}
+        </nav>
+      </header>
+      {children}
+    </>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const publishableKey = readEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY");
+  const clerkEnabled = isClerkConfigured();
+  const shell = <Shell showAuth={clerkEnabled}>{children}</Shell>;
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClerkProvider appearance={{ theme: shadcn }}>
-          <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
-            <Link href="/" className="text-sm font-semibold tracking-tight">
-              TriviaTrainer
-            </Link>
-            <nav className="flex items-center gap-2">
-              <Suspense fallback={<span className="text-sm text-muted-foreground">…</span>}>
-                <AuthControls />
-              </Suspense>
-            </nav>
-          </header>
-          {children}
-        </ClerkProvider>
+        {clerkEnabled && publishableKey ? (
+          <ClerkProvider
+            publishableKey={publishableKey}
+            appearance={{ theme: shadcn }}
+          >
+            {shell}
+          </ClerkProvider>
+        ) : (
+          shell
+        )}
       </body>
     </html>
   );
