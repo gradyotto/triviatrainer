@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { formatUtcDate } from "@/lib/stats/metrics";
+import { formatZonedDate } from "@/lib/stats/metrics";
 import type { BasicStats } from "@/lib/stats";
 
 function SummaryStat({ value, label }: { value: string; label: string }) {
@@ -16,7 +16,13 @@ function SummaryStat({ value, label }: { value: string; label: string }) {
   );
 }
 
-export function StatsDashboard({ stats }: { stats: BasicStats }) {
+export function StatsDashboard({
+  stats,
+  timeZone = "UTC",
+}: {
+  stats: BasicStats;
+  timeZone?: string;
+}) {
   const hasAnswers = stats.questionsAnswered > 0;
 
   return (
@@ -83,7 +89,7 @@ export function StatsDashboard({ stats }: { stats: BasicStats }) {
                     {session.setLabel}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    {formatUtcDate(session.startedAt)}
+                    {formatZonedDate(session.startedAt, timeZone)}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">

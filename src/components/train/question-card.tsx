@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { browserTimeZone } from "@/lib/time/zone";
 import type { GradeResult, PublicQuestion, ReviewItem } from "@/lib/train-types";
 
 export function QuestionCard({
@@ -12,6 +13,7 @@ export function QuestionCard({
   onGraded,
   onNext,
   onEnd,
+  onLimit,
 }: {
   question: PublicQuestion;
   index: number;
@@ -20,6 +22,7 @@ export function QuestionCard({
   onGraded: (review: ReviewItem) => void;
   onNext: () => void;
   onEnd: () => void;
+  onLimit: (limit: number | null) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -28,6 +31,7 @@ export function QuestionCard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reported = useRef(false);
+  const shownAt = useRef(Date.now());
 
   async function submit(value: string) {
     if (feedback || submitting) return;
@@ -43,8 +47,17 @@ export function QuestionCard({
           response: value,
           sessionId,
           usedHint: hintVisible,
+          responseMs: Math.max(0, Date.now() - shownAt.current),
+          timeZone: browserTimeZone(),
         }),
       });
+      if (response.status === 402) {
+        const body = (await response.json().catch(() => null)) as
+          | { limit?: number | null }
+          | null;
+        onLimit(body?.limit ?? null);
+        return;
+      }
       if (!response.ok) {
         setError("Could not check that answer. Try again.");
         setSubmitting(false);

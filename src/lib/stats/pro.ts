@@ -1,29 +1,85 @@
+import { eq } from "drizzle-orm";
+import { getDb, isDatabaseConfigured } from "@/db";
+import {
+  categories,
+  questions,
+  sessionAnswers,
+  sessions,
+  users,
+} from "@/db/schema";
+import {
+  buildProStats,
+  emptyProStats,
+  type AnswerFact,
+  type ProStats,
+} from "./pro-metrics";
+
+export type {
+  AccuracyTrendPoint,
+  ActivityDay,
+  CategoryRank,
+  CategoryTrend,
+  CategoryWeekPoint,
+  DifficultyAccuracy,
+  ProStats,
+} from "./pro-metrics";
+
+export { formatAnswerTime } from "./pro-metrics";
+
+function asDate(value: unknown): Date | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return null;
+}
+
 /**
- * Future Pro analytics. Nothing in the app calls these yet, and this module
- * does not read `users.plan`. When a Pro tier exists, implement the reads
- * here and decide who can see them at the call site.
- *
- * accuracyTrend — one point per day from `session_answers.created_at`.
- * weakestTopics — lowest-accuracy categories from `question_progress`
- *   (seen_count / correct_count) joined to questions and categories, after a
- *   category has enough answers to be meaningful.
+ * Pro analytics for a signed-in user. The caller decides whether the user's
+ * plan may see this. Answer timing comes from session_answers.response_ms,
+ * which the train loop records going forward.
  */
-export type AccuracyTrendPoint = {
-  day: string;
-  answered: number;
-  correct: number;
-  accuracyPercent: number;
-};
+export async function getProStats(clerkUserId: string): Promise<ProStats> {
+  if (!isDatabaseConfigured()) return emptyProStats();
+  const db = getDb();
+  const userRows = await db
+    .select({ id: users.id, timeZone: users.timeZone })
+    .from(users)
+    .where(eq(users.clerkId, clerkUserId))
+    .limit(1);
+  const user = userRows[0];
+  if (!user) return emptyProStats();
 
-export type WeakTopic = {
-  slug: string;
-  name: string;
-  answered: number;
-  correct: number;
-  accuracyPercent: number;
-};
+  const rows = await db
+    .select({
+      createdAt: sessionAnswers.createdAt,
+      isCorrect: sessionAnswers.isCorrect,
+      responseMs: sessionAnswers.responseMs,
+      difficulty: questions.difficulty,
+      categorySlug: categories.slug,
+      categoryName: categories.name,
+    })
+    .from(sessionAnswers)
+    .innerJoin(sessions, eq(sessionAnswers.sessionId, sessions.id))
+    .innerJoin(questions, eq(sessionAnswers.questionId, questions.id))
+    .innerJoin(categories, eq(questions.categoryId, categories.id))
+    .where(eq(sessions.userId, user.id));
 
-export type ProStats = {
-  accuracyTrend: AccuracyTrendPoint[];
-  weakestTopics: WeakTopic[];
-};
+  const facts: AnswerFact[] = rows.flatMap((row) => {
+    const createdAt = asDate(row.createdAt);
+    if (!createdAt) return [];
+    return [
+      {
+        createdAt,
+        correct: row.isCorrect,
+        responseMs: row.responseMs,
+        difficulty: row.difficulty,
+        categorySlug: row.categorySlug,
+        categoryName: row.categoryName,
+      },
+    ];
+  });
+
+  return buildProStats(facts, new Date(), user.timeZone);
+}

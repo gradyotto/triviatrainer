@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 
 const bodySchema = z.object({
   category: z.string().regex(/^[a-z0-9-]{1,64}$/).nullable(),
+  timeZone: z.string().min(1).max(64).optional(),
 });
 
 export async function POST(request: Request) {
@@ -24,20 +25,30 @@ export async function POST(request: Request) {
 
   const clerkUserId = await getSignedInClerkId();
   if (!clerkUserId) {
-    return NextResponse.json({ sessionId: null, persisted: false });
+    return NextResponse.json({
+      sessionId: null,
+      persisted: false,
+      signedIn: false,
+    });
   }
 
   try {
     const sessionId = await openTrainingSession({
       clerkUserId,
       categorySlug: parsed.data.category,
+      timeZone: parsed.data.timeZone,
     });
     return NextResponse.json({
       sessionId,
       persisted: Boolean(sessionId),
+      signedIn: true,
     });
   } catch {
     console.error("Failed to open a training session");
-    return NextResponse.json({ sessionId: null, persisted: false });
+    return NextResponse.json({
+      sessionId: null,
+      persisted: false,
+      signedIn: true,
+    });
   }
 }

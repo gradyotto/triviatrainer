@@ -50,6 +50,22 @@ describe("currentDayStreak", () => {
     );
   });
 
+  it("uses the viewer's calendar instead of UTC when a time zone is set", () => {
+    const early = new Date("2026-11-11T06:00:00.000Z");
+    assert.equal(
+      currentDayStreak(["2026-11-11"], early, "UTC"),
+      1,
+    );
+    assert.equal(
+      currentDayStreak(["2026-11-10", "2026-11-09"], early, "America/Los_Angeles"),
+      2,
+    );
+    assert.equal(
+      currentDayStreak(["2026-11-11"], early, "America/Los_Angeles"),
+      0,
+    );
+  });
+
   it("crosses month and leap-day boundaries", () => {
     assert.equal(
       currentDayStreak(["2026-01-01", "2025-12-31"], new Date("2026-01-01T00:30:00.000Z")),

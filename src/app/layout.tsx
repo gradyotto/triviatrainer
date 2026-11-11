@@ -10,6 +10,7 @@ import {
 } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
 import { Suspense } from "react";
+import { SignedInSync } from "@/components/account/signed-in-sync";
 import { Button } from "@/components/ui/button";
 import { isClerkConfigured, readEnv } from "@/lib/env";
 import "./globals.css";
@@ -51,9 +52,21 @@ function AuthControls() {
       <Show when="signed-in">
         <Link
           href="/stats"
-          className="px-2 text-sm font-medium text-muted-foreground"
+          className="px-2 py-1 text-sm font-medium text-muted-foreground"
         >
           Stats
+        </Link>
+        <Link
+          href="/upgrade"
+          className="px-2 py-1 text-sm font-medium text-muted-foreground"
+        >
+          Upgrade
+        </Link>
+        <Link
+          href="/account"
+          className="px-2 py-1 text-sm font-medium text-muted-foreground"
+        >
+          Account
         </Link>
         <UserButton />
       </Show>
@@ -74,7 +87,7 @@ function Shell({
         <Link href="/" className="text-sm font-semibold tracking-tight">
           TriviaTrainer
         </Link>
-        <nav className="flex items-center gap-2">
+        <nav className="flex flex-wrap items-center justify-end gap-x-1 gap-y-1">
           <Link
             href="/train"
             className="px-2 text-sm font-medium text-muted-foreground"
@@ -88,6 +101,11 @@ function Shell({
               }
             >
               <AuthControls />
+            </Suspense>
+          ) : null}
+          {showAuth ? (
+            <Suspense fallback={null}>
+              <SignedInSync />
             </Suspense>
           ) : null}
         </nav>
