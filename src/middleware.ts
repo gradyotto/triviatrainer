@@ -21,10 +21,9 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     return NextResponse.next();
   }
 
-  return clerkMiddleware({
-    publishableKey,
-    secretKey,
-  })(request, event);
+  // Leave the keys in the environment. Passing secretKey here makes Clerk
+  // treat it as a dynamic key, which fails closed without CLERK_ENCRYPTION_KEY.
+  return clerkMiddleware()(request, event);
 }
 
 export const config = {

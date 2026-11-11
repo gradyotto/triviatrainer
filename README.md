@@ -15,7 +15,8 @@ Open [http://localhost:3000](http://localhost:3000) and choose **Start training*
 
 Copy `.env.example` to `.env.local` and set:
 
-- `DATABASE_URL` — Neon connection string for project `curly-glitter-40844837`
+- `DATABASE_URL` — Neon pooled connection string for project `curly-glitter-40844837`
+- `DATABASE_URL_UNPOOLED` — Neon direct connection. `npm run db:migrate` uses this when it is set.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` — Clerk app `app_3LwlHmH4WqlR3b1FicYjDQdI3fh`
 
 Then:
