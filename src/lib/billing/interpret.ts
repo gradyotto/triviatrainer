@@ -19,11 +19,20 @@ export type CheckoutSnapshot = {
   subscriptionId: string | null;
 };
 
+export type InvoiceSnapshot = {
+  subscriptionId: string;
+  customerId: string | null;
+};
+
 export type WebhookInterpretation =
   | { kind: "ignore" }
   | {
       kind: "checkout";
       checkout: CheckoutSnapshot;
+    }
+  | {
+      kind: "invoice";
+      invoice: InvoiceSnapshot;
     }
   | {
       kind: "subscription";
@@ -72,7 +81,6 @@ export function conversionEventsForSubscription(input: {
   const ended =
     input.eventType === "customer.subscription.deleted" ||
     input.status === "canceled" ||
-    input.status === "unpaid" ||
     input.status === "incomplete_expired";
   if (ended) {
     events.push("subscription_canceled");
@@ -123,6 +131,14 @@ export function parseSubscriptionSnapshot(
   };
 }
 
+function invoiceSubscriptionId(object: Record<string, unknown>): string | null {
+  const direct = idOf(object.subscription);
+  if (direct) return direct;
+  const parent = asRecord(object.parent);
+  const details = asRecord(parent?.subscription_details);
+  return idOf(details?.subscription);
+}
+
 export function interpretStripeEvent(event: {
   type: string;
   data: { object: unknown; previous_attributes?: unknown };
@@ -141,6 +157,22 @@ export function interpretStripeEvent(event: {
           asString(metadata?.clerkUserId),
         customerId: idOf(object.customer),
         subscriptionId: idOf(object.subscription),
+      },
+    };
+  }
+
+  if (
+    event.type === "invoice.payment_failed" ||
+    event.type === "invoice.paid"
+  ) {
+    const object = asRecord(event.data.object);
+    const subscriptionId = object ? invoiceSubscriptionId(object) : null;
+    if (!object || !subscriptionId) return { kind: "ignore" };
+    return {
+      kind: "invoice",
+      invoice: {
+        subscriptionId,
+        customerId: idOf(object.customer),
       },
     };
   }

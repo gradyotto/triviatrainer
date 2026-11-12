@@ -148,9 +148,9 @@ export async function applySubscription(
   }
 }
 
-async function subscriptionFromCheckout(
-  event: Stripe.Event,
+async function syncSubscription(
   subscriptionId: string,
+  clerkUserId: string | null,
 ): Promise<void> {
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
   const interpreted = interpretStripeEvent({
@@ -158,15 +158,10 @@ async function subscriptionFromCheckout(
     data: { object: subscription },
   });
   if (interpreted.kind !== "subscription") {
-    throw new Error("Checkout subscription could not be read.");
+    throw new Error("Stripe subscription could not be read.");
   }
-  if (!interpreted.snapshot.clerkUserId) {
-    const reference =
-      event.type === "checkout.session.completed"
-        ? event.data.object.client_reference_id
-        : null;
-    interpreted.snapshot.clerkUserId =
-      typeof reference === "string" ? reference : null;
+  if (!interpreted.snapshot.clerkUserId && clerkUserId) {
+    interpreted.snapshot.clerkUserId = clerkUserId;
   }
   await applySubscription(interpreted.snapshot, interpreted.conversions);
 }
@@ -181,8 +176,13 @@ export async function handleStripeEvent(
   if (interpreted.kind === "checkout") {
     await applyCheckout(interpreted.checkout);
     if (interpreted.checkout.subscriptionId) {
-      await subscriptionFromCheckout(event, interpreted.checkout.subscriptionId);
+      await syncSubscription(
+        interpreted.checkout.subscriptionId,
+        interpreted.checkout.clerkUserId,
+      );
     }
+  } else if (interpreted.kind === "invoice") {
+    await syncSubscription(interpreted.invoice.subscriptionId, null);
   } else if (interpreted.kind === "subscription") {
     await applySubscription(interpreted.snapshot, interpreted.conversions);
   }

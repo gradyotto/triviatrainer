@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { getPlanConfig } from "@/config/plans";
-import { evaluateDailyLimit, planForSubscriptionStatus } from "./limits";
+import {
+  evaluateDailyLimit,
+  isPaymentFailureStatus,
+  planForSubscriptionStatus,
+} from "./limits";
 
 describe("evaluateDailyLimit", () => {
   const config = getPlanConfig();
@@ -67,12 +71,22 @@ describe("evaluateDailyLimit", () => {
     );
   });
 
-  it("keeps access through a failed renewal and drops it once the subscription ends", () => {
+  it("grants Pro only while the subscription is active or trialing", () => {
     assert.equal(planForSubscriptionStatus("active"), "pro");
     assert.equal(planForSubscriptionStatus("trialing"), "pro");
-    assert.equal(planForSubscriptionStatus("past_due"), "pro");
-    assert.equal(planForSubscriptionStatus("canceled"), "free");
+    assert.equal(planForSubscriptionStatus("past_due"), "free");
     assert.equal(planForSubscriptionStatus("unpaid"), "free");
     assert.equal(planForSubscriptionStatus("incomplete"), "free");
+    assert.equal(planForSubscriptionStatus("canceled"), "free");
+    assert.equal(planForSubscriptionStatus("incomplete_expired"), "free");
+  });
+
+  it("treats a failed charge as something the customer can still fix", () => {
+    assert.equal(isPaymentFailureStatus("past_due"), true);
+    assert.equal(isPaymentFailureStatus("unpaid"), true);
+    assert.equal(isPaymentFailureStatus("incomplete"), true);
+    assert.equal(isPaymentFailureStatus("active"), false);
+    assert.equal(isPaymentFailureStatus("trialing"), false);
+    assert.equal(isPaymentFailureStatus("canceled"), false);
   });
 });

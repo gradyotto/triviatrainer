@@ -4,6 +4,7 @@ import { CheckoutRefresh } from "@/components/account/checkout-refresh";
 import { ManageBillingButton } from "@/components/account/manage-billing-button";
 import { TimezoneForm } from "@/components/account/timezone-form";
 import { Button } from "@/components/ui/button";
+import { isPaymentFailureStatus } from "@/lib/billing/limits";
 import { getAccountSnapshot } from "@/lib/account";
 import { getSignedInClerkId } from "@/lib/clerk-user";
 import { isClerkConfigured, isDatabaseConfigured } from "@/lib/env";
@@ -96,7 +97,11 @@ export default async function AccountPage({
   }
 
   const { user, subscription } = snapshot;
-  const waitingForPro = params.checkout === "success" && user.plan !== "pro";
+  const paymentFailed = Boolean(
+    subscription && isPaymentFailureStatus(subscription.status),
+  );
+  const waitingForPro =
+    params.checkout === "success" && user.plan !== "pro" && !paymentFailed;
   const renewal = subscription?.currentPeriodEnd
     ? formatZonedDate(subscription.currentPeriodEnd, user.timeZone)
     : null;
@@ -127,6 +132,26 @@ export default async function AccountPage({
           You&apos;re on Pro. Today&apos;s question cap is off.
         </p>
       ) : null}
+      {paymentFailed ? (
+        <div
+          className="flex flex-col gap-3 rounded-xl border border-destructive bg-destructive-soft px-4 py-4"
+          role="status"
+        >
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-medium">Payment didn&apos;t go through</h2>
+            <p className="text-sm leading-relaxed">
+              This account is on the Free plan, with Free limits and stats,
+              until the payment succeeds. Update the card and Pro comes back.
+            </p>
+          </div>
+          {user.stripeCustomerId ? (
+            <ManageBillingButton
+              label="Update payment method"
+              variant="default"
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-4">
         <div className="flex items-baseline justify-between gap-3">
@@ -143,7 +168,7 @@ export default async function AccountPage({
           {usageLine(snapshot.aiUsed, snapshot.aiLimit)}
           {user.plan === "free" ? " · ships in a later update" : ""}
         </p>
-        {renewalText ? (
+        {renewalText && !paymentFailed ? (
           <p className="text-sm text-muted-foreground">
             {subscription?.interval === "year"
               ? "Yearly"
@@ -156,7 +181,7 @@ export default async function AccountPage({
         ) : null}
         <div className="flex flex-wrap gap-2">
           {user.stripeCustomerId ? <ManageBillingButton /> : null}
-          {user.plan === "free" ? (
+          {user.plan === "free" && !paymentFailed ? (
             <Button asChild className="h-11 px-4">
               <Link href="/upgrade">Upgrade to Pro</Link>
             </Button>

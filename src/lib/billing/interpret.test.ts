@@ -89,14 +89,58 @@ describe("interpretStripeEvent", () => {
     assert.deepEqual(interpreted.conversions, ["subscription_canceled"]);
   });
 
-  it("keeps a past-due subscription on Pro without treating it as a new upgrade", () => {
-    const interpreted = subscriptionEvent("customer.subscription.updated", {
-      ...activeSubscription,
-      status: "past_due",
+  it("does not record a cancellation when a charge fails", () => {
+    for (const status of ["past_due", "unpaid", "incomplete"]) {
+      const interpreted = subscriptionEvent("customer.subscription.updated", {
+        ...activeSubscription,
+        status,
+      });
+      assert.equal(interpreted.kind, "subscription");
+      if (interpreted.kind !== "subscription") return;
+      assert.deepEqual(interpreted.conversions, []);
+    }
+  });
+
+  it("asks for a subscription refresh when an invoice is paid or fails", () => {
+    const failed = interpretStripeEvent({
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          id: "in_failed",
+          customer: "cus_123",
+          parent: {
+            subscription_details: { subscription: "sub_123" },
+          },
+        },
+      },
     });
-    assert.equal(interpreted.kind, "subscription");
-    if (interpreted.kind !== "subscription") return;
-    assert.deepEqual(interpreted.conversions, []);
+    assert.deepEqual(failed, {
+      kind: "invoice",
+      invoice: { subscriptionId: "sub_123", customerId: "cus_123" },
+    });
+
+    const paid = interpretStripeEvent({
+      type: "invoice.paid",
+      data: {
+        object: {
+          id: "in_paid",
+          customer: { id: "cus_123" },
+          subscription: "sub_123",
+        },
+      },
+    });
+    assert.deepEqual(paid, {
+      kind: "invoice",
+      invoice: { subscriptionId: "sub_123", customerId: "cus_123" },
+    });
+
+    assert.deepEqual(
+      interpretStripeEvent({
+        type: "invoice.paid",
+        data: { object: { id: "in_one_off", customer: "cus_123" } },
+      }),
+      { kind: "ignore" },
+    );
   });
 
   it("links checkout to the Clerk user without marking the upgrade complete", () => {

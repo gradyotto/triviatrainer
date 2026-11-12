@@ -16,8 +16,10 @@ type Phase = "pick" | "loading" | "play" | "summary" | "limit";
 
 export function TrainSession({
   categories,
+  accountsEnabled = false,
 }: {
   categories: CategorySummary[];
+  accountsEnabled?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("pick");
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,7 @@ export function TrainSession({
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [persisted, setPersisted] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const [dailyLimit, setDailyLimit] = useState<number | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const startedAt = useRef(Date.now());
@@ -93,6 +96,7 @@ export function TrainSession({
       setReviews([]);
       setSessionId(sessionBody.sessionId ?? null);
       setPersisted(Boolean(sessionBody.persisted));
+      setSignedIn(Boolean(sessionBody.signedIn));
       setRemaining(
         typeof questionBody.remaining === "number" ? questionBody.remaining : null,
       );
@@ -112,6 +116,7 @@ export function TrainSession({
     setReviews([]);
     setSessionId(null);
     setPersisted(false);
+    setSignedIn(false);
     setDailyLimit(null);
     setRemaining(null);
     setError(null);
@@ -127,7 +132,12 @@ export function TrainSession({
 
   if (phase === "summary") {
     return (
-      <SessionSummary reviews={reviews} persisted={persisted} onAgain={reset} />
+      <SessionSummary
+        reviews={reviews}
+        persisted={persisted}
+        showSignup={accountsEnabled && !signedIn}
+        onAgain={reset}
+      />
     );
   }
 

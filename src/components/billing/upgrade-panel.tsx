@@ -140,7 +140,15 @@ export function UpgradePanel({
               free="Accuracy, streak, categories"
               pro="Trends, heatmap, timing"
             />
-            <ComparisonRow label="Price" free="$0" pro="The plan you pick" />
+            <ComparisonRow
+              label="Price"
+              free="$0"
+              pro={
+                interval === "month"
+                  ? `${formatUsd(monthlyCents)}/month`
+                  : `${formatUsd(yearlyCents)}/year`
+              }
+            />
           </tbody>
         </table>
       </div>

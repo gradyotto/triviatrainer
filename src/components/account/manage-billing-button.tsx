@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export function ManageBillingButton() {
+export function ManageBillingButton({
+  label = "Manage billing",
+  variant = "outline",
+}: {
+  label?: string;
+  variant?: "outline" | "default";
+}) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,12 +35,12 @@ export function ManageBillingButton() {
     <div className="flex flex-col gap-2">
       <Button
         type="button"
-        variant="outline"
+        variant={variant}
         className="h-11 w-fit px-4"
         disabled={pending}
         onClick={() => void openPortal()}
       >
-        {pending ? "Opening…" : "Manage billing"}
+        {pending ? "Opening…" : label}
       </Button>
       {error ? (
         <p className="text-sm text-destructive" role="alert">

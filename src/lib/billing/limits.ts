@@ -15,10 +15,17 @@ export type LimitDecision = {
   remaining: number | null;
 };
 
-const PRO_ACCESS_STATUSES = new Set(["active", "trialing", "past_due"]);
+const PRO_ACCESS_STATUSES = new Set(["active", "trialing"]);
+const PAYMENT_FAILURE_STATUSES = new Set(["past_due", "unpaid", "incomplete"]);
 
+/** Only a current paid or trialing subscription grants Pro. */
 export function planForSubscriptionStatus(status: string): PlanId {
   return PRO_ACCESS_STATUSES.has(status) ? "pro" : "free";
+}
+
+/** A failed charge that can still be fixed from the Customer Portal. */
+export function isPaymentFailureStatus(status: string): boolean {
+  return PAYMENT_FAILURE_STATUSES.has(status);
 }
 
 export function evaluateDailyLimit(input: {
