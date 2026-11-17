@@ -7,6 +7,7 @@ import {
   applyReview,
   formatReviewWait,
   initialSchedule,
+  isDueToday,
   masteryTrendFromHistories,
   planScheduleBackfill,
   replaySchedule,
@@ -145,6 +146,51 @@ describe("SM-2 schedule", () => {
     assert.ok(due);
     assert.equal(state.nextReviewAt?.getTime(), due.start.getTime());
     assert.equal(dayKeyInTimeZone(state.nextReviewAt ?? answeredAt, timeZone), "2026-11-17");
+  });
+
+  it("uses Phoenix local midnight, 07:00 UTC, for the next review and for due today", () => {
+    const timeZone = "America/Phoenix";
+    // 06:30 UTC is still the previous evening in Phoenix (UTC-7, no daylight saving).
+    const answeredAt = at("2026-11-18T06:30:00.000Z");
+    assert.equal(dayKeyInTimeZone(answeredAt, timeZone), "2026-11-17");
+    assert.equal(dayKeyInTimeZone(answeredAt, "UTC"), "2026-11-18");
+
+    const state = applyReview(
+      initialSchedule(config),
+      { correct: true, usedHint: false, answeredAt, timeZone },
+      config,
+    );
+    assert.equal(state.intervalDays, 1);
+    assert.equal(state.nextReviewAt?.toISOString(), "2026-11-18T07:00:00.000Z");
+    assert.notEqual(state.nextReviewAt?.toISOString(), "2026-11-18T00:00:00.000Z");
+    assert.notEqual(state.nextReviewAt?.toISOString(), "2026-11-19T00:00:00.000Z");
+
+    const dueAt = state.nextReviewAt;
+    // Same instant: already "today" in UTC, still the previous local day in Phoenix.
+    assert.equal(isDueToday(dueAt, answeredAt, "UTC"), true);
+    assert.equal(isDueToday(dueAt, answeredAt, timeZone), false);
+    assert.equal(
+      isDueToday(dueAt, at("2026-11-18T07:30:00.000Z"), timeZone),
+      true,
+    );
+    assert.deepEqual(
+      summarizeMastery(
+        [{ seenCount: 1, intervalDays: 1, nextReviewAt: dueAt }],
+        answeredAt,
+        timeZone,
+        config,
+      ),
+      { learning: 1, mastered: 0, dueToday: 0 },
+    );
+    assert.deepEqual(
+      summarizeMastery(
+        [{ seenCount: 1, intervalDays: 1, nextReviewAt: dueAt }],
+        at("2026-11-18T07:30:00.000Z"),
+        timeZone,
+        config,
+      ),
+      { learning: 1, mastered: 0, dueToday: 1 },
+    );
   });
 });
 
