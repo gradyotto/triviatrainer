@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import type { UsageKind } from "@/config/plans";
 import { getDb, isDatabaseConfigured } from "@/db";
 import {
   categories,
@@ -6,38 +7,25 @@ import {
   questions,
   sessionAnswers,
   sessions,
-  users,
 } from "@/db/schema";
+import { ensureUser } from "@/lib/users";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function ensureUser(
-  clerkId: string,
-): Promise<{ id: string; plan: "free" | "pro" }> {
-  const db = getDb();
-  await db.insert(users).values({ clerkId }).onConflictDoNothing({
-    target: users.clerkId,
-  });
-  const rows = await db
-    .select({ id: users.id, plan: users.plan })
-    .from(users)
-    .where(eq(users.clerkId, clerkId))
-    .limit(1);
-  const user = rows[0];
-  if (!user) {
-    throw new Error("Could not load the signed-in user.");
-  }
-  return user;
-}
+const MAX_RESPONSE_MS = 30 * 60 * 1000;
 
 export async function openTrainingSession(input: {
   clerkUserId: string;
   categorySlug: string | null;
+  timeZone?: string | null;
 }): Promise<string | null> {
   if (!isDatabaseConfigured()) return null;
   const db = getDb();
-  const user = await ensureUser(input.clerkUserId);
+  const user = await ensureUser(input.clerkUserId, {
+    timeZone: input.timeZone,
+    source: "detect",
+  });
   let categoryIds: string[] = [];
   if (input.categorySlug) {
     const categoryRows = await db
@@ -68,6 +56,8 @@ export async function saveAttempt(input: {
   response: string;
   correct: boolean;
   usedHint: boolean;
+  responseMs?: number | null;
+  kind?: UsageKind;
 }): Promise<boolean> {
   if (!isDatabaseConfigured()) return false;
   if (!UUID_RE.test(input.sessionId) || !UUID_RE.test(input.questionId)) {
@@ -77,6 +67,13 @@ export async function saveAttempt(input: {
   const db = getDb();
   const user = await ensureUser(input.clerkUserId);
   const userId = user.id;
+  const responseMs =
+    typeof input.responseMs === "number" &&
+    Number.isFinite(input.responseMs) &&
+    input.responseMs >= 0 &&
+    input.responseMs <= MAX_RESPONSE_MS
+      ? Math.round(input.responseMs)
+      : null;
   const sessionRows = await db
     .select({ id: sessions.id, userId: sessions.userId })
     .from(sessions)
@@ -111,6 +108,8 @@ export async function saveAttempt(input: {
     response: input.response,
     isCorrect: input.correct,
     usedHint: input.usedHint,
+    responseMs,
+    kind: input.kind ?? "question",
   });
 
   await db

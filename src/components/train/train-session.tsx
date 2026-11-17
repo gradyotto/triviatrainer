@@ -1,21 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { LimitPrompt } from "@/components/billing/limit-prompt";
 import { CategoryPicker } from "@/components/train/category-picker";
 import { QuestionCard } from "@/components/train/question-card";
 import { SessionSummary } from "@/components/train/session-summary";
+import { browserTimeZone } from "@/lib/time/zone";
 import type {
   PublicQuestion,
   ReviewItem,
   CategorySummary,
 } from "@/lib/train-types";
 
-type Phase = "pick" | "loading" | "play" | "summary";
+type Phase = "pick" | "loading" | "play" | "summary" | "limit";
 
 export function TrainSession({
   categories,
+  accountsEnabled = false,
 }: {
   categories: CategorySummary[];
+  accountsEnabled?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("pick");
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +28,9 @@ export function TrainSession({
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [persisted, setPersisted] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState<number | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
   const startedAt = useRef(Date.now());
 
   useEffect(() => {
@@ -42,30 +49,46 @@ export function TrainSession({
   async function start(category: string | null) {
     setPhase("loading");
     setError(null);
+    const timeZone = browserTimeZone();
     try {
-      const [questionResponse, sessionResponse] = await Promise.all([
-        fetch(
-          `/api/train/questions?category=${encodeURIComponent(category ?? "mixed")}`,
-          { cache: "no-store" },
-        ),
-        fetch("/api/train/sessions", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ category }),
-        }),
-      ]);
+      const questionResponse = await fetch(
+        `/api/train/questions?category=${encodeURIComponent(category ?? "mixed")}${
+          timeZone ? `&timeZone=${encodeURIComponent(timeZone)}` : ""
+        }`,
+        { cache: "no-store" },
+      );
       const questionBody = (await questionResponse.json().catch(() => null)) as
-        | { questions?: PublicQuestion[]; error?: string }
+        | {
+            questions?: PublicQuestion[];
+            error?: string;
+            limitReached?: boolean;
+            limit?: number | null;
+            remaining?: number | null;
+          }
         | null;
+      if (questionResponse.ok && questionBody?.limitReached) {
+        setDailyLimit(questionBody.limit ?? null);
+        setPhase("limit");
+        return;
+      }
       if (!questionResponse.ok || !questionBody?.questions?.length) {
         throw new Error(questionBody?.error ?? "Could not load questions");
       }
+      const sessionResponse = await fetch("/api/train/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ category, timeZone }),
+      });
       const sessionBody = sessionResponse.ok
         ? ((await sessionResponse.json()) as {
             sessionId?: string | null;
             persisted?: boolean;
+            signedIn?: boolean;
           })
-        : { sessionId: null, persisted: false };
+        : { sessionId: null, persisted: false, signedIn: false };
+      if (sessionBody.signedIn && !sessionBody.sessionId) {
+        throw new Error("Couldn't start a saved round. Try again.");
+      }
 
       startedAt.current = Date.now();
       setQuestions(questionBody.questions);
@@ -73,6 +96,10 @@ export function TrainSession({
       setReviews([]);
       setSessionId(sessionBody.sessionId ?? null);
       setPersisted(Boolean(sessionBody.persisted));
+      setSignedIn(Boolean(sessionBody.signedIn));
+      setRemaining(
+        typeof questionBody.remaining === "number" ? questionBody.remaining : null,
+      );
       setPhase("play");
     } catch (cause) {
       setError(
@@ -89,7 +116,14 @@ export function TrainSession({
     setReviews([]);
     setSessionId(null);
     setPersisted(false);
+    setSignedIn(false);
+    setDailyLimit(null);
+    setRemaining(null);
     setError(null);
+  }
+
+  if (phase === "limit") {
+    return <LimitPrompt limit={dailyLimit} />;
   }
 
   if (phase === "loading") {
@@ -98,7 +132,12 @@ export function TrainSession({
 
   if (phase === "summary") {
     return (
-      <SessionSummary reviews={reviews} persisted={persisted} onAgain={reset} />
+      <SessionSummary
+        reviews={reviews}
+        persisted={persisted}
+        showSignup={accountsEnabled && !signedIn}
+        onAgain={reset}
+      />
     );
   }
 
@@ -108,7 +147,9 @@ export function TrainSession({
       <div className="flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
           {persisted
-            ? "Saving attempts to your account."
+            ? remaining != null && remaining <= 5
+              ? `Saving attempts. ${remaining} free questions left today.`
+              : "Saving attempts to your account."
             : "This round is not saved."}
         </p>
         <QuestionCard
@@ -118,6 +159,10 @@ export function TrainSession({
           total={questions.length}
           sessionId={sessionId}
           onGraded={(review) => setReviews((current) => [...current, review])}
+          onLimit={(limit) => {
+            setDailyLimit(limit);
+            setPhase("limit");
+          }}
           onNext={() => {
             if (index + 1 >= questions.length) setPhase("summary");
             else setIndex(index + 1);

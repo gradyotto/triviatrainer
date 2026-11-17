@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ProDashboard } from "@/components/stats/pro-dashboard";
+import { ProTeaser } from "@/components/stats/pro-teaser";
 import { StatsDashboard } from "@/components/stats/stats-dashboard";
 import { getSignedInClerkId } from "@/lib/clerk-user";
 import { isClerkConfigured, isDatabaseConfigured } from "@/lib/env";
-import { getBasicStats } from "@/lib/stats";
+import { getBasicStats, getProStats } from "@/lib/stats";
+import { getUserByClerkId } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +69,17 @@ export default async function StatsPage() {
   }
 
   try {
+    const user = await getUserByClerkId(clerkUserId);
     const stats = await getBasicStats(clerkUserId);
+    const pro = user?.plan === "pro" ? await getProStats(clerkUserId) : null;
     return (
-      <main className="mx-auto w-full max-w-lg px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        <StatsDashboard stats={stats} />
+      <main className="mx-auto flex w-full max-w-lg flex-col gap-8 px-4 py-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <StatsDashboard stats={stats} timeZone={user?.timeZone ?? "UTC"} />
+        {pro ? (
+          <ProDashboard stats={pro} timeZone={user?.timeZone ?? "UTC"} />
+        ) : (
+          <ProTeaser />
+        )}
       </main>
     );
   } catch {

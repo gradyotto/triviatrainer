@@ -21,7 +21,8 @@ import type { BasicStats } from "./types";
  *   question, so it cannot reconstruct a day streak.
  * - sessions supplies the recent list (date, set, stored score).
  *
- * Trends and weakest topics belong in ./pro. This file does not read users.plan.
+ * The day streak uses the user's saved IANA time zone. Trends and category
+ * ranks over time belong in ./pro.
  */
 
 function asCount(value: unknown): number {
@@ -46,19 +47,22 @@ function setLabel(slug: string | null, name: string | null): string {
   return trimmed ? trimmed : slug;
 }
 
-async function findUserId(clerkUserId: string): Promise<string | null> {
+async function findUser(
+  clerkUserId: string,
+): Promise<{ id: string; timeZone: string } | null> {
   const rows = await getDb()
-    .select({ id: users.id })
+    .select({ id: users.id, timeZone: users.timeZone })
     .from(users)
     .where(eq(users.clerkId, clerkUserId))
     .limit(1);
-  return rows[0]?.id ?? null;
+  return rows[0] ?? null;
 }
 
 export async function getBasicStats(clerkUserId: string): Promise<BasicStats> {
   if (!isDatabaseConfigured()) return emptyBasicStats();
-  const userId = await findUserId(clerkUserId);
-  if (!userId) return emptyBasicStats();
+  const user = await findUser(clerkUserId);
+  if (!user) return emptyBasicStats();
+  const userId = user.id;
 
   const db = getDb();
   const [totalRows, categoryRows, answerRows, sessionRows] = await Promise.all([
@@ -137,5 +141,6 @@ export async function getBasicStats(clerkUserId: string): Promise<BasicStats> {
         },
       ];
     }),
+    timeZone: user.timeZone,
   });
 }

@@ -1,14 +1,8 @@
+import { dayKeyInTimeZone, normalizeTimeZone, shiftDayKey } from "@/lib/time/zone";
 import type { BasicStats, CategoryAccuracy, RecentSession } from "./types";
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_STREAK_DAYS = 10000;
-
-const sessionDateFormat = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
 
 export function accuracyPercent(correct: number, answered: number): number {
   if (answered <= 0 || correct <= 0) return 0;
@@ -16,49 +10,48 @@ export function accuracyPercent(correct: number, answered: number): number {
 }
 
 export function utcDayKey(value: Date): string {
-  return value.toISOString().slice(0, 10);
+  return dayKeyInTimeZone(value, "UTC");
 }
 
 export function previousUtcDay(day: string): string | null {
-  const match = DAY.exec(day);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const date = Number(match[3]);
-  const utc = new Date(Date.UTC(year, month - 1, date));
-  if (
-    utc.getUTCFullYear() !== year ||
-    utc.getUTCMonth() !== month - 1 ||
-    utc.getUTCDate() !== date
-  ) {
-    return null;
-  }
-  utc.setUTCDate(utc.getUTCDate() - 1);
-  return utc.toISOString().slice(0, 10);
+  return shiftDayKey(day, -1);
 }
 
 /**
- * Consecutive UTC days with at least one answer, ending today. Yesterday
- * still counts when today has no answer yet. A gap before yesterday ends it.
- * Days after `now` are ignored.
+ * Consecutive calendar days with at least one answer, ending today in
+ * `timeZone` (UTC when omitted). Yesterday still counts when today has no
+ * answer yet. A gap before yesterday ends it. Days after `now` are ignored.
  */
-export function currentDayStreak(dayKeys: string[], now = new Date()): number {
+export function currentDayStreak(
+  dayKeys: string[],
+  now = new Date(),
+  timeZone = "UTC",
+): number {
   const days = new Set(dayKeys.filter((day) => DAY.test(day)));
-  const today = utcDayKey(now);
-  const yesterday = previousUtcDay(today);
+  const today = dayKeyInTimeZone(now, timeZone);
+  const yesterday = shiftDayKey(today, -1);
   let cursor: string | null = days.has(today) ? today : yesterday;
   let streak = 0;
   while (cursor && days.has(cursor) && streak < MAX_STREAK_DAYS) {
     streak += 1;
-    const previous = previousUtcDay(cursor);
+    const previous = shiftDayKey(cursor, -1);
     if (!previous || previous === cursor) break;
     cursor = previous;
   }
   return streak;
 }
 
+export function formatZonedDate(value: Date, timeZone = "UTC"): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: normalizeTimeZone(timeZone),
+  }).format(value);
+}
+
 export function formatUtcDate(value: Date): string {
-  return sessionDateFormat.format(value);
+  return formatZonedDate(value, "UTC");
 }
 
 export function emptyBasicStats(): BasicStats {
@@ -91,6 +84,7 @@ export function buildBasicStats(input: {
     correct: number;
   }>;
   now?: Date;
+  timeZone?: string;
 }): BasicStats {
   const answered = Math.max(0, Math.trunc(input.answered));
   const correct = Math.max(0, Math.trunc(input.correct));
@@ -133,8 +127,11 @@ export function buildBasicStats(input: {
     correctCount: correct,
     accuracyPercent: accuracyPercent(correct, answered),
     dayStreak: currentDayStreak(
-      input.answeredAt.map((answeredAt) => utcDayKey(answeredAt)),
+      input.answeredAt.map((answeredAt) =>
+        dayKeyInTimeZone(answeredAt, input.timeZone ?? "UTC"),
+      ),
       input.now,
+      input.timeZone ?? "UTC",
     ),
     categories,
     recentSessions,

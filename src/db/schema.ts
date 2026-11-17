@@ -27,6 +27,8 @@ export const users = pgTable("users", {
   plan: planEnum("plan").notNull().default("free"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 128 }),
   stripeSubscriptionId: varchar("stripe_subscription_id", { length: 128 }),
+  timeZone: varchar("time_zone", { length: 64 }).notNull().default("UTC"),
+  timeZoneConfirmed: boolean("time_zone_confirmed").notNull().default(false),
   adFree: boolean("ad_free").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -34,7 +36,9 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("users_stripe_customer_idx").on(table.stripeCustomerId),
+]);
 
 export const categories = pgTable(
   "categories",
@@ -127,6 +131,10 @@ export const sessionAnswers = pgTable(
     response: text("response").notNull(),
     isCorrect: boolean("is_correct").notNull(),
     usedHint: boolean("used_hint").notNull().default(false),
+    responseMs: integer("response_ms"),
+    // "question" counts against the daily question allowance.
+    // "ai_current_event" is reserved for Phase 4 and has its own allowance.
+    kind: varchar("kind", { length: 32 }).notNull().default("question"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -194,6 +202,69 @@ export const usageCounters = pgTable(
   ],
 );
 
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    stripeCustomerId: varchar("stripe_customer_id", { length: 128 }).notNull(),
+    stripeSubscriptionId: varchar("stripe_subscription_id", { length: 128 })
+      .notNull(),
+    status: varchar("status", { length: 32 }).notNull(),
+    interval: varchar("interval", { length: 16 }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    priceLookupKey: varchar("price_lookup_key", { length: 128 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("subscriptions_stripe_id_idx").on(table.stripeSubscriptionId),
+    index("subscriptions_user_idx").on(table.userId),
+  ],
+);
+
+export const conversionEvents = pgTable(
+  "conversion_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    clerkId: varchar("clerk_id", { length: 128 }),
+    event: varchar("event", { length: 64 }).notNull(),
+    planConfigVersion: varchar("plan_config_version", { length: 64 }).notNull(),
+    limits: jsonb("limits").$type<Record<string, number | null>>().notNull(),
+    metadata: jsonb("metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    dedupeKey: varchar("dedupe_key", { length: 200 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("conversion_events_event_idx").on(table.event),
+    index("conversion_events_clerk_idx").on(table.clerkId),
+    uniqueIndex("conversion_events_dedupe_idx").on(table.dedupeKey),
+  ],
+);
+
+export const stripeEvents = pgTable("stripe_events", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  type: varchar("type", { length: 128 }).notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type Question = typeof questions.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type QuestionProgress = typeof questionProgress.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;

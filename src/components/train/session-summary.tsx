@@ -7,10 +7,12 @@ import type { ReviewItem } from "@/lib/train-types";
 export function SessionSummary({
   reviews,
   persisted,
+  showSignup,
   onAgain,
 }: {
   reviews: ReviewItem[];
   persisted: boolean;
+  showSignup: boolean;
   onAgain: () => void;
 }) {
   const correctCount = reviews.filter((review) => review.correct).length;
@@ -30,9 +32,24 @@ export function SessionSummary({
         <p className="text-sm text-muted-foreground">
           {persisted
             ? "Saved to your account."
-            : "Not saved. Sign in with a database connected to keep attempts."}
+            : showSignup
+              ? "This round was not saved."
+              : "Not saved. Sign in with a database connected to keep attempts."}
         </p>
       </div>
+      {showSignup ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-medium">Create an account</h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Sign up to save your progress and track your stats.
+            </p>
+          </div>
+          <Button asChild className="h-11 w-fit px-4">
+            <Link href="/sign-up?redirect_url=/train">Create an account</Link>
+          </Button>
+        </div>
+      ) : null}
       <ol className="flex flex-col gap-3">
         {reviews.map((review, index) => (
           <li
