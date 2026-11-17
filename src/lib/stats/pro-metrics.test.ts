@@ -96,4 +96,22 @@ describe("buildProStats", () => {
     assert.equal(nov10?.answered, 1);
     assert.equal(nov11?.answered, 0);
   });
+
+  it("adds retention and a mastery trend when answers belong to a question", () => {
+    const stats = buildProStats(
+      [
+        fact("2026-11-10", true, "history", { questionId: "q1" }),
+        fact("2026-11-11", false, "history", { questionId: "q1" }),
+        fact("2026-11-11", true, "history", { questionId: "q2" }),
+      ],
+      now,
+      "UTC",
+    );
+    assert.equal(stats.retention.reviews, 1);
+    assert.equal(stats.retention.correct, 0);
+    assert.equal(stats.retention.percent, 0);
+    assert.equal(stats.masteryTrend.length, 30);
+    assert.equal(stats.masteryTrend.at(-1)?.learning, 2);
+    assert.equal(stats.masteryTrend.at(-1)?.mastered, 0);
+  });
 });

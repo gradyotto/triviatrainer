@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { getReviewConfig } from "@/config/review";
 import { checkDailyLimit } from "@/lib/billing/usage";
 import { getSignedInClerkId } from "@/lib/clerk-user";
 import { isDatabaseConfigured } from "@/lib/env";
 import { drawQuestions, UnknownCategoryError } from "@/lib/questions";
+import { drawReviewQuestions, getReviewOverview } from "@/lib/review/service";
 import { trackSafely } from "@/lib/tracking/track";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,9 @@ const DEFAULT_LIMIT = 10;
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category") ?? "mixed";
+  if (category === "review") {
+    return reviewQuestions(searchParams.get("timeZone"), searchParams.get("summary") === "1");
+  }
   if (category !== "mixed" && !/^[a-z0-9-]{1,64}$/.test(category)) {
     return NextResponse.json({ error: "Unknown category" }, { status: 400 });
   }
@@ -91,6 +96,119 @@ export async function GET(request: Request) {
     console.error("Failed to draw questions");
     return NextResponse.json(
       { error: "Could not load questions" },
+      { status: 500 },
+    );
+  }
+}
+
+async function reviewQuestions(timeZone: string | null, summary: boolean) {
+  const clerkUserId = await getSignedInClerkId();
+  if (!clerkUserId) {
+    return NextResponse.json(
+      {
+        signedIn: false,
+        questions: [],
+        error: "Sign in to review questions you've seen.",
+      },
+      { status: 401 },
+    );
+  }
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json({
+      source: "database",
+      signedIn: true,
+      questions: [],
+      caughtUp: true,
+      dueCount: 0,
+      nextReviewLabel: null,
+      limitReached: false,
+    });
+  }
+
+  try {
+    const overview = await getReviewOverview(clerkUserId);
+    if (summary) {
+      return NextResponse.json({
+        signedIn: true,
+        dueCount: overview.dueCount,
+        nextReviewLabel: overview.nextReviewLabel,
+        caughtUp: overview.dueCount === 0,
+      });
+    }
+    if (overview.dueCount === 0) {
+      return NextResponse.json({
+        source: "database",
+        signedIn: true,
+        questions: [],
+        caughtUp: true,
+        dueCount: 0,
+        nextReviewLabel: overview.nextReviewLabel,
+        limitReached: false,
+      });
+    }
+
+    const gate = await checkDailyLimit({
+      clerkUserId,
+      kind: "question",
+      timeZone,
+    });
+    if (!gate.decision.allowed) {
+      await trackSafely({
+        event: "daily_limit_hit",
+        clerkId: clerkUserId,
+        userId: gate.user.id,
+        dedupeKey: `daily_limit_hit:${clerkUserId}:${gate.dayKey}:question`,
+        metadata: {
+          kind: "question",
+          used: gate.decision.used,
+          limit: gate.decision.limit,
+          source: "review",
+        },
+      });
+      return NextResponse.json({
+        source: "database",
+        questions: [],
+        limitReached: true,
+        limit: gate.decision.limit,
+        used: gate.decision.used,
+        remaining: 0,
+        dueCount: overview.dueCount,
+      });
+    }
+
+    const sessionCap = getReviewConfig().maxReviewsPerSession;
+    const cap =
+      gate.decision.remaining == null
+        ? sessionCap
+        : Math.min(sessionCap, gate.decision.remaining);
+    const drawn = await drawReviewQuestions(clerkUserId, cap);
+    if (drawn.questions.length === 0) {
+      return NextResponse.json({
+        source: "database",
+        signedIn: true,
+        questions: [],
+        caughtUp: true,
+        dueCount: 0,
+        nextReviewLabel: drawn.overview.nextReviewLabel,
+        limitReached: false,
+      });
+    }
+    return NextResponse.json({
+      source: "database",
+      signedIn: true,
+      questions: drawn.questions,
+      caughtUp: false,
+      dueCount: drawn.overview.dueCount,
+      nextReviewLabel: drawn.overview.nextReviewLabel,
+      limitReached: false,
+      limit: gate.decision.limit,
+      used: gate.decision.used,
+      remaining: gate.decision.remaining,
+    });
+  } catch {
+    console.error("Failed to load review questions");
+    return NextResponse.json(
+      { error: "Could not load review questions" },
       { status: 500 },
     );
   }

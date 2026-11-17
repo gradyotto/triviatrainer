@@ -1,3 +1,4 @@
+import { summarizeMastery } from "@/lib/review/schedule";
 import { dayKeyInTimeZone, normalizeTimeZone, shiftDayKey } from "@/lib/time/zone";
 import type { BasicStats, CategoryAccuracy, RecentSession } from "./types";
 
@@ -62,6 +63,7 @@ export function emptyBasicStats(): BasicStats {
     dayStreak: 0,
     categories: [],
     recentSessions: [],
+    mastery: { learning: 0, mastered: 0, dueToday: 0 },
   };
 }
 
@@ -82,6 +84,11 @@ export function buildBasicStats(input: {
     setLabel: string;
     answered: number;
     correct: number;
+  }>;
+  progress?: Array<{
+    seenCount: number;
+    intervalDays: number;
+    nextReviewAt: Date | null;
   }>;
   now?: Date;
   timeZone?: string;
@@ -135,5 +142,10 @@ export function buildBasicStats(input: {
     ),
     categories,
     recentSessions,
+    mastery: summarizeMastery(
+      input.progress ?? [],
+      input.now ?? new Date(),
+      input.timeZone ?? "UTC",
+    ),
   };
 }

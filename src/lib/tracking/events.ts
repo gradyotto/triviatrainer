@@ -5,6 +5,7 @@ export const CONVERSION_EVENTS = [
   "checkout_started",
   "upgrade_completed",
   "subscription_canceled",
+  "review_session_started",
 ] as const;
 
 export type ConversionEventName = (typeof CONVERSION_EVENTS)[number];

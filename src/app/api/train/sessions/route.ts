@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSignedInClerkId } from "@/lib/clerk-user";
 import { openTrainingSession } from "@/lib/persistence";
+import { getReviewOverview } from "@/lib/review/service";
+import { trackSafely } from "@/lib/tracking/track";
+import { getUserByClerkId } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,6 +12,7 @@ export const runtime = "nodejs";
 const bodySchema = z.object({
   category: z.string().regex(/^[a-z0-9-]{1,64}$/).nullable(),
   timeZone: z.string().min(1).max(64).optional(),
+  mode: z.enum(["train", "review"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -33,11 +37,30 @@ export async function POST(request: Request) {
   }
 
   try {
+    const mode = parsed.data.mode === "review" ? "review" : "train";
     const sessionId = await openTrainingSession({
       clerkUserId,
-      categorySlug: parsed.data.category,
+      categorySlug: mode === "review" ? null : parsed.data.category,
       timeZone: parsed.data.timeZone,
+      mode,
     });
+    if (sessionId && mode === "review") {
+      try {
+        const user = await getUserByClerkId(clerkUserId);
+        const overview = await getReviewOverview(clerkUserId);
+        await trackSafely({
+          event: "review_session_started",
+          clerkId: clerkUserId,
+          userId: user?.id,
+          metadata: {
+            sessionId,
+            dueCount: overview.dueCount,
+          },
+        });
+      } catch {
+        console.error("Failed to record review_session_started");
+      }
+    }
     return NextResponse.json({
       sessionId,
       persisted: Boolean(sessionId),

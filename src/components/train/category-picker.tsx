@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { caughtUpCopy } from "@/lib/review/copy";
 import type { CategorySummary } from "@/lib/train-types";
 
 const SESSION_SIZE = 10;
@@ -9,10 +11,22 @@ export function CategoryPicker({
   categories,
   error,
   onSelect,
+  onReview,
+  signedIn = false,
+  accountsEnabled = false,
+  dueCount = 0,
+  nextReviewLabel = null,
+  highlightReview = false,
 }: {
   categories: CategorySummary[];
   error: string | null;
   onSelect: (category: string | null) => void;
+  onReview: () => void;
+  signedIn?: boolean;
+  accountsEnabled?: boolean;
+  dueCount?: number;
+  nextReviewLabel?: string | null;
+  highlightReview?: boolean;
 }) {
   const total = categories.reduce(
     (sum, category) => sum + category.questionCount,
@@ -37,6 +51,42 @@ export function CategoryPicker({
         <p className="text-sm text-muted-foreground">No questions are available yet.</p>
       ) : (
         <div className="flex flex-col gap-2">
+          {signedIn ? (
+            <Button
+              type="button"
+              variant="outline"
+              className={`h-auto min-h-12 w-full justify-start px-4 py-3 text-base ${
+                highlightReview ? "ring-2 ring-ring" : ""
+              }`}
+              onClick={onReview}
+            >
+              <span className="text-left">
+                <span className="block font-medium">Review</span>
+                <span className="block text-sm font-normal opacity-80">
+                  {dueCount > 0
+                    ? `${dueCount} due`
+                    : nextReviewLabel
+                      ? caughtUpCopy(nextReviewLabel)
+                      : "0 due"}
+                </span>
+              </span>
+            </Button>
+          ) : accountsEnabled ? (
+            <Button
+              asChild
+              variant="outline"
+              className="h-auto min-h-12 w-full justify-start px-4 py-3 text-base"
+            >
+              <Link href="/sign-in">
+                <span className="text-left">
+                  <span className="block font-medium">Review</span>
+                  <span className="block text-sm font-normal opacity-80">
+                    Sign in to review questions you&apos;ve seen
+                  </span>
+                </span>
+              </Link>
+            </Button>
+          ) : null}
           <Button
             type="button"
             className="h-auto min-h-12 w-full justify-start px-4 py-3 text-base"
