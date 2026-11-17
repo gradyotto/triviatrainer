@@ -1,3 +1,10 @@
+import {
+  masteryTrendFromHistories,
+  retentionFromHistories,
+  type MasteryPoint,
+  type RetentionStats,
+  type ReviewAttempt,
+} from "@/lib/review/schedule";
 import { accuracyPercent } from "./metrics";
 import {
   dayKeyInTimeZone,
@@ -19,6 +26,8 @@ export type AnswerFact = {
   difficulty: string;
   categorySlug: string;
   categoryName: string;
+  questionId?: string;
+  usedHint?: boolean;
 };
 
 export type AccuracyTrendPoint = {
@@ -70,7 +79,24 @@ export type ProStats = {
   averageAnswerMs: number | null;
   timedAnswerCount: number;
   activity: ActivityDay[];
+  retention: RetentionStats;
+  masteryTrend: MasteryPoint[];
 };
+
+function reviewHistories(facts: AnswerFact[]): ReviewAttempt[][] {
+  const grouped = new Map<string, ReviewAttempt[]>();
+  for (const fact of facts) {
+    if (!fact.questionId || Number.isNaN(fact.createdAt.getTime())) continue;
+    const history = grouped.get(fact.questionId) ?? [];
+    history.push({
+      correct: fact.correct,
+      usedHint: fact.usedHint ?? false,
+      answeredAt: fact.createdAt,
+    });
+    grouped.set(fact.questionId, history);
+  }
+  return [...grouped.values()];
+}
 
 const DIFFICULTY_ORDER = ["easy", "medium", "hard"];
 
@@ -206,6 +232,7 @@ export function buildProStats(
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 
+  const histories = reviewHistories(facts);
   return {
     accuracyTrend: trendDays.map((day) => {
       const bucket = trend.get(day) ?? { answered: 0, correct: 0 };
@@ -248,6 +275,8 @@ export function buildProStats(
       day,
       count: activity.get(day) ?? 0,
     })),
+    retention: retentionFromHistories(histories, timeZone, now),
+    masteryTrend: masteryTrendFromHistories(histories, now, timeZone),
   };
 }
 

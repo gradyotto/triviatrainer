@@ -1,6 +1,7 @@
 import { Show } from "@clerk/nextjs";
 import Link from "next/link";
 import { Suspense } from "react";
+import { ReviewDueCount } from "@/components/review/due-count";
 import { Button } from "@/components/ui/button";
 import { isClerkConfigured } from "@/lib/env";
 
@@ -35,6 +36,11 @@ export default function HomePage() {
         <Button asChild className="h-11 px-4">
           <Link href="/train">Start training</Link>
         </Button>
+        {clerkEnabled ? (
+          <Suspense fallback={null}>
+            <ReviewDueCount />
+          </Suspense>
+        ) : null}
         {clerkEnabled ? (
           <Suspense fallback={<div className="h-11" aria-hidden />}>
             <AccountActions />

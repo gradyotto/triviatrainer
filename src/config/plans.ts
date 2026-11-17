@@ -9,6 +9,9 @@
  *
  * Pro is unlimited. Dollar amounts are what `scripts/stripe-setup.ts` creates
  * in Stripe; checkout loads the live prices by lookup key.
+ *
+ * Review scheduling (session size and SM-2 constants) lives in ./review.ts.
+ * Review is on both plans, and each review answer uses the question allowance.
  */
 
 export const DEFAULT_PLAN_CONFIG_VERSION = "2026-11-11.1";

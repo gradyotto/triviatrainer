@@ -15,6 +15,12 @@ export type RecentSession = {
   accuracyPercent: number;
 };
 
+export type MasteryStats = {
+  learning: number;
+  mastered: number;
+  dueToday: number;
+};
+
 export type BasicStats = {
   questionsAnswered: number;
   correctCount: number;
@@ -22,4 +28,5 @@ export type BasicStats = {
   dayStreak: number;
   categories: CategoryAccuracy[];
   recentSessions: RecentSession[];
+  mastery: MasteryStats;
 };

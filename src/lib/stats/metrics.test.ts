@@ -168,5 +168,31 @@ describe("buildBasicStats", () => {
     );
     assert.equal(stats.recentSessions[0]?.setLabel, "Mixed");
     assert.equal(stats.recentSessions[0]?.accuracyPercent, 67);
+    assert.deepEqual(stats.mastery, { learning: 0, mastered: 0, dueToday: 0 });
+  });
+
+  it("rolls mastery into the basic stats", () => {
+    const stats = buildBasicStats({
+      answered: 2,
+      correct: 2,
+      categories: [],
+      answeredAt: [],
+      sessions: [],
+      progress: [
+        {
+          seenCount: 4,
+          intervalDays: 21,
+          nextReviewAt: new Date("2026-11-11T00:00:00.000Z"),
+        },
+        {
+          seenCount: 1,
+          intervalDays: 1,
+          nextReviewAt: new Date("2026-11-12T00:00:00.000Z"),
+        },
+      ],
+      now,
+      timeZone: "UTC",
+    });
+    assert.deepEqual(stats.mastery, { learning: 1, mastered: 1, dueToday: 1 });
   });
 });

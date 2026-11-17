@@ -8,6 +8,7 @@ import {
   sessionAnswers,
   sessions,
 } from "@/db/schema";
+import { applyReview, initialSchedule } from "@/lib/review/schedule";
 import { ensureUser } from "@/lib/users";
 
 const UUID_RE =
@@ -19,6 +20,7 @@ export async function openTrainingSession(input: {
   clerkUserId: string;
   categorySlug: string | null;
   timeZone?: string | null;
+  mode?: "train" | "review";
 }): Promise<string | null> {
   if (!isDatabaseConfigured()) return null;
   const db = getDb();
@@ -26,8 +28,9 @@ export async function openTrainingSession(input: {
     timeZone: input.timeZone,
     source: "detect",
   });
+  const mode = input.mode === "review" ? "review" : "train";
   let categoryIds: string[] = [];
-  if (input.categorySlug) {
+  if (mode === "train" && input.categorySlug) {
     const categoryRows = await db
       .select({ id: categories.id })
       .from(categories)
@@ -41,9 +44,10 @@ export async function openTrainingSession(input: {
     .values({
       userId: user.id,
       categoryIds,
-      categorySlug: input.categorySlug,
+      categorySlug: mode === "review" ? null : input.categorySlug,
       durationSeconds: 0,
       planSnapshot: user.plan,
+      mode,
     })
     .returning({ id: sessions.id });
   return inserted[0]?.id ?? null;
@@ -132,6 +136,23 @@ export async function saveAttempt(input: {
     .limit(1);
   const progress = progressRows[0];
   const now = new Date();
+  const schedule = applyReview(
+    progress
+      ? {
+          easeFactor: progress.easeFactor,
+          intervalDays: progress.intervalDays,
+          repetition: progress.repetition,
+          lapses: progress.lapses,
+          nextReviewAt: progress.nextReviewAt,
+        }
+      : initialSchedule(),
+    {
+      correct: input.correct,
+      usedHint: input.usedHint,
+      answeredAt: now,
+      timeZone: user.timeZone,
+    },
+  );
   if (!progress) {
     await db.insert(questionProgress).values({
       userId,
@@ -142,6 +163,11 @@ export async function saveAttempt(input: {
       streak: input.correct ? 1 : 0,
       lastAnsweredAt: now,
       lastCorrect: input.correct,
+      easeFactor: schedule.easeFactor,
+      intervalDays: schedule.intervalDays,
+      repetition: schedule.repetition,
+      lapses: schedule.lapses,
+      nextReviewAt: schedule.nextReviewAt,
       updatedAt: now,
     });
   } else {
@@ -154,6 +180,11 @@ export async function saveAttempt(input: {
         streak: input.correct ? progress.streak + 1 : 0,
         lastAnsweredAt: now,
         lastCorrect: input.correct,
+        easeFactor: schedule.easeFactor,
+        intervalDays: schedule.intervalDays,
+        repetition: schedule.repetition,
+        lapses: schedule.lapses,
+        nextReviewAt: schedule.nextReviewAt,
         updatedAt: now,
       })
       .where(eq(questionProgress.id, progress.id));

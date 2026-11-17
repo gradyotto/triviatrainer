@@ -5,6 +5,8 @@ import { LimitPrompt } from "@/components/billing/limit-prompt";
 import { CategoryPicker } from "@/components/train/category-picker";
 import { QuestionCard } from "@/components/train/question-card";
 import { SessionSummary } from "@/components/train/session-summary";
+import { Button } from "@/components/ui/button";
+import { caughtUpCopy } from "@/lib/review/copy";
 import { browserTimeZone } from "@/lib/time/zone";
 import type {
   PublicQuestion,
@@ -12,14 +14,21 @@ import type {
   CategorySummary,
 } from "@/lib/train-types";
 
-type Phase = "pick" | "loading" | "play" | "summary" | "limit";
+type Phase = "pick" | "loading" | "play" | "summary" | "limit" | "caught-up";
+type SessionMode = "train" | "review";
 
 export function TrainSession({
   categories,
   accountsEnabled = false,
+  signedIn = false,
+  review = null,
+  highlightReview = false,
 }: {
   categories: CategorySummary[];
   accountsEnabled?: boolean;
+  signedIn?: boolean;
+  review?: { dueCount: number; nextReviewLabel: string | null } | null;
+  highlightReview?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("pick");
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +37,39 @@ export function TrainSession({
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [persisted, setPersisted] = useState(false);
-  const [signedIn, setSignedIn] = useState(false);
+  const [sessionSignedIn, setSessionSignedIn] = useState(false);
+  const [dueCount, setDueCount] = useState(review?.dueCount ?? 0);
+  const [queueLabel, setQueueLabel] = useState<string | null>(
+    review?.nextReviewLabel ?? null,
+  );
   const [dailyLimit, setDailyLimit] = useState<number | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [mode, setMode] = useState<SessionMode>("train");
+  const [nextReviewLabel, setNextReviewLabel] = useState<string | null>(
+    review?.nextReviewLabel ?? null,
+  );
   const startedAt = useRef(Date.now());
+
+  useEffect(() => {
+    if (phase !== "pick" || !signedIn) return;
+    const timeZone = browserTimeZone();
+    const query = new URLSearchParams({ category: "review", summary: "1" });
+    if (timeZone) query.set("timeZone", timeZone);
+    void fetch(`/api/train/questions?${query.toString()}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as {
+          dueCount?: number;
+          nextReviewLabel?: string | null;
+        };
+      })
+      .then((body) => {
+        if (!body || typeof body.dueCount !== "number") return;
+        setDueCount(body.dueCount);
+        setQueueLabel(body.nextReviewLabel ?? null);
+      })
+      .catch(() => undefined);
+  }, [phase, signedIn]);
 
   useEffect(() => {
     if (phase !== "summary" || !sessionId) return;
@@ -46,15 +84,16 @@ export function TrainSession({
     }).catch(() => undefined);
   }, [phase, sessionId]);
 
-  async function start(category: string | null) {
+  async function start(category: string | null, nextMode: SessionMode = "train") {
     setPhase("loading");
     setError(null);
+    setMode(nextMode);
     const timeZone = browserTimeZone();
     try {
       const questionResponse = await fetch(
-        `/api/train/questions?category=${encodeURIComponent(category ?? "mixed")}${
-          timeZone ? `&timeZone=${encodeURIComponent(timeZone)}` : ""
-        }`,
+        `/api/train/questions?category=${encodeURIComponent(
+          nextMode === "review" ? "review" : (category ?? "mixed"),
+        )}${timeZone ? `&timeZone=${encodeURIComponent(timeZone)}` : ""}`,
         { cache: "no-store" },
       );
       const questionBody = (await questionResponse.json().catch(() => null)) as
@@ -64,11 +103,23 @@ export function TrainSession({
             limitReached?: boolean;
             limit?: number | null;
             remaining?: number | null;
+            caughtUp?: boolean;
+            nextReviewLabel?: string | null;
           }
         | null;
+      if (questionResponse.status === 401) {
+        setError(questionBody?.error ?? "Sign in to review questions you've seen.");
+        setPhase("pick");
+        return;
+      }
       if (questionResponse.ok && questionBody?.limitReached) {
         setDailyLimit(questionBody.limit ?? null);
         setPhase("limit");
+        return;
+      }
+      if (questionResponse.ok && questionBody?.caughtUp) {
+        setNextReviewLabel(questionBody.nextReviewLabel ?? null);
+        setPhase("caught-up");
         return;
       }
       if (!questionResponse.ok || !questionBody?.questions?.length) {
@@ -77,7 +128,11 @@ export function TrainSession({
       const sessionResponse = await fetch("/api/train/sessions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ category, timeZone }),
+        body: JSON.stringify({
+          category: nextMode === "review" ? null : category,
+          mode: nextMode,
+          timeZone,
+        }),
       });
       const sessionBody = sessionResponse.ok
         ? ((await sessionResponse.json()) as {
@@ -96,7 +151,7 @@ export function TrainSession({
       setReviews([]);
       setSessionId(sessionBody.sessionId ?? null);
       setPersisted(Boolean(sessionBody.persisted));
-      setSignedIn(Boolean(sessionBody.signedIn));
+      setSessionSignedIn(Boolean(sessionBody.signedIn));
       setRemaining(
         typeof questionBody.remaining === "number" ? questionBody.remaining : null,
       );
@@ -116,10 +171,27 @@ export function TrainSession({
     setReviews([]);
     setSessionId(null);
     setPersisted(false);
-    setSignedIn(false);
+    setSessionSignedIn(false);
     setDailyLimit(null);
     setRemaining(null);
+    setMode("train");
     setError(null);
+  }
+
+  if (phase === "caught-up") {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Review</h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {caughtUpCopy(nextReviewLabel)}
+          </p>
+        </div>
+        <Button type="button" variant="outline" className="h-11" onClick={reset}>
+          Pick a set
+        </Button>
+      </div>
+    );
   }
 
   if (phase === "limit") {
@@ -135,7 +207,7 @@ export function TrainSession({
       <SessionSummary
         reviews={reviews}
         persisted={persisted}
-        showSignup={accountsEnabled && !signedIn}
+        showSignup={accountsEnabled && !sessionSignedIn}
         onAgain={reset}
       />
     );
@@ -146,11 +218,17 @@ export function TrainSession({
     return (
       <div className="flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
-          {persisted
+          {mode === "review"
             ? remaining != null && remaining <= 5
-              ? `Saving attempts. ${remaining} free questions left today.`
-              : "Saving attempts to your account."
-            : "This round is not saved."}
+              ? `Reviewing due questions. ${remaining} free questions left today.`
+              : persisted
+                ? "Reviewing due questions. Answers are saved."
+                : "Reviewing due questions."
+            : persisted
+              ? remaining != null && remaining <= 5
+                ? `Saving attempts. ${remaining} free questions left today.`
+                : "Saving attempts to your account."
+              : "This round is not saved."}
         </p>
         <QuestionCard
           key={question.id}
@@ -177,6 +255,16 @@ export function TrainSession({
   }
 
   return (
-    <CategoryPicker categories={categories} error={error} onSelect={(category) => void start(category)} />
+    <CategoryPicker
+      categories={categories}
+      error={error}
+      signedIn={signedIn}
+      accountsEnabled={accountsEnabled}
+      dueCount={dueCount}
+      nextReviewLabel={queueLabel}
+      highlightReview={highlightReview}
+      onSelect={(category) => void start(category)}
+      onReview={() => void start(null, "review")}
+    />
   );
 }

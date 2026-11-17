@@ -103,6 +103,8 @@ export const sessions = pgTable(
     categorySlug: varchar("category_slug", { length: 64 }),
     durationSeconds: integer("duration_seconds").notNull().default(0),
     planSnapshot: planEnum("plan_snapshot").notNull().default("free"),
+    // "train" is a category or mixed set. "review" is the spaced-repetition queue.
+    mode: varchar("mode", { length: 16 }).notNull().default("train"),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -146,9 +148,9 @@ export const sessionAnswers = pgTable(
 );
 
 /**
- * Per-user memory of a question. Counts and streak are updated by the train
- * loop. Ease, interval, repetition, lapses, and nextReviewAt are reserved for
- * spaced repetition and stay at their defaults until that ships.
+ * Per-user memory of a question. Counts, streak, and the SM-2 schedule
+ * (ease, interval, repetition, lapses, nextReviewAt) update on every
+ * signed-in answer. nextReviewAt stays null until the first answer or backfill.
  */
 export const questionProgress = pgTable(
   "question_progress",

@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 
 const FEATURES = [
   "Accuracy trend over time",
+  "How often due reviews stick",
+  "Mastery over time",
   "Accuracy by category, week by week",
   "Strongest and weakest categories",
   "Accuracy by difficulty",

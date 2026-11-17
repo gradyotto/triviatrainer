@@ -184,6 +184,28 @@ export function ProDashboard({
       </section>
 
       <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-medium">Retention</h3>
+        {stats.retention.percent == null ? (
+          <p className="text-sm text-muted-foreground">
+            Retention shows up after a due question is answered again.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            <span className="text-2xl font-semibold tabular-nums text-foreground">
+              {stats.retention.percent}%
+            </span>{" "}
+            of due reviews answered correctly ({stats.retention.correct}/
+            {stats.retention.reviews}).
+          </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-medium">Mastery over time</h3>
+        <MasteryChart points={stats.masteryTrend} />
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">Strongest and weakest</h3>
         {stats.strongest || stats.weakest ? (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -293,6 +315,68 @@ export function ProDashboard({
           Darker days have more answers.
         </p>
       </section>
+    </div>
+  );
+}
+
+function MasteryChart({
+  points,
+}: {
+  points: ProStats["masteryTrend"];
+}) {
+  const seen = points.some((point) => point.learning > 0 || point.mastered > 0);
+  if (!seen) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Mastered and learning counts show up after you answer a question.
+      </p>
+    );
+  }
+  const width = 320;
+  const height = 120;
+  const pad = 12;
+  const max = Math.max(
+    1,
+    ...points.map((point) => Math.max(point.learning, point.mastered)),
+  );
+  const line = (key: "learning" | "mastered") =>
+    points
+      .map((point, index) => {
+        const x = pad + (index / Math.max(points.length - 1, 1)) * (width - pad * 2);
+        const y = pad + (1 - point[key] / max) * (height - pad * 2);
+        return `${x},${y}`;
+      })
+      .join(" ");
+  const latest = points.at(-1);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Learning and mastered questions over the last 30 days"
+        className="h-32 w-full"
+      >
+        <polyline
+          fill="none"
+          stroke="var(--muted-foreground)"
+          strokeWidth="2"
+          strokeDasharray="4 3"
+          points={line("learning")}
+        />
+        <polyline
+          fill="none"
+          stroke="var(--foreground)"
+          strokeWidth="2"
+          points={line("mastered")}
+        />
+      </svg>
+      <p className="text-xs text-muted-foreground">
+        Solid line is mastered. Dashed line is learning.
+        {latest
+          ? ` Today: ${latest.mastered} mastered, ${latest.learning} learning.`
+          : ""}
+      </p>
     </div>
   );
 }

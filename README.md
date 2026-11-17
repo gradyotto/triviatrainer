@@ -1,6 +1,6 @@
 # TriviaTrainer
 
-Mobile-first trivia training for bar trivia and Jeopardy-minded players. Phase 1 is the core train loop: pick a category or a mixed set, answer multiple-choice and fill-in questions one at a time, and see the correct answer immediately.
+Mobile-first trivia training for bar trivia and Jeopardy-minded players. Pick a category or a mixed set, answer one question at a time, and see the correct answer immediately. Signed-in players also get a Review mode that schedules those questions with spaced repetition.
 
 ## Run it
 
@@ -26,7 +26,13 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Signed-in answers are written to `session_answers` and rolled up on `question_progress`. Spaced-repetition columns (`ease_factor`, `interval_days`, `repetition`, `lapses`, `next_review_at`) are reserved and left at their defaults.
+Signed-in answers are written to `session_answers`, rolled up on `question_progress`, and scheduled for review. A miss is due again soon. A correct answer moves the next review to a later local day in the user's time zone. Review is on Free and Pro, and each review answer counts toward the free daily question limit. Session size and the SM-2 constants live in `src/config/review.ts`.
+
+```bash
+npm run db:backfill-reviews
+```
+
+That replays existing attempts onto rows that do not yet have a due date. It is safe to run again; it will not overwrite a schedule that is already set. Pass `--force` to recompute every schedule from the answer log.
 
 ## Deploying / Vercel previews
 

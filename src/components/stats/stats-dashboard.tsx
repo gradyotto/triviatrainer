@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getReviewConfig } from "@/config/review";
 import { Button } from "@/components/ui/button";
 import { formatZonedDate } from "@/lib/stats/metrics";
 import type { BasicStats } from "@/lib/stats";
@@ -24,6 +25,7 @@ export function StatsDashboard({
   timeZone?: string;
 }) {
   const hasAnswers = stats.questionsAnswered > 0;
+  const masteryDays = getReviewConfig().masteryIntervalDays;
 
   return (
     <div className="flex flex-col gap-6">
@@ -42,6 +44,19 @@ export function StatsDashboard({
         <SummaryStat value={`${stats.accuracyPercent}%`} label="Accuracy" />
         <SummaryStat value={String(stats.dayStreak)} label="Day streak" />
       </dl>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium">Mastery</h2>
+        <dl className="grid grid-cols-3 gap-2">
+          <SummaryStat value={String(stats.mastery.learning)} label="Learning" />
+          <SummaryStat value={String(stats.mastery.mastered)} label="Mastered" />
+          <SummaryStat value={String(stats.mastery.dueToday)} label="Due today" />
+        </dl>
+        <p className="text-xs text-muted-foreground">
+          Mastered questions are scheduled at least {masteryDays} days out.
+          Due today follows your time zone.
+        </p>
+      </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium">Accuracy by category</h2>

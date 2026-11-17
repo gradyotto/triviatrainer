@@ -41,7 +41,12 @@ function asDate(value: unknown): Date | null {
   return null;
 }
 
-function setLabel(slug: string | null, name: string | null): string {
+function setLabel(
+  slug: string | null,
+  name: string | null,
+  mode: string | null,
+): string {
+  if (mode === "review") return "Review";
   if (!slug) return "Mixed";
   const trimmed = name?.trim();
   return trimmed ? trimmed : slug;
@@ -65,7 +70,8 @@ export async function getBasicStats(clerkUserId: string): Promise<BasicStats> {
   const userId = user.id;
 
   const db = getDb();
-  const [totalRows, categoryRows, answerRows, sessionRows] = await Promise.all([
+  const [totalRows, categoryRows, answerRows, sessionRows, progressRows] =
+    await Promise.all([
     db
       .select({
         answered: sum(questionProgress.seenCount),
@@ -103,6 +109,7 @@ export async function getBasicStats(clerkUserId: string): Promise<BasicStats> {
         startedAt: sessions.startedAt,
         categorySlug: sessions.categorySlug,
         categoryName: categories.name,
+        mode: sessions.mode,
         answered: sessions.answeredCount,
         correct: sessions.correctCount,
       })
@@ -111,6 +118,14 @@ export async function getBasicStats(clerkUserId: string): Promise<BasicStats> {
       .where(and(eq(sessions.userId, userId), gt(sessions.answeredCount, 0)))
       .orderBy(desc(sessions.startedAt))
       .limit(10),
+    db
+      .select({
+        seenCount: questionProgress.seenCount,
+        intervalDays: questionProgress.intervalDays,
+        nextReviewAt: questionProgress.nextReviewAt,
+      })
+      .from(questionProgress)
+      .where(eq(questionProgress.userId, userId)),
   ]);
 
   const totals = totalRows[0];
@@ -135,12 +150,17 @@ export async function getBasicStats(clerkUserId: string): Promise<BasicStats> {
         {
           id: row.id,
           startedAt,
-          setLabel: setLabel(row.categorySlug, row.categoryName),
+          setLabel: setLabel(row.categorySlug, row.categoryName, row.mode),
           answered: row.answered,
           correct: row.correct,
         },
       ];
     }),
+    progress: progressRows.map((row) => ({
+      seenCount: row.seenCount,
+      intervalDays: row.intervalDays,
+      nextReviewAt: asDate(row.nextReviewAt),
+    })),
     timeZone: user.timeZone,
   });
 }

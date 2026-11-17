@@ -181,7 +181,16 @@ function loadSeedQuestions(): InternalQuestion[] {
   });
 }
 
-function toPublic(question: InternalQuestion): PublicQuestion {
+export function toPublicQuestion(question: {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  options: string[] | null;
+  categorySlug: string;
+  categoryName: string;
+  difficulty: string;
+  hint: string | null;
+}): PublicQuestion {
   return {
     id: question.id,
     type: question.type,
@@ -195,6 +204,10 @@ function toPublic(question: InternalQuestion): PublicQuestion {
     difficulty: question.difficulty,
     hint: question.hint,
   };
+}
+
+function toPublic(question: InternalQuestion): PublicQuestion {
+  return toPublicQuestion(question);
 }
 
 export async function drawQuestions(
