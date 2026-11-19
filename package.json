@@ -7,7 +7,7 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/config/plans.test.ts src/lib/time/zone.test.ts src/lib/billing/limits.test.ts src/lib/billing/interpret.test.ts src/lib/billing/webhook-verify.test.ts src/lib/tracking/summary.test.ts src/lib/review/schedule.test.ts src/lib/stats/pro-metrics.test.ts src/lib/stats/metrics.test.ts src/lib/grading.test.ts src/lib/seed-bank.test.ts src/lib/env.test.ts",
+    "test": "tsx --test src/config/plans.test.ts src/lib/time/zone.test.ts src/lib/billing/limits.test.ts src/lib/billing/interpret.test.ts src/lib/billing/webhook-verify.test.ts src/lib/tracking/summary.test.ts src/lib/review/schedule.test.ts src/lib/stats/pro-metrics.test.ts src/lib/stats/metrics.test.ts src/lib/grading.test.ts src/lib/seed-bank.test.ts src/lib/env.test.ts src/app/account/checkout-success-banner.test.ts",
     "db:backfill-reviews": "tsx scripts/backfill-reviews.ts",
     "typecheck": "tsc --noEmit",
     "stripe:setup": "tsx scripts/stripe-setup.ts",
