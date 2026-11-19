@@ -129,7 +129,8 @@ export default async function AccountPage({
       ) : null}
       {params.checkout === "success" && user.plan === "pro" ? (
         <p className="rounded-lg bg-success-soft px-3 py-2 text-sm text-success-foreground">
-          You&apos;re on Pro. Today&apos;s question cap is off.
+          Welcome to TriviaTrainer Pro. You&apos;ve unlocked unlimited access
+          to questions, current events, and Pro Analytics.
         </p>
       ) : null}
       {paymentFailed ? (
