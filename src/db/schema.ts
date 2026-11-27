@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -23,6 +24,7 @@ export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   clerkId: varchar("clerk_id", { length: 128 }).notNull().unique(),
   email: varchar("email", { length: 320 }),
+  username: varchar("username", { length: 20 }),
   displayName: varchar("display_name", { length: 120 }),
   plan: planEnum("plan").notNull().default("free"),
   stripeCustomerId: varchar("stripe_customer_id", { length: 128 }),
@@ -38,6 +40,7 @@ export const users = pgTable("users", {
     .defaultNow(),
 }, (table) => [
   uniqueIndex("users_stripe_customer_idx").on(table.stripeCustomerId),
+  uniqueIndex("users_username_lower_idx").on(sql`lower(${table.username})`),
 ]);
 
 export const categories = pgTable(
@@ -65,10 +68,14 @@ export const questions = pgTable(
     type: questionTypeEnum("type").notNull(),
     prompt: text("prompt").notNull(),
     answer: text("answer").notNull(),
+    // Accepted answers. Each entry is fully correct after normalization.
     answerAliases: jsonb("answer_aliases")
       .$type<string[]>()
       .notNull()
       .default([]),
+    bonusPrompt: text("bonus_prompt"),
+    bonusAnswers: jsonb("bonus_answers").$type<string[]>().notNull().default([]),
+    answersGeneratedAt: timestamp("answers_generated_at", { withTimezone: true }),
     options: jsonb("options").$type<string[] | null>(),
     difficulty: varchar("difficulty", { length: 32 })
       .notNull()
@@ -264,6 +271,108 @@ export const stripeEvents = pgTable("stripe_events", {
     .notNull()
     .defaultNow(),
 });
+
+export const answerDisputes = pgTable(
+  "answer_disputes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    anonymousId: varchar("anonymous_id", { length: 64 }),
+    questionId: uuid("question_id").references(() => questions.id, {
+      onDelete: "set null",
+    }),
+    questionKey: varchar("question_key", { length: 80 }).notNull(),
+    response: text("response").notNull(),
+    expectedAnswer: text("expected_answer").notNull(),
+    context: varchar("context", { length: 16 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("answer_disputes_question_idx").on(table.questionId),
+    index("answer_disputes_created_idx").on(table.createdAt),
+  ],
+);
+
+export const dailyChallenges = pgTable(
+  "daily_challenges",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    gameDate: varchar("game_date", { length: 10 }).notNull(),
+    questionIds: jsonb("question_ids").$type<string[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("daily_challenges_date_idx").on(table.gameDate)],
+);
+
+export const dailyAttempts = pgTable(
+  "daily_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    challengeId: uuid("challenge_id")
+      .notNull()
+      .references(() => dailyChallenges.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    anonymousId: varchar("anonymous_id", { length: 64 }),
+    status: varchar("status", { length: 16 }).notNull().default("in_progress"),
+    phase: varchar("phase", { length: 16 }).notNull().default("question"),
+    currentIndex: integer("current_index").notNull().default(0),
+    score: integer("score").notNull().default(0),
+    correctCount: integer("correct_count").notNull().default(0),
+    currentServedAt: timestamp("current_served_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("daily_attempts_user_idx")
+      .on(table.challengeId, table.userId)
+      .where(sql`${table.userId} is not null`),
+    uniqueIndex("daily_attempts_guest_idx")
+      .on(table.challengeId, table.anonymousId)
+      .where(sql`${table.anonymousId} is not null`),
+    index("daily_attempts_status_idx").on(table.status, table.challengeId),
+  ],
+);
+
+export const dailyAnswers = pgTable(
+  "daily_answers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => dailyAttempts.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    response: text("response").notNull(),
+    isCorrect: boolean("is_correct").notNull(),
+    basePoints: integer("base_points").notNull().default(0),
+    speedPoints: integer("speed_points").notNull().default(0),
+    streakPoints: integer("streak_points").notNull().default(0),
+    points: integer("points").notNull().default(0),
+    multiplierHundredths: integer("multiplier_hundredths").notNull().default(100),
+    elapsedMs: integer("elapsed_ms"),
+    servedAt: timestamp("served_at", { withTimezone: true }).notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    bonusResponse: text("bonus_response"),
+    bonusCorrect: boolean("bonus_correct"),
+    bonusSkipped: boolean("bonus_skipped").notNull().default(false),
+    bonusPoints: integer("bonus_points").notNull().default(0),
+    bonusResolved: boolean("bonus_resolved").notNull().default(false),
+  },
+  (table) => [
+    uniqueIndex("daily_answers_ordinal_idx").on(table.attemptId, table.ordinal),
+    index("daily_answers_attempt_idx").on(table.attemptId),
+  ],
+);
 
 export type Question = typeof questions.$inferSelect;
 export type Category = typeof categories.$inferSelect;

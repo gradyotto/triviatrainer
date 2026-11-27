@@ -2,6 +2,7 @@ import { getPlanConfig, limitsSnapshot, type PlanLimitsSnapshot } from "@/config
 import { getDb, isDatabaseConfigured } from "@/db";
 import { conversionEvents } from "@/db/schema";
 import type { ConversionEventName } from "./events";
+import { captureServerAnalytics } from "./posthog";
 
 export type TrackInput = {
   event: ConversionEventName;
@@ -32,6 +33,16 @@ export function addAnalyticsAdapter(adapter: AnalyticsAdapter): void {
 }
 
 async function fanOut(record: RecordedConversion): Promise<void> {
+  try {
+    await captureServerAnalytics({
+      event: record.event,
+      clerkId: record.clerkId,
+      metadata: record.metadata,
+      planConfigVersion: record.planConfigVersion,
+    });
+  } catch {
+    console.error("Analytics adapter failed");
+  }
   for (const adapter of adapters) {
     try {
       await adapter.track(record);

@@ -1,6 +1,7 @@
 import { and, count, eq } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
 import { categories, questions } from "@/db/schema";
+import { deterministicDraft, mergeAccepted } from "@/lib/answers/deterministic";
 import { gradeResponse } from "@/lib/grading";
 import { getSeedBank, seedQuestionId } from "@/lib/seed-bank";
 import type { CategorySummary, PublicQuestion, QuestionType } from "@/lib/train-types";
@@ -159,6 +160,19 @@ async function loadDatabaseQuestions(): Promise<InternalQuestion[] | null> {
   }
 }
 
+function seedAliases(question: {
+  type: string;
+  prompt: string;
+  answer: string;
+  aliases: string[];
+}): string[] {
+  if (question.type !== "fill_in") return [...question.aliases];
+  return mergeAccepted(question.answer, [
+    ...question.aliases,
+    ...deterministicDraft(question).accepted,
+  ]);
+}
+
 function loadSeedQuestions(): InternalQuestion[] {
   return getSeedBank().questions.map((question) => {
     const category = getSeedBank().categories.find(
@@ -170,7 +184,7 @@ function loadSeedQuestions(): InternalQuestion[] {
       type: question.type,
       prompt: question.prompt,
       answer: question.answer,
-      aliases: question.aliases,
+      aliases: seedAliases(question),
       options: question.options,
       explanation: question.explanation,
       categorySlug: question.category,
@@ -275,7 +289,7 @@ export async function findGradable(
     databaseId: null,
     type: question.type,
     answer: question.answer,
-    aliases: question.aliases,
+    aliases: seedAliases(question),
     explanation: question.explanation,
   };
 }

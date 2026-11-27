@@ -44,6 +44,25 @@ export async function POST(request: Request) {
       timeZone: parsed.data.timeZone,
       mode,
     });
+    if (sessionId && mode === "train") {
+      try {
+        const user = await getUserByClerkId(clerkUserId);
+        await trackSafely({
+          event: "training_session_started",
+          clerkId: clerkUserId,
+          userId: user?.id,
+          dedupeKey: `training_session_started:${sessionId}`,
+          metadata: {
+            sessionId,
+            category: parsed.data.category,
+            plan: user?.plan,
+            username: user?.username,
+          },
+        });
+      } catch {
+        console.error("Failed to record training_session_started");
+      }
+    }
     if (sessionId && mode === "review") {
       try {
         const user = await getUserByClerkId(clerkUserId);
@@ -55,6 +74,8 @@ export async function POST(request: Request) {
           metadata: {
             sessionId,
             dueCount: overview.dueCount,
+            plan: user?.plan,
+            username: user?.username,
           },
         });
       } catch {

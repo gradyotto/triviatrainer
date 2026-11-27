@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s · TriviaTrainer",
   },
   description:
-    "Mobile-first trivia training for bar trivia and Jeopardy-minded players.",
+    "A shared daily trivia game, plus training for bar trivia and Jeopardy-minded players.",
 };
 
 function AuthControls() {
@@ -89,10 +89,22 @@ function Shell({
         </Link>
         <nav className="flex flex-wrap items-center justify-end gap-x-1 gap-y-1">
           <Link
+            href="/daily"
+            className="px-2 text-sm font-medium text-muted-foreground"
+          >
+            Daily
+          </Link>
+          <Link
             href="/train"
             className="px-2 text-sm font-medium text-muted-foreground"
           >
             Train
+          </Link>
+          <Link
+            href="/leaderboard"
+            className="px-2 text-sm font-medium text-muted-foreground"
+          >
+            Leaders
           </Link>
           {showAuth ? (
             <Suspense
