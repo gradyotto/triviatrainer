@@ -53,4 +53,4 @@ npm run lint
 npm run build
 ```
 
-Grading: multiple choice is an exact option match. Fill-in ignores case, punctuation, and articles (`a`, `an`, `the`), and allows a small edit distance on longer answers.
+Grading: multiple choice is an exact option match. Fill-in ignores case, punctuation, and articles (`a`, `an`, `the`), and allows a small edit distance on longer answers. A fill-in answer made of several parts, separated by "and", "&", ",", "/", or "+", is graded as an unordered set: every part has to match, and a partial answer is wrong. Single names that contain "and", such as "Trinidad and Tobago" or "Romeo and Juliet", stay one answer.
