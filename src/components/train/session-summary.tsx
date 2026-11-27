@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { AnswerLines } from "@/components/answer-lines";
+import { ArtworkFigure } from "@/components/artwork-figure";
 import { Button } from "@/components/ui/button";
 import type { ReviewItem } from "@/lib/train-types";
 
@@ -57,16 +59,17 @@ export function SessionSummary({
             className="rounded-xl border border-border bg-card px-4 py-3"
           >
             <p className="text-sm font-medium leading-snug">{review.prompt}</p>
+            {review.image ? (
+              <div className="mt-2">
+                <ArtworkFigure image={review.image} />
+              </div>
+            ) : null}
             <p
               className={`mt-2 text-sm ${review.correct ? "text-success-foreground" : "text-destructive"}`}
             >
-              {review.correct ? "Correct" : `You said “${review.response || " "}”`}
+              {review.correct ? "Correct" : "Not quite"}
             </p>
-            {!review.correct ? (
-              <p className="text-sm text-muted-foreground">
-                Answer: {review.answer}
-              </p>
-            ) : null}
+            <AnswerLines response={review.response || " "} answer={review.answer} />
           </li>
         ))}
       </ol>

@@ -23,6 +23,10 @@ type StoredRow = QueueCandidate & {
   hint: string | null;
   categorySlug: string;
   categoryName: string;
+  answer: string;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  imageCredit: string | null;
 };
 
 function asDate(value: unknown): Date | null {
@@ -44,6 +48,10 @@ async function loadRows(userId: string): Promise<StoredRow[] | null> {
       options: questions.options,
       difficulty: questions.difficulty,
       hint: questions.hint,
+      answer: questions.answer,
+      imageUrl: questions.imageUrl,
+      imageAlt: questions.imageAlt,
+      imageCredit: questions.imageCredit,
       categorySlug: categories.slug,
       categoryName: categories.name,
       nextReviewAt: questionProgress.nextReviewAt,
@@ -81,6 +89,10 @@ async function loadRows(userId: string): Promise<StoredRow[] | null> {
     hint: row.hint,
     categorySlug: row.categorySlug,
     categoryName: row.categoryName,
+    answer: row.answer,
+    imageUrl: row.imageUrl,
+    imageAlt: row.imageAlt,
+    imageCredit: row.imageCredit,
   }));
 }
 
@@ -144,6 +156,10 @@ export async function drawReviewQuestions(
           categoryName: row.categoryName,
           difficulty: row.difficulty,
           hint: row.hint,
+          answer: row.answer,
+          imageUrl: row.imageUrl,
+          imageAlt: row.imageAlt,
+          imageCredit: row.imageCredit,
         }),
       ];
     }),

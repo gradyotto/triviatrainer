@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { getPlanConfig, limitsSnapshot, type PlanLimitsSnapshot } from "@/config/plans";
 import { getDb, isDatabaseConfigured } from "@/db";
-import { conversionEvents } from "@/db/schema";
+import { conversionEvents, users } from "@/db/schema";
 import type { ConversionEventName } from "./events";
 import { captureServerAnalytics } from "./posthog";
 
@@ -52,11 +53,37 @@ async function fanOut(record: RecordedConversion): Promise<void> {
   }
 }
 
+async function withPerson(input: TrackInput): Promise<Record<string, unknown>> {
+  const metadata: Record<string, unknown> = { ...(input.metadata ?? {}) };
+  delete metadata.email;
+  delete metadata.userEmail;
+  delete metadata.user_email;
+  delete metadata.primaryEmail;
+  if (!input.clerkId) return metadata;
+  const hasUsername =
+    typeof metadata.username === "string" && metadata.username.length > 0;
+  const hasPlan = typeof metadata.plan === "string" && metadata.plan.length > 0;
+  if (hasUsername && hasPlan) return metadata;
+  try {
+    const rows = await getDb()
+      .select({ username: users.username, plan: users.plan })
+      .from(users)
+      .where(eq(users.clerkId, input.clerkId))
+      .limit(1);
+    const row = rows[0];
+    if (!hasUsername && row?.username) metadata.username = row.username;
+    if (!hasPlan && row?.plan) metadata.plan = row.plan;
+  } catch {
+    console.error("Failed to attach person properties");
+  }
+  return metadata;
+}
+
 export async function track(input: TrackInput): Promise<void> {
   if (!isDatabaseConfigured()) return;
   const config = getPlanConfig();
   const limits = limitsSnapshot(config);
-  const metadata = input.metadata ?? {};
+  const metadata = await withPerson(input);
   const db = getDb();
   const values = {
     event: input.event,

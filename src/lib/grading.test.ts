@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { gradeResponse, normalizeFillIn } from "./grading";
+import { answerWithoutBonus, maskBonusText } from "./bonus-reveal";
+import { gradeResponse, normalizeFillIn, responseCoversAnswer } from "./grading";
 
 describe("multiple choice grading", () => {
   const question = {
@@ -144,6 +145,29 @@ describe("fill-in grading", () => {
     assert.equal(gradeResponse({ type: "fill_in", answer: "Helium" }, "the"), false);
   });
 
+  it("accepts curated synonyms, including mental for psychiatric", () => {
+    const hospital = { type: "fill_in" as const, answer: "psychiatric" };
+    assert.equal(gradeResponse(hospital, "mental"), true);
+    assert.equal(gradeResponse(hospital, "mentel"), true);
+    assert.equal(gradeResponse(hospital, "hospital"), false);
+    assert.equal(
+      gradeResponse({ type: "fill_in", answer: "United States" }, "USA"),
+      true,
+    );
+    assert.equal(
+      gradeResponse({ type: "fill_in", answer: "United States" }, "U.S."),
+      true,
+    );
+    assert.equal(
+      gradeResponse({ type: "fill_in", answer: "United Kingdom" }, "Britain"),
+      true,
+    );
+    assert.equal(
+      gradeResponse({ type: "fill_in", answer: "United Kingdom" }, "England"),
+      false,
+    );
+  });
+
   it("accepts configured aliases exactly after normalization", () => {
     const question = {
       type: "fill_in" as const,
@@ -152,6 +176,29 @@ describe("fill-in grading", () => {
     };
     assert.equal(gradeResponse(question, "He"), true);
     assert.equal(gradeResponse(question, "hee"), false);
+  });
+});
+
+describe("bonus redundancy", () => {
+  it("treats a full name as already containing the first-name bonus", () => {
+    assert.equal(responseCoversAnswer("Walter White", "Walter"), true);
+    assert.equal(responseCoversAnswer("Waltr White", "Walter"), true);
+    assert.equal(responseCoversAnswer("White", "Walter"), false);
+    assert.equal(responseCoversAnswer("Nicolaus Copernicus", "Nicolaus"), true);
+  });
+
+  it("hides the bonus portion until the follow-up is resolved", () => {
+    assert.equal(
+      answerWithoutBonus("Nicolaus Copernicus", ["Nicolaus"]),
+      "Copernicus",
+    );
+    const masked = maskBonusText(
+      "Nicolaus Copernicus published his heliocentric theory in 1543.",
+      ["Nicolaus"],
+    );
+    assert.match(masked ?? "", /____/);
+    assert.match(masked ?? "", /Copernicus/);
+    assert.equal((masked ?? "").includes("Nicolaus"), false);
   });
 });
 

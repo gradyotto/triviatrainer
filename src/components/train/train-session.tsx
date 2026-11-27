@@ -8,6 +8,7 @@ import { SessionSummary } from "@/components/train/session-summary";
 import { Button } from "@/components/ui/button";
 import { caughtUpCopy } from "@/lib/review/copy";
 import { browserTimeZone } from "@/lib/time/zone";
+import { analyticsHeaders } from "@/lib/tracking/browser";
 import type {
   PublicQuestion,
   ReviewItem,
@@ -127,7 +128,7 @@ export function TrainSession({
       }
       const sessionResponse = await fetch("/api/train/sessions", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: analyticsHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({
           category: nextMode === "review" ? null : category,
           mode: nextMode,

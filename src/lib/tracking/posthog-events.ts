@@ -9,6 +9,7 @@ const BLOCKED_PROPERTIES = new Set([
   "userEmail",
   "user_email",
   "primaryEmail",
+  "anonymousId",
 ]);
 
 export function mapPostHogEvent(event: string): string {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { analyticsHeaders } from "@/lib/tracking/browser";
 
 export function DisputeLink({
   questionId,
@@ -21,7 +22,7 @@ export function DisputeLink({
     try {
       const result = await fetch("/api/disputes", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: analyticsHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({ questionId, response, context }),
       });
       setState(result.ok ? "saved" : "error");

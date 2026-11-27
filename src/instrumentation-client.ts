@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import { writeDistinctCookie } from "@/lib/tracking/browser";
 
 const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
@@ -14,6 +15,9 @@ if (key && !posthog.__loaded) {
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,
+    },
+    loaded: (client) => {
+      writeDistinctCookie(client.get_distinct_id());
     },
   });
 }

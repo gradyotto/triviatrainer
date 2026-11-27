@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { UsernameForm } from "@/components/account/username-form";
+import { AnswerLines } from "@/components/answer-lines";
+import { ArtworkFigure } from "@/components/artwork-figure";
 import { DisputeLink } from "@/components/train/dispute-link";
 import { Button } from "@/components/ui/button";
 import { formatGameDate } from "@/lib/daily/day";
 import type { DailyPageState } from "@/lib/daily/types";
+import { analyticsHeaders } from "@/lib/tracking/browser";
 
 function Countdown({ endsAt }: { endsAt: string }) {
   const [now, setNow] = useState<number | null>(null);
@@ -33,7 +36,9 @@ function Countdown({ endsAt }: { endsAt: string }) {
 async function postDaily(path: string, body?: unknown): Promise<DailyPageState> {
   const response = await fetch(path, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: analyticsHeaders(
+      body === undefined ? undefined : { "content-type": "application/json" },
+    ),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const payload = (await response.json().catch(() => null)) as
@@ -212,10 +217,24 @@ export function DailyChallenge({ initial }: { initial: DailyPageState }) {
                 {question.correct ? "Correct" : "Missed"} · {question.points} pts
               </p>
               <p className="text-muted-foreground">{question.prompt}</p>
-              <p>
-                You said {question.response}. Answer: {question.answer}
-                {question.bonusPoints > 0 ? ` · Bonus +${question.bonusPoints}` : ""}
-              </p>
+              {question.image ? <ArtworkFigure image={question.image} /> : null}
+              <AnswerLines response={question.response} answer={question.answer} />
+              {question.bonusNote ? (
+                <p>
+                  {question.bonusNote}
+                  {question.bonusAnswer ? ` · ${question.bonusAnswer}` : ""}
+                </p>
+              ) : question.bonusAnswer ? (
+                <AnswerLines
+                  response={
+                    question.bonusResponse ??
+                    (question.bonusPoints > 0 ? question.bonusAnswer : "Skipped")
+                  }
+                  answer={question.bonusAnswer}
+                  responseLabel="Your bonus answer"
+                  answerLabel="Bonus answer"
+                />
+              ) : null}
             </li>
           ))}
         </ol>
@@ -243,6 +262,7 @@ export function DailyChallenge({ initial }: { initial: DailyPageState }) {
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {question.categoryName} · {question.difficulty}
       </p>
+      {question.image ? <ArtworkFigure image={question.image} /> : null}
       <h1 className="text-xl font-semibold leading-snug tracking-tight text-balance">
         {question.prompt}
       </h1>
@@ -305,9 +325,13 @@ export function DailyChallenge({ initial }: { initial: DailyPageState }) {
           <p className="font-medium">
             {state.feedback.correct ? "Correct" : "Not quite"} · {state.feedback.points} pts
           </p>
-          <p className="text-sm">
-            Answer: <span className="font-medium">{state.feedback.answer}</span>
-          </p>
+          {!question.image && state.feedback.image ? (
+            <ArtworkFigure image={state.feedback.image} />
+          ) : null}
+          <AnswerLines
+            response={state.feedback.response}
+            answer={state.feedback.answer}
+          />
           {state.feedback.correct ? (
             <p className="text-sm">
               Base {state.feedback.basePoints} · Speed {state.feedback.speedPoints} ·
@@ -326,15 +350,34 @@ export function DailyChallenge({ initial }: { initial: DailyPageState }) {
             </p>
           ) : null}
           {state.feedback.bonus ? (
-            <p className="text-sm">
-              Bonus{" "}
-              {state.feedback.bonus.skipped
-                ? "skipped"
-                : state.feedback.bonus.correct
-                  ? `correct +${state.feedback.bonus.points}`
-                  : "missed"}
-              . {state.feedback.bonus.answer}
-            </p>
+            <div className="flex flex-col gap-1 text-sm">
+              <p className="font-medium">
+                {state.feedback.bonus.note
+                  ? state.feedback.bonus.note
+                  : state.feedback.bonus.skipped
+                    ? "Bonus skipped"
+                    : state.feedback.bonus.correct
+                      ? `Bonus correct +${state.feedback.bonus.points}`
+                      : "Bonus missed"}
+              </p>
+              {state.feedback.bonus.note ? (
+                <p>
+                  Bonus answer:{" "}
+                  <span className="font-medium">{state.feedback.bonus.answer}</span>
+                </p>
+              ) : (
+                <AnswerLines
+                  response={
+                    state.feedback.bonus.skipped
+                      ? "Skipped"
+                      : (state.feedback.bonus.response ?? "")
+                  }
+                  answer={state.feedback.bonus.answer}
+                  responseLabel="Your bonus answer"
+                  answerLabel="Bonus answer"
+                />
+              )}
+            </div>
           ) : null}
         </div>
       ) : null}

@@ -66,6 +66,36 @@ function partsOf(answer: string): string[] {
   return answer.trim().split(/\s+/).filter((part) => part.length > 0);
 }
 
+function surnameOf(parts: readonly string[]): string {
+  const last = parts[parts.length - 1] ?? "";
+  const previous = parts[parts.length - 2];
+  if (previous && PARTICLES.has(previous.toLowerCase())) return `${previous} ${last}`;
+  return last;
+}
+
+function firstNamePrompt(parts: readonly string[]): string | null {
+  const surname = surnameOf(parts);
+  const first = parts.find((part) => !PARTICLES.has(part.toLowerCase()));
+  if (!surname || !first || normalizeFillIn(surname) === normalizeFillIn(first)) return null;
+  return `What was ${surname}'s first name?`;
+}
+
+export function isKeptBonus(input: {
+  prompt: string;
+  answers: readonly string[];
+  canonicalAnswer: string;
+}): boolean {
+  const prompt = input.prompt.trim();
+  if (!/first name/i.test(prompt)) return false;
+  if (/^what was their first name\??$/i.test(prompt)) return false;
+  if (input.answers.length === 0) return false;
+  const lower = prompt.toLowerCase();
+  return partsOf(input.canonicalAnswer).some((part) => {
+    const name = part.toLowerCase();
+    return name.length >= 3 && !PARTICLES.has(name) && lower.includes(name);
+  });
+}
+
 function isPerson(answer: string, prompt: string): boolean {
   if (!PERSON_CUE.test(prompt)) return false;
   const parts = partsOf(answer);
@@ -138,18 +168,16 @@ export function deterministicDraft(input: {
     } else if (last) {
       accepted.push(last);
     }
+    const prompt = firstNamePrompt(parts);
     const first = parts.find((part) => !PARTICLES.has(part.toLowerCase()));
-    if (first) {
-      bonus = { prompt: "What was their first name?", answers: [first] };
+    if (prompt && first) {
+      bonus = { prompt, answers: [first] };
     }
   }
 
   const saint = /^(saint|st\.?)\s+(.+)$/i.exec(input.answer.trim());
   if (saint?.[2]) {
     accepted.push(`St. ${saint[2]}`, `St ${saint[2]}`);
-    if (!bonus) {
-      bonus = { prompt: "Which saint?", answers: [saint[2].trim()] };
-    }
   }
 
   const variant = digraphVariant(input.answer);
@@ -158,23 +186,21 @@ export function deterministicDraft(input: {
   const shorts = SHORT_FORMS[normalizeFillIn(input.answer)];
   if (shorts) accepted.push(...shorts);
 
-  if (!bonus && parts.length === 2 && parts[1]) {
-    bonus = { prompt: "What is the second word?", answers: [parts[1]] };
-  } else if (!bonus && parts.length >= 3) {
-    const last = parts[parts.length - 1];
-    if (last && !PARTICLES.has(last.toLowerCase())) {
-      bonus = { prompt: "What is the last word?", answers: [last] };
-    }
-  }
+  const bonusAnswers = bonus ? mergeAccepted(input.answer, bonus.answers) : [];
+  const keptBonus =
+    bonus &&
+    bonusAnswers.length > 0 &&
+    isKeptBonus({
+      prompt: bonus.prompt,
+      answers: bonusAnswers,
+      canonicalAnswer: input.answer,
+    })
+      ? { prompt: bonus.prompt, answers: bonusAnswers }
+      : null;
 
   return {
     accepted: mergeAccepted(input.answer, accepted),
-    bonus: bonus
-      ? {
-          prompt: bonus.prompt,
-          answers: mergeAccepted(input.answer, bonus.answers),
-        }
-      : null,
+    bonus: keptBonus,
   };
 }
 

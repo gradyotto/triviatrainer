@@ -92,7 +92,7 @@
       "type": "fill_in",
       "prompt": "The novel 'One Flew Over the Cuckoo’s Nest' was inspired by the author’s work in a ____ hospital.",
       "answer": "psychiatric",
-      "aliases": [],
+      "aliases": ["mental"],
       "options": null,
       "difficulty": "medium",
       "hint": "It’s by Ken Kesey.",

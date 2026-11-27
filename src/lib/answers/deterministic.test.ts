@@ -17,8 +17,24 @@ describe("deterministic accepted answers", () => {
     assert.ok(
       draft.accepted.some((value) => normalizeFillIn(value) === "copernicus"),
     );
-    assert.equal(draft.bonus?.prompt, "What was their first name?");
+    assert.equal(draft.bonus?.prompt, "What was Copernicus's first name?");
     assert.deepEqual(draft.bonus?.answers, ["Nicolaus"]);
+  });
+
+  it("names a particle surname and skips a title's last word", () => {
+    const gogh = deterministicDraft({
+      prompt: "The painter who cut off part of his ear was ____.",
+      answer: "Vincent van Gogh",
+    });
+    assert.equal(gogh.bonus?.prompt, "What was van Gogh's first name?");
+    assert.deepEqual(gogh.bonus?.answers, ["Vincent"]);
+
+    const bosch = deterministicDraft({
+      prompt:
+        "The Dutch painter Hieronymus Bosch is best known for his triptych titled ____.",
+      answer: "The Garden of Earthly Delights",
+    });
+    assert.equal(bosch.bonus, null);
   });
 
   it("adds a spelling variant for a diaeresis", () => {
@@ -39,14 +55,23 @@ describe("deterministic accepted answers", () => {
         answer: question.answer,
       }));
     const planned = planDeterministicAnswers(questions);
-    const withBonus = planned.filter((item) => item.bonusPrompt).length;
-    const ratio = withBonus / questions.length;
-    assert.ok(ratio >= 0.2 && ratio <= 0.3, `bonus ratio ${ratio}`);
+    const withBonus = planned.filter((item) => item.bonusPrompt);
+    const ratio = withBonus.length / questions.length;
+    assert.ok(ratio <= 0.3, `bonus ratio ${ratio}`);
+    assert.ok(withBonus.length > 0);
+    for (const item of withBonus) {
+      assert.match(item.bonusPrompt ?? "", /^What was .+ first name\?$/);
+      assert.notEqual(item.bonusPrompt, "What was their first name?");
+    }
+    const bosch = planned.find(
+      (item) => item.accepted.length >= 0 && questions.find((question) => question.id === item.id)?.answer === "The Garden of Earthly Delights",
+    );
+    assert.equal(bosch?.bonusPrompt, null);
     const copernicusId = questions.find(
       (question) => question.answer === "Nicolaus Copernicus",
     )?.id;
     const named = planned.find((item) => item.id === copernicusId);
-    assert.equal(named?.bonusPrompt, "What was their first name?");
+    assert.equal(named?.bonusPrompt, "What was Copernicus's first name?");
     assert.ok(named?.bonusAnswers.includes("Nicolaus"));
     assert.ok(
       named?.accepted.some((value) => normalizeFillIn(value) === "copernicus"),

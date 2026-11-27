@@ -22,7 +22,7 @@ async function main() {
       ? `${Math.round((result.withBonus / result.examined) * 100)}%`
       : "0%";
   console.log(
-    `Accepted-answer backfill (${result.provider}${force ? ", force" : ""}): examined ${result.examined}, updated ${result.updated}, skipped ${result.skipped}, with aliases ${result.withAliases}, with bonus ${result.withBonus} (${bonusRate}).`,
+    `Accepted-answer backfill (${result.provider}${force ? ", force" : ""}): examined ${result.examined}, updated ${result.updated}, skipped ${result.skipped}, with aliases ${result.withAliases}, with bonus ${result.withBonus} (${bonusRate}), dropped bonuses ${result.droppedBonuses}.`,
   );
 }
 

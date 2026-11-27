@@ -9,6 +9,18 @@ const posthogAssetsHost = posthogHost.includes(".i.posthog.com")
 
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "upload.wikimedia.org",
+      },
+      {
+        protocol: "https",
+        hostname: "thumb.wikimedia.org",
+      },
+    ],
+  },
   async rewrites() {
     return [
       {

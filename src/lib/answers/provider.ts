@@ -4,9 +4,17 @@ import {
   type AnswerDraft,
 } from "./deterministic";
 
+export type SemanticInput = {
+  prompt: string;
+  answer: string;
+  aliases: readonly string[];
+  response: string;
+};
+
 export type AnswerProvider = {
   name: "openai" | "deterministic";
   generate(input: { prompt: string; answer: string }): Promise<AnswerDraft>;
+  judgeEquivalent?(input: SemanticInput): Promise<boolean>;
 };
 
 const deterministicProvider: AnswerProvider = {
@@ -48,6 +56,49 @@ function parseModelPayload(payload: unknown): AnswerDraft | null {
 function createOpenAiProvider(apiKey: string): AnswerProvider {
   return {
     name: "openai",
+    async judgeEquivalent(input) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          signal: AbortSignal.timeout(2_500),
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            temperature: 0,
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content:
+                  'You grade one trivia answer. Return JSON {"equivalent": true or false}. True only when the response is the same answer as the expected answer or a listed alias: a synonym, a common name, or a spelling a trivia host would accept. False for related-but-different answers, partial answers, and guesses.',
+              },
+              {
+                role: "user",
+                content: JSON.stringify({
+                  prompt: input.prompt,
+                  expected: input.answer,
+                  aliases: input.aliases,
+                  response: input.response,
+                }),
+              },
+            ],
+          }),
+        });
+        if (!response.ok) return false;
+        const body = (await response.json()) as {
+          choices?: { message?: { content?: string } }[];
+        };
+        const content = body.choices?.[0]?.message?.content;
+        if (!content) return false;
+        const parsed = JSON.parse(content) as { equivalent?: unknown };
+        return parsed.equivalent === true;
+      } catch {
+        return false;
+      }
+    },
     async generate(input) {
       const fallback = deterministicDraft(input);
       try {

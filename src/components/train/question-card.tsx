@@ -1,8 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { AnswerLines } from "@/components/answer-lines";
+import { ArtworkFigure } from "@/components/artwork-figure";
 import { DisputeLink } from "@/components/train/dispute-link";
 import { Button } from "@/components/ui/button";
+import { analyticsHeaders } from "@/lib/tracking/browser";
 import { browserTimeZone } from "@/lib/time/zone";
 import type { GradeResult, PublicQuestion, ReviewItem } from "@/lib/train-types";
 
@@ -44,7 +47,7 @@ export function QuestionCard({
     try {
       const response = await fetch("/api/train/answers", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: analyticsHeaders({ "content-type": "application/json" }),
         body: JSON.stringify({
           questionId: question.id,
           response: value,
@@ -76,6 +79,7 @@ export function QuestionCard({
           correct: result.correct,
           answer: result.answer,
           explanation: result.explanation,
+          image: result.image,
         });
       }
     } catch {
@@ -109,6 +113,7 @@ export function QuestionCard({
       <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {question.categoryName} · {question.type === "multiple_choice" ? "Multiple choice" : "Fill-in"}
       </p>
+      {question.image ? <ArtworkFigure image={question.image} /> : null}
       <h1 className="text-xl font-semibold leading-snug tracking-tight text-balance">
         {question.prompt}
       </h1>
@@ -206,9 +211,10 @@ export function QuestionCard({
           <p className="font-medium">
             {feedback.correct ? "Correct" : "Not quite"}
           </p>
-          <p className="text-sm">
-            Answer: <span className="font-medium">{feedback.answer}</span>
-          </p>
+          {!question.image && feedback.image ? (
+            <ArtworkFigure image={feedback.image} />
+          ) : null}
+          <AnswerLines response={selected ?? draft} answer={feedback.answer} />
           {feedback.explanation ? (
             <p className="text-sm leading-relaxed opacity-90">
               {feedback.explanation}

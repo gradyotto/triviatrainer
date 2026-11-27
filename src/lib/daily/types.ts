@@ -1,3 +1,5 @@
+import type { ArtworkImage } from "@/lib/artwork/reveal";
+
 export type DailyPhase =
   | "unavailable"
   | "ready"
@@ -14,6 +16,7 @@ export type DailyQuestionView = {
   hint: string | null;
   index: number;
   total: number;
+  image: ArtworkImage | null;
 };
 
 export type DailyBonusFeedback = {
@@ -23,6 +26,7 @@ export type DailyBonusFeedback = {
   skipped: boolean;
   points: number;
   answer: string;
+  note: string | null;
 };
 
 export type DailyFeedback = {
@@ -35,6 +39,7 @@ export type DailyFeedback = {
   speedPoints: number;
   streakPoints: number;
   bonus: DailyBonusFeedback | null;
+  image: ArtworkImage | null;
 };
 
 export type DailyResultQuestion = {
@@ -44,6 +49,10 @@ export type DailyResultQuestion = {
   answer: string;
   points: number;
   bonusPoints: number;
+  bonusResponse: string | null;
+  bonusAnswer: string | null;
+  bonusNote: string | null;
+  image: ArtworkImage | null;
 };
 
 export type DailyResultView = {

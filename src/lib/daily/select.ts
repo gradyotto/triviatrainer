@@ -105,7 +105,9 @@ function take(
 }
 
 /**
- * Deterministic 20-question set for one game date.
+ * Deterministic daily set for one game date.
+ * The length comes from `SCORING.questionCount` unless the caller passes `count`
+ * (stored challenges keep the length they were created with).
  * Fresh questions are preferred over anything used inside the repeat window.
  * Input order does not matter.
  */

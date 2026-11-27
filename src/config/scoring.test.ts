@@ -3,6 +3,10 @@ import { describe, it } from "node:test";
 import { scoreAnswer, scoreBonus, SCORING, speedBonus } from "./scoring";
 
 describe("daily scoring", () => {
+  it("scores a 10-question daily set", () => {
+    assert.equal(SCORING.questionCount, 10);
+  });
+
   it("pays full speed on an instant correct answer and steps the streak", () => {
     const easy = scoreAnswer({
       correct: true,

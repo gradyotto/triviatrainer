@@ -5,6 +5,7 @@ import { answerDisputes } from "@/db/schema";
 import { dailyActor } from "@/lib/daily/http";
 import { findGradable } from "@/lib/questions";
 import { dayKeyInTimeZone } from "@/lib/time/zone";
+import { disputeEventProperties, disputeRowValues } from "@/lib/tracking/identity";
 import { trackSafely } from "@/lib/tracking/track";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid dispute" }, { status: 400 });
   }
 
+  const userAnswer = parsed.data.response.trim();
+  if (!userAnswer) {
+    return NextResponse.json({ error: "Missing answer" }, { status: 400 });
+  }
   const question = await findGradable(parsed.data.questionId);
   if (!question) {
     return NextResponse.json({ error: "Question not found" }, { status: 404 });
@@ -44,6 +49,11 @@ export async function POST(request: Request) {
 
   try {
     const actor = await dailyActor();
+    const stored = disputeRowValues({
+      userAnswer,
+      correctAnswer: question.answer,
+      mode: parsed.data.context,
+    });
     await getDb().insert(answerDisputes).values({
       userId: actor.user?.id ?? null,
       anonymousId: actor.user ? null : actor.guestId,
@@ -52,9 +62,9 @@ export async function POST(request: Request) {
           ? question.databaseId
           : null,
       questionKey: parsed.data.questionId,
-      response: parsed.data.response.trim(),
-      expectedAnswer: question.answer,
-      context: parsed.data.context,
+      response: stored.response,
+      expectedAnswer: stored.expectedAnswer,
+      context: stored.context,
     });
     const day = dayKeyInTimeZone(new Date(), actor.user?.timeZone ?? "UTC");
     const actorKey = actor.user?.id ?? actor.guestId ?? "guest";
@@ -63,13 +73,14 @@ export async function POST(request: Request) {
       clerkId: actor.user?.clerkId,
       userId: actor.user?.id,
       dedupeKey: `answer_disputed:${actorKey}:${parsed.data.questionId}:${day}`,
-      metadata: {
-        context: parsed.data.context,
+      metadata: disputeEventProperties({
         questionId: parsed.data.questionId,
+        userAnswer,
+        correctAnswer: question.answer,
+        mode: parsed.data.context,
         plan: actor.user?.plan,
         username: actor.user?.username,
-        ...(actor.user ? {} : { anonymousId: actor.guestId }),
-      },
+      }),
     });
     return NextResponse.json({ saved: true });
   } catch {
