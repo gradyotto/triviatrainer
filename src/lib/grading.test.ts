@@ -162,3 +162,142 @@ describe("normalizeFillIn", () => {
     assert.equal(normalizeFillIn("don't"), "dont");
   });
 });
+
+describe("multi-part fill-in grading", () => {
+  const gobi = { type: "fill_in" as const, answer: "China and Mongolia" };
+
+  it("accepts either order, separators, and a small typo in either part", () => {
+    assert.equal(gradeResponse(gobi, "China and Mongolia"), true);
+    assert.equal(gradeResponse(gobi, "Mongolia and China"), true);
+    assert.equal(gradeResponse(gobi, "China, Mongolia"), true);
+    assert.equal(gradeResponse(gobi, "China, and Mongolia"), true);
+    assert.equal(gradeResponse(gobi, "china & mongolia"), true);
+    assert.equal(gradeResponse(gobi, "Mongolia/China"), true);
+    assert.equal(gradeResponse(gobi, "China + Mongolia"), true);
+    assert.equal(gradeResponse(gobi, "Mongolia and Chna"), true);
+    assert.equal(gradeResponse(gobi, "Mongola and China"), true);
+  });
+
+  it("accepts a reversed order", () => {
+    assert.equal(gradeResponse(gobi, "Mongolia, China"), true);
+    assert.equal(gradeResponse(gobi, "Mongolia / China"), true);
+  });
+
+  it("rejects a partial answer", () => {
+    assert.equal(gradeResponse(gobi, "China"), false);
+    assert.equal(gradeResponse(gobi, "Mongolia"), false);
+    assert.equal(gradeResponse(gobi, "both China"), false);
+  });
+
+  it("rejects an extra part and a wrong substitute", () => {
+    assert.equal(gradeResponse(gobi, "China, Mongolia, and Japan"), false);
+    assert.equal(gradeResponse(gobi, "China and Japan"), false);
+  });
+
+  it("ignores filler such as both and the", () => {
+    assert.equal(gradeResponse(gobi, "both China and Mongolia"), true);
+    assert.equal(gradeResponse(gobi, "the China and the Mongolia"), true);
+    assert.equal(gradeResponse(gobi, "China and Mongolia both"), true);
+  });
+
+  it("accepts per-part aliases without widening a reordered duplicate", () => {
+    const question = {
+      type: "fill_in" as const,
+      answer: "China and Mongolia",
+      aliases: ["PRC and Outer Mongolia", "Mongolia and China"],
+    };
+    assert.equal(gradeResponse(question, "PRC and Mongolia"), true);
+    assert.equal(gradeResponse(question, "Outer Mongolia / China"), true);
+    assert.equal(gradeResponse(question, "Mongolia and PRC"), true);
+    assert.equal(gradeResponse(question, "PRC"), false);
+    assert.equal(gradeResponse(question, "China and China"), false);
+  });
+
+  it("keeps a listed whole-answer alias exact", () => {
+    const question = {
+      type: "fill_in" as const,
+      answer: "China and Mongolia",
+      aliases: ["the Gobi countries"],
+    };
+    assert.equal(gradeResponse(question, "Gobi countries"), true);
+    assert.equal(gradeResponse(question, "countries and Gobi"), false);
+  });
+
+  it("does not split a number that only contains a thousands separator", () => {
+    const question = { type: "fill_in" as const, answer: "1,900" };
+    assert.equal(gradeResponse(question, "1900"), true);
+    assert.equal(gradeResponse(question, "1,900"), true);
+    assert.equal(gradeResponse(question, "900, 1"), false);
+    assert.equal(gradeResponse(question, "900 and 1"), false);
+  });
+
+  it("does not split single entities that contain and", () => {
+    const entities = [
+      "Trinidad and Tobago",
+      "Bosnia and Herzegovina",
+      "Antigua and Barbuda",
+      "Saint Kitts and Nevis",
+      "Procter & Gamble",
+      "Romeo and Juliet",
+    ];
+    for (const answer of entities) {
+      const question = { type: "fill_in" as const, answer };
+      const [left, right] = answer.split(/\s+(?:and|&)\s+/i);
+      assert.equal(gradeResponse(question, answer), true, answer);
+      assert.equal(
+        gradeResponse(question, `${right} and ${left}`),
+        false,
+        `${answer} reversed`,
+      );
+      assert.equal(gradeResponse(question, left ?? ""), false, `${answer} partial`);
+    }
+    assert.equal(
+      gradeResponse(
+        { type: "fill_in", answer: "Procter & Gamble" },
+        "Procter and Gamble",
+      ),
+      true,
+    );
+    assert.equal(
+      gradeResponse(
+        { type: "fill_in", answer: "Romeo and Juliet" },
+        "Romeo & Juliet",
+      ),
+      true,
+    );
+    assert.equal(
+      gradeResponse(
+        { type: "fill_in", answer: "St. Kitts and Nevis" },
+        "Nevis and St. Kitts",
+      ),
+      false,
+    );
+  });
+
+  it("keeps a protected entity intact inside a longer answer", () => {
+    const question = {
+      type: "fill_in" as const,
+      answer: "Trinidad and Tobago and Jamaica",
+    };
+    assert.equal(
+      gradeResponse(question, "Jamaica and Trinidad and Tobago"),
+      true,
+    );
+    assert.equal(gradeResponse(question, "Trinidad & Tobago, Jamaica"), true);
+    assert.equal(gradeResponse(question, "Trinidad, Tobago, and Jamaica"), false);
+    assert.equal(gradeResponse(question, "Trinidad and Tobago"), false);
+  });
+
+  it("grades three parts as an unordered set", () => {
+    const question = {
+      type: "fill_in" as const,
+      answer: "France, Germany, and Italy",
+    };
+    assert.equal(gradeResponse(question, "Italy and Germany and France"), true);
+    assert.equal(gradeResponse(question, "France and Germany"), false);
+    assert.equal(
+      gradeResponse(question, "France, Germany, Italy, and Spain"),
+      false,
+    );
+  });
+});
