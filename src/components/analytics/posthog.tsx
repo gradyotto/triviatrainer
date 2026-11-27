@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
+import { syncPostHogIdentity } from "@/lib/tracking/browser";
 
 const DEFAULT_CTA = "Play today's challenge";
 
@@ -18,19 +19,22 @@ export function PostHogIdentity({
 }) {
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
-    if (!posthog.__loaded) return;
-    if (clerkId) {
-      const properties: Record<string, string> = {};
-      if (username) properties.username = username;
-      if (plan) properties.plan = plan;
-      posthog.identify(clerkId, properties);
-      sessionStorage.setItem("tt_ph_identified", "1");
-      return;
-    }
-    if (sessionStorage.getItem("tt_ph_identified")) {
-      posthog.reset();
-      sessionStorage.removeItem("tt_ph_identified");
-    }
+    let stopped = false;
+    const apply = () => {
+      if (stopped || !posthog.__loaded) return false;
+      syncPostHogIdentity({ clerkId, username, plan });
+      return true;
+    };
+    if (apply()) return;
+    const timer = window.setInterval(() => {
+      if (apply()) window.clearInterval(timer);
+    }, 250);
+    const stop = window.setTimeout(() => window.clearInterval(timer), 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      window.clearTimeout(stop);
+    };
   }, [clerkId, username, plan]);
 
   return null;
@@ -45,7 +49,7 @@ export function DailyCta() {
       if (!posthog.__loaded) return;
       const flag = posthog.getFeatureFlag("homepage-daily-cta");
       setLabel(
-        flag === "beat-today" || flag === true ? "Beat today's 20" : DEFAULT_CTA,
+        flag === "beat-today" || flag === true ? "Beat today's 10" : DEFAULT_CTA,
       );
     };
     apply();

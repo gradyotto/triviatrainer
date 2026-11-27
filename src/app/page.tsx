@@ -35,7 +35,7 @@ export default function HomePage() {
           Trivia Trainer
         </h1>
         <p className="text-sm leading-relaxed text-muted-foreground text-balance">
-          The same 20 questions for everyone, every day. Train when you want a
+          The same 10 questions for everyone, every day. Train when you want a
           longer set.
         </p>
       </div>

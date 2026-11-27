@@ -36,13 +36,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Question not found" }, { status: 404 });
   }
 
-  const correct = gradeStoredQuestion(question, parsed.data.response);
+  const correct = await gradeStoredQuestion(question, parsed.data.response);
+  const revealed = {
+    correct,
+    answer: question.answer,
+    explanation: question.explanation,
+    image: question.image,
+  };
   const clerkUserId = await getSignedInClerkId();
   if (!clerkUserId || !isDatabaseConfigured()) {
     return NextResponse.json({
-      correct,
-      answer: question.answer,
-      explanation: question.explanation,
+      ...revealed,
       persisted: false,
     });
   }
@@ -116,9 +120,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    correct,
-    answer: question.answer,
-    explanation: question.explanation,
+    ...revealed,
     persisted: true,
   });
 }

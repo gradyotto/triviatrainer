@@ -6,7 +6,11 @@ Browser traffic goes through the Next.js rewrite at `/ingest` (`skipTrailingSlas
 
 ## Identity
 
-Signed-in people are identified by their Clerk user id. Person properties are `username` and `plan`. Email is not sent. Signing out calls `posthog.reset()` so the next person on the browser does not inherit the profile.
+Signed-in people are identified by their Clerk user id. The browser calls `posthog.identify(clerkUserId, { username, plan })` once Clerk reports a signed-in user, and `posthog.reset()` on sign-out. Email is never sent.
+
+Server events use that same Clerk user id as `distinct_id` whenever `auth()` has one. Guests do not get a second anonymous id: the browser writes its PostHog distinct id into the `tt_ph_distinct` cookie and sends `x-posthog-distinct-id` on API calls, and the server uses that id. When a guest later claims a score, the server aliases the previous browser id (and the legacy guest cookie, for events captured before this) to the Clerk user id. The client `identify` merges the same browser history.
+
+Person properties are `username` and `plan`. Server captures copy them onto the person with `$set`, filling them from the user row when the event did not already include them.
 
 ## Pageviews and replay
 
@@ -14,7 +18,7 @@ Signed-in people are identified by their Clerk user id. Person properties are `u
 
 ## Feature flag
 
-`homepage-daily-cta` changes the homepage button. The variant `beat-today` (or a boolean true) shows "Beat today's 20". Any other value, including a missing flag or a missing key, shows "Play today's challenge".
+`homepage-daily-cta` changes the homepage button. The variant `beat-today` (or a boolean true) shows "Beat today's 10". Any other value, including a missing flag or a missing key, shows "Play today's challenge".
 
 ## Events
 
@@ -31,6 +35,6 @@ Server `track()` writes Postgres `conversion_events` and forwards the same call 
 | `daily_challenge_started` | `daily_challenge_started` | `gameDate` |
 | `daily_challenge_completed` | `daily_challenge_completed` | `score`, `correctCount`, `gameDate` |
 | `bonus_answered` | `bonus_answered` | `correct`, `skipped` |
-| `answer_disputed` | `answer_disputed` | `context`, `questionId` |
+| `answer_disputed` | `answer_disputed` | `userAnswer`, `correctAnswer`, `mode`, `questionId` |
 
-`daily_limit_hit` and `subscription_canceled` are forwarded under those same names. When `username` or `plan` is on the event, it is also copied onto the person with `$set`.
+`daily_limit_hit` and `subscription_canceled` are forwarded under those same names. When `username` or `plan` is on the event, it is also copied onto the person with `$set`. The dispute row stores the typed answer in `response` and the expected answer in `expected_answer`.

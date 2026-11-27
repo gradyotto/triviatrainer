@@ -19,7 +19,7 @@ export const SCORING = {
   streakBonusPerCorrect: 10,
   streakBonusCap: 50,
   bonusPoints: 50,
-  questionCount: 20,
+  questionCount: 10,
   repeatWindowDays: 60,
   timeZone: "America/Phoenix",
 } as const;

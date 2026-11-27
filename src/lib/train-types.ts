@@ -1,4 +1,8 @@
+import type { ArtworkImage } from "@/lib/artwork/reveal";
+
 export type QuestionType = "multiple_choice" | "fill_in";
+
+export type { ArtworkImage };
 
 export type CategorySummary = {
   slug: string;
@@ -15,6 +19,7 @@ export type PublicQuestion = {
   categoryName: string;
   difficulty: string;
   hint: string | null;
+  image: ArtworkImage | null;
 };
 
 export type GradeResult = {
@@ -22,6 +27,7 @@ export type GradeResult = {
   answer: string;
   explanation: string | null;
   persisted: boolean;
+  image: ArtworkImage | null;
 };
 
 export type ReviewItem = {
@@ -30,4 +36,5 @@ export type ReviewItem = {
   correct: boolean;
   answer: string;
   explanation: string | null;
+  image: ArtworkImage | null;
 };

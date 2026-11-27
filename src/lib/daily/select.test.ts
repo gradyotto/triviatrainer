@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { SCORING } from "@/config/scoring";
 import { difficultyQuotas, selectDailyQuestionIds, type DailyCandidate } from "./select";
 
 function pool(count = 30): DailyCandidate[] {
@@ -23,9 +24,20 @@ describe("daily question selection", () => {
       gameDate: "2026-11-27",
       candidates: [...candidates].reverse(),
     });
-    assert.equal(first.length, 20);
+    assert.equal(SCORING.questionCount, 10);
+    assert.equal(first.length, 10);
     assert.deepEqual(first, reversed);
-    assert.equal(new Set(first).size, 20);
+    assert.equal(new Set(first).size, 10);
+  });
+
+  it("still builds a 20-question set when a stored day asks for that length", () => {
+    const selected = selectDailyQuestionIds({
+      gameDate: "2026-11-27",
+      candidates: pool(30),
+      count: 20,
+    });
+    assert.equal(selected.length, 20);
+    assert.equal(new Set(selected).size, 20);
   });
 
   it("changes with the date and avoids recent questions when it can", () => {
@@ -45,7 +57,7 @@ describe("daily question selection", () => {
       candidates,
       recentlyUsedIds: today,
     });
-    assert.equal(avoided.length, 20);
+    assert.equal(avoided.length, 10);
     assert.equal(avoided.some((id) => today.includes(id)), false);
   });
 
@@ -57,8 +69,8 @@ describe("daily question selection", () => {
       candidates,
       recentlyUsedIds: ids,
     });
-    assert.equal(selected.length, 20);
-    assert.deepEqual(new Set(selected), new Set(ids));
+    assert.equal(selected.length, 10);
+    assert.ok(selected.every((id) => ids.includes(id)));
   });
 
   it("mixes difficulties and more than one category", () => {
@@ -67,7 +79,7 @@ describe("daily question selection", () => {
       candidates: pool(30),
     });
     const selected = pool(30).filter((item) => selectedIds.includes(item.id));
-    const quotas = difficultyQuotas(20);
+    const quotas = difficultyQuotas(SCORING.questionCount);
     for (const band of ["easy", "medium", "hard"] as const) {
       assert.equal(
         selected.filter((item) => item.difficulty === band).length,

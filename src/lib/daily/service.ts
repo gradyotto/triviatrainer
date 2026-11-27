@@ -8,11 +8,18 @@ import {
   dailyChallenges,
   questions,
 } from "@/db/schema";
-import { gradeResponse } from "@/lib/grading";
+import {
+  answerWithoutBonus,
+  containedBonusNote,
+  maskBonusText,
+} from "@/lib/bonus-reveal";
+import { imageBeforeAnswer, toArtworkImage, type ArtworkImage } from "@/lib/artwork/reveal";
+import { gradeWithSemantics } from "@/lib/grade-answer";
+import { gradeResponse, responseCoversAny } from "@/lib/grading";
 import { isClerkConfigured } from "@/lib/env";
 import { trackSafely } from "@/lib/tracking/track";
 import type { UserRecord } from "@/lib/users";
-import { aliasPostHogGuest } from "@/lib/tracking/posthog";
+import { aliasBrowserIdentity, aliasPostHogGuest } from "@/lib/tracking/posthog";
 import { challengeRank } from "./leaderboard";
 import { dailyGameDate, nextDailyStart, repeatCutoff } from "./day";
 import { selectDailyQuestionIds } from "./select";
@@ -40,6 +47,9 @@ type PlayQuestion = {
   categoryName: string;
   bonusPrompt: string | null;
   bonusAnswers: string[];
+  imageUrl: string | null;
+  imageAlt: string | null;
+  imageCredit: string | null;
 };
 
 type AttemptRow = typeof dailyAttempts.$inferSelect;
@@ -92,6 +102,9 @@ async function loadPlayQuestions(ids: string[]): Promise<PlayQuestion[]> {
       categoryName: categories.name,
       bonusPrompt: questions.bonusPrompt,
       bonusAnswers: questions.bonusAnswers,
+      imageUrl: questions.imageUrl,
+      imageAlt: questions.imageAlt,
+      imageCredit: questions.imageCredit,
     })
     .from(questions)
     .innerJoin(categories, eq(questions.categoryId, categories.id))
@@ -113,6 +126,9 @@ async function loadPlayQuestions(ids: string[]): Promise<PlayQuestion[]> {
         categoryName: row.categoryName,
         bonusPrompt: row.bonusPrompt,
         bonusAnswers: row.bonusAnswers ?? [],
+        imageUrl: row.imageUrl,
+        imageAlt: row.imageAlt,
+        imageCredit: row.imageCredit,
       },
     ];
   });
@@ -130,6 +146,8 @@ async function ensureChallenge(now: Date): Promise<{
     .from(dailyChallenges)
     .where(eq(dailyChallenges.gameDate, gameDate))
     .limit(1);
+  // A day that already exists keeps its stored question list, including sets
+  // created when the daily length was 20. New days use SCORING.questionCount.
   if (existing[0]) {
     const questionsForDay = await loadPlayQuestions(existing[0].questionIds ?? []);
     return { id: existing[0].id, gameDate, questions: questionsForDay };
@@ -227,6 +245,16 @@ async function attemptAnswers(attemptId: string): Promise<AnswerRow[]> {
     .orderBy(asc(dailyAnswers.ordinal));
 }
 
+function artworkFor(question: PlayQuestion) {
+  return toArtworkImage({
+    url: question.imageUrl,
+    alt: question.imageAlt,
+    credit: question.imageCredit,
+    prompt: question.prompt,
+    answer: question.answer,
+  });
+}
+
 function questionView(
   question: PlayQuestion,
   index: number,
@@ -240,6 +268,13 @@ function questionView(
     hint: question.hint,
     index,
     total,
+    image: imageBeforeAnswer({
+      url: question.imageUrl,
+      alt: question.imageAlt,
+      credit: question.imageCredit,
+      prompt: question.prompt,
+      answer: question.answer,
+    }),
   };
 }
 
@@ -248,8 +283,21 @@ function feedbackFor(
   answer: AnswerRow,
   revealBonus: boolean,
 ): DailyFeedback {
+  const pendingBonus = !answer.bonusResolved && question.bonusAnswers.length > 0;
+  const revealFull = revealBonus || !pendingBonus;
+  const bonusPlayed =
+    answer.bonusCorrect !== null ||
+    answer.bonusSkipped ||
+    Boolean(answer.bonusResponse) ||
+    answer.bonusPoints > 0;
+  const autoAwarded =
+    bonusPlayed &&
+    Boolean(answer.bonusCorrect) &&
+    !answer.bonusSkipped &&
+    !answer.bonusResponse &&
+    answer.bonusPoints > 0;
   const bonus =
-    revealBonus && answer.bonusResolved && question.bonusPrompt
+    revealBonus && bonusPlayed && question.bonusPrompt
       ? {
           prompt: question.bonusPrompt,
           response: answer.bonusResponse,
@@ -257,18 +305,29 @@ function feedbackFor(
           skipped: answer.bonusSkipped,
           points: answer.bonusPoints,
           answer: question.bonusAnswers[0] ?? "",
+          note: autoAwarded
+            ? containedBonusNote(question.bonusPrompt, answer.bonusPoints)
+            : null,
         }
       : null;
+  const artwork = artworkFor(question);
+  const image: ArtworkImage | null =
+    artwork && (artwork.timing === "before" || revealFull) ? artwork.image : null;
   return {
     correct: answer.isCorrect,
-    answer: question.answer,
-    explanation: question.explanation,
+    answer: revealFull
+      ? question.answer
+      : answerWithoutBonus(question.answer, question.bonusAnswers),
+    explanation: revealFull
+      ? question.explanation
+      : maskBonusText(question.explanation, question.bonusAnswers),
     response: answer.response,
     points: answer.points,
     basePoints: answer.basePoints,
     speedPoints: answer.speedPoints,
     streakPoints: answer.streakPoints,
     bonus,
+    image,
   };
 }
 
@@ -286,6 +345,17 @@ async function resultView(
     const answer = byOrdinal.get(index);
     if (!answer) return [];
     marks.push(answer.isCorrect);
+    const autoAwarded =
+      Boolean(answer.bonusCorrect) &&
+      !answer.bonusSkipped &&
+      !answer.bonusResponse &&
+      answer.bonusPoints > 0;
+    const bonusPlayed =
+      answer.bonusCorrect !== null ||
+      answer.bonusSkipped ||
+      Boolean(answer.bonusResponse) ||
+      answer.bonusPoints > 0;
+    const artwork = artworkFor(question);
     return [
       {
         prompt: question.prompt,
@@ -294,6 +364,12 @@ async function resultView(
         answer: question.answer,
         points: answer.points + answer.bonusPoints,
         bonusPoints: answer.bonusPoints,
+        bonusResponse: bonusPlayed ? answer.bonusResponse : null,
+        bonusAnswer: bonusPlayed ? (question.bonusAnswers[0] ?? "") : null,
+        bonusNote: autoAwarded
+          ? containedBonusNote(question.bonusPrompt, answer.bonusPoints)
+          : null,
+        image: artwork?.image ?? null,
       },
     ];
   });
@@ -535,10 +611,19 @@ export async function answerDaily(
   const elapsed = servedAt
     ? Math.max(0, now.getTime() - servedAt.getTime())
     : SCORING.speedWindowMs;
-  const correct = gradeResponse(
-    { type: "fill_in", answer: question.answer, aliases: question.aliases },
+  const correct = await gradeWithSemantics(
+    {
+      type: "fill_in",
+      answer: question.answer,
+      aliases: question.aliases,
+      prompt: question.prompt,
+    },
     response,
   );
+  const covered =
+    correct &&
+    question.bonusAnswers.length > 0 &&
+    responseCoversAny(response, question.bonusAnswers);
   const scored = scoreAnswer({
     correct,
     difficulty: question.difficulty,
@@ -561,8 +646,11 @@ export async function answerDaily(
       elapsedMs: elapsed,
       servedAt: servedAt ?? now,
       answeredAt: now,
+      bonusCorrect: covered ? true : null,
+      bonusPoints: covered ? scoreBonus(true) : 0,
       bonusResolved: !(
         correct &&
+        !covered &&
         Boolean(question.bonusPrompt) &&
         question.bonusAnswers.length > 0
       ),
@@ -578,6 +666,7 @@ export async function answerDaily(
     stored &&
       stored.isCorrect &&
       !stored.bonusResolved &&
+      !covered &&
       question.bonusPrompt &&
       question.bonusAnswers.length > 0,
   );
@@ -762,7 +851,8 @@ export async function claimGuestAttempts(
       console.error("Could not attach a guest daily attempt");
     }
   }
-  if (claimed > 0 && clerkId) {
-    await aliasPostHogGuest(guestId, clerkId);
+  if (clerkId) {
+    if (claimed > 0) await aliasPostHogGuest(guestId, clerkId);
+    await aliasBrowserIdentity(clerkId);
   }
 }

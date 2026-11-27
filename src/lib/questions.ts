@@ -2,7 +2,8 @@ import { and, count, eq } from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "@/db";
 import { categories, questions } from "@/db/schema";
 import { deterministicDraft, mergeAccepted } from "@/lib/answers/deterministic";
-import { gradeResponse } from "@/lib/grading";
+import { imageBeforeAnswer, toArtworkImage, type ArtworkImage } from "@/lib/artwork/reveal";
+import { gradeWithSemantics } from "@/lib/grade-answer";
 import { getSeedBank, seedQuestionId } from "@/lib/seed-bank";
 import type { CategorySummary, PublicQuestion, QuestionType } from "@/lib/train-types";
 
@@ -19,9 +20,11 @@ export class UnknownCategoryError extends Error {
 type GradableRecord = {
   databaseId: string | null;
   type: QuestionType;
+  prompt: string;
   answer: string;
   aliases: string[];
   explanation: string | null;
+  image: ArtworkImage | null;
 };
 
 export type QuestionSource = "database" | "seed";
@@ -115,6 +118,9 @@ type InternalQuestion = PublicQuestion & {
   aliases: string[];
   explanation: string | null;
   databaseId: string | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  imageCredit: string | null;
 };
 
 async function loadDatabaseQuestions(): Promise<InternalQuestion[] | null> {
@@ -132,6 +138,9 @@ async function loadDatabaseQuestions(): Promise<InternalQuestion[] | null> {
         difficulty: questions.difficulty,
         hint: questions.hint,
         explanation: questions.explanation,
+        imageUrl: questions.imageUrl,
+        imageAlt: questions.imageAlt,
+        imageCredit: questions.imageCredit,
         categorySlug: categories.slug,
         categoryName: categories.name,
       })
@@ -149,10 +158,14 @@ async function loadDatabaseQuestions(): Promise<InternalQuestion[] | null> {
       aliases: row.aliases ?? [],
       options: row.options,
       explanation: row.explanation,
+      imageUrl: row.imageUrl,
+      imageAlt: row.imageAlt,
+      imageCredit: row.imageCredit,
       categorySlug: row.categorySlug,
       categoryName: row.categoryName,
       difficulty: row.difficulty,
       hint: row.hint,
+      image: null,
     }));
   } catch {
     console.error("Question query failed; using the seed bank.");
@@ -187,10 +200,14 @@ function loadSeedQuestions(): InternalQuestion[] {
       aliases: seedAliases(question),
       options: question.options,
       explanation: question.explanation,
+      imageUrl: null,
+      imageAlt: null,
+      imageCredit: null,
       categorySlug: question.category,
       categoryName: category?.name ?? question.category,
       difficulty: question.difficulty,
       hint: question.hint,
+      image: null,
     };
   });
 }
@@ -204,6 +221,10 @@ export function toPublicQuestion(question: {
   categoryName: string;
   difficulty: string;
   hint: string | null;
+  answer?: string;
+  imageUrl?: string | null;
+  imageAlt?: string | null;
+  imageCredit?: string | null;
 }): PublicQuestion {
   return {
     id: question.id,
@@ -217,11 +238,23 @@ export function toPublicQuestion(question: {
     categoryName: question.categoryName,
     difficulty: question.difficulty,
     hint: question.hint,
+    image: imageBeforeAnswer({
+      url: question.imageUrl,
+      alt: question.imageAlt,
+      credit: question.imageCredit,
+      prompt: question.prompt,
+      answer: question.answer ?? "",
+    }),
   };
 }
 
 function toPublic(question: InternalQuestion): PublicQuestion {
-  return toPublicQuestion(question);
+  return toPublicQuestion({
+    ...question,
+    imageUrl: question.imageUrl,
+    imageAlt: question.imageAlt,
+    imageCredit: question.imageCredit,
+  });
 }
 
 export async function drawQuestions(
@@ -258,7 +291,11 @@ export async function findGradable(
           type: questions.type,
           answer: questions.answer,
           aliases: questions.answerAliases,
+          prompt: questions.prompt,
           explanation: questions.explanation,
+          imageUrl: questions.imageUrl,
+          imageAlt: questions.imageAlt,
+          imageCredit: questions.imageCredit,
         })
         .from(questions)
         .where(and(eq(questions.id, id), eq(questions.isActive, true)))
@@ -268,9 +305,17 @@ export async function findGradable(
         return {
           databaseId: row.id,
           type: row.type,
+          prompt: row.prompt,
           answer: row.answer,
           aliases: row.aliases ?? [],
           explanation: row.explanation,
+          image: toArtworkImage({
+            url: row.imageUrl,
+            alt: row.imageAlt,
+            credit: row.imageCredit,
+            prompt: row.prompt,
+            answer: row.answer,
+          })?.image ?? null,
         };
       }
     } catch {
@@ -288,21 +333,24 @@ export async function findGradable(
   return {
     databaseId: null,
     type: question.type,
+    prompt: question.prompt,
     answer: question.answer,
     aliases: seedAliases(question),
     explanation: question.explanation,
+    image: null,
   };
 }
 
-export function gradeStoredQuestion(
+export async function gradeStoredQuestion(
   question: GradableRecord,
   response: string,
-): boolean {
-  return gradeResponse(
+): Promise<boolean> {
+  return gradeWithSemantics(
     {
       type: question.type,
       answer: question.answer,
       aliases: question.aliases,
+      prompt: question.prompt,
     },
     response,
   );

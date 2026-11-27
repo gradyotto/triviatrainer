@@ -82,6 +82,9 @@ export const questions = pgTable(
       .default("medium"),
     hint: text("hint"),
     explanation: text("explanation"),
+    imageUrl: text("image_url"),
+    imageAlt: text("image_alt"),
+    imageCredit: text("image_credit"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     source: varchar("source", { length: 240 }),
     legacyId: integer("legacy_id"),
@@ -285,6 +288,9 @@ export const answerDisputes = pgTable(
     response: text("response").notNull(),
     expectedAnswer: text("expected_answer").notNull(),
     context: varchar("context", { length: 16 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("open"),
+    resolution: varchar("resolution", { length: 16 }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -292,6 +298,7 @@ export const answerDisputes = pgTable(
   (table) => [
     index("answer_disputes_question_idx").on(table.questionId),
     index("answer_disputes_created_idx").on(table.createdAt),
+    index("answer_disputes_status_idx").on(table.status),
   ],
 );
 

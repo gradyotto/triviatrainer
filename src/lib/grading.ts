@@ -1,3 +1,5 @@
+import { synonymForms } from "@/lib/synonyms";
+
 export type GradableQuestion = {
   type: "multiple_choice" | "fill_in";
   answer: string;
@@ -61,6 +63,14 @@ function closeEnough(given: string, expected: string): boolean {
   const budget = typoBudget(expected.length);
   if (budget === 0) return false;
   return levenshtein(given, expected, budget) <= budget;
+}
+
+function matchesExpected(given: string, expected: string): boolean {
+  if (closeEnough(given, expected)) return true;
+  for (const form of synonymForms(expected, normalizeFillIn)) {
+    if (form !== expected && closeEnough(given, form)) return true;
+  }
+  return false;
 }
 
 const FILLER = new Set(["both"]);
@@ -130,7 +140,7 @@ function partsMatch(given: readonly string[], slots: readonly string[][]): boole
     for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
       if (used[slotIndex]) continue;
       const candidates = slots[slotIndex] ?? [];
-      if (!candidates.some((candidate) => closeEnough(part, candidate))) continue;
+      if (!candidates.some((candidate) => matchesExpected(part, candidate))) continue;
       used[slotIndex] = true;
       if (search(index + 1)) return true;
       used[slotIndex] = false;
@@ -191,7 +201,7 @@ export function gradeResponse(
 
   // Whole-string matches run first. A listed alias, or the answer itself,
   // is accepted before the response is split into parts.
-  if (expected.some((candidate) => closeEnough(given, candidate))) return true;
+  if (expected.some((candidate) => matchesExpected(given, candidate))) return true;
 
   const givenParts = splitAnswerParts(response);
   if (!givenParts) return false;
@@ -199,4 +209,72 @@ export function gradeResponse(
   return acceptedPartSets(question.answer, question.aliases).some((slots) =>
     partsMatch(givenParts, slots),
   );
+}
+
+const BORDERLINE_STOP = new Set([
+  "which",
+  "their",
+  "there",
+  "about",
+  "after",
+  "other",
+  "first",
+  "would",
+  "could",
+  "should",
+  "where",
+  "these",
+  "those",
+]);
+
+/**
+ * A miss that is close enough to be worth a semantic check: shared content
+ * word, or an edit distance just past the typo budget. Exact and typo matches
+ * are not borderline — grading already accepted them.
+ */
+export function isBorderlineAnswer(
+  response: string,
+  accepted: readonly string[],
+): boolean {
+  const given = normalizeFillIn(response);
+  if (given.length < 4 || /\d/.test(given)) return false;
+  const targets = accepted
+    .map((value) => normalizeFillIn(value))
+    .filter((value) => value.length >= 4 && !/\d/.test(value));
+  return targets.some((target) => {
+    if (matchesExpected(given, target)) return false;
+    const ratio = given.length / target.length;
+    if (ratio < 0.6 || ratio > 1.7) return false;
+    const givenWords = new Set(given.split(" "));
+    const shared = target.split(" ").some(
+      (word) => word.length >= 5 && !BORDERLINE_STOP.has(word) && givenWords.has(word),
+    );
+    if (shared) return true;
+    const wider = typoBudget(target.length) + 2;
+    const distance = levenshtein(given, target, wider);
+    return distance <= wider && distance > typoBudget(target.length);
+  });
+}
+
+/** True when the player's main answer already includes a bonus answer. */
+export function responseCoversAnswer(response: string, expected: string): boolean {
+  const given = normalizeFillIn(response);
+  const target = normalizeFillIn(expected);
+  if (!given || !target) return false;
+  if (matchesExpected(given, target)) return true;
+  const givenWords = given.split(" ");
+  const targetWords = target.split(" ");
+  if (targetWords.length > givenWords.length) return false;
+  for (let start = 0; start <= givenWords.length - targetWords.length; start += 1) {
+    const window = givenWords.slice(start, start + targetWords.length).join(" ");
+    if (matchesExpected(window, target)) return true;
+  }
+  return false;
+}
+
+export function responseCoversAny(
+  response: string,
+  expected: readonly string[],
+): boolean {
+  return expected.some((value) => responseCoversAnswer(response, value));
 }
