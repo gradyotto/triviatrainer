@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CheckoutRefresh } from "@/components/account/checkout-refresh";
 import { ManageBillingButton } from "@/components/account/manage-billing-button";
 import { TimezoneForm } from "@/components/account/timezone-form";
+import { UsernameForm } from "@/components/account/username-form";
 import { Button } from "@/components/ui/button";
 import { isPaymentFailureStatus } from "@/lib/billing/limits";
 import { getAccountSnapshot } from "@/lib/account";
@@ -188,6 +189,10 @@ export default async function AccountPage({
             </Button>
           ) : null}
         </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card px-4 py-4">
+        <UsernameForm current={user.username} />
       </section>
 
       <TimezoneForm timeZone={user.timeZone} />

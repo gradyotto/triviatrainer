@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { DisputeLink } from "@/components/train/dispute-link";
 import { Button } from "@/components/ui/button";
 import { browserTimeZone } from "@/lib/time/zone";
 import type { GradeResult, PublicQuestion, ReviewItem } from "@/lib/train-types";
@@ -14,6 +15,7 @@ export function QuestionCard({
   onNext,
   onEnd,
   onLimit,
+  context = "train",
 }: {
   question: PublicQuestion;
   index: number;
@@ -23,6 +25,7 @@ export function QuestionCard({
   onNext: () => void;
   onEnd: () => void;
   onLimit: (limit: number | null) => void;
+  context?: "train" | "review";
 }) {
   const [draft, setDraft] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -211,6 +214,13 @@ export function QuestionCard({
               {feedback.explanation}
             </p>
           ) : null}
+          {feedback.correct ? null : (
+            <DisputeLink
+              questionId={question.id}
+              response={selected ?? draft}
+              context={context}
+            />
+          )}
         </div>
       ) : null}
 

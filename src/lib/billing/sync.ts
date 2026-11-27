@@ -46,6 +46,7 @@ async function userForSnapshot(
     id: row.id,
     clerkId: row.clerkId,
     email: row.email,
+    username: row.username,
     plan: row.plan,
     timeZone: row.timeZone,
     timeZoneConfirmed: row.timeZoneConfirmed,

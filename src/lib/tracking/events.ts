@@ -6,6 +6,11 @@ export const CONVERSION_EVENTS = [
   "upgrade_completed",
   "subscription_canceled",
   "review_session_started",
+  "training_session_started",
+  "daily_challenge_started",
+  "daily_challenge_completed",
+  "bonus_answered",
+  "answer_disputed",
 ] as const;
 
 export type ConversionEventName = (typeof CONVERSION_EVENTS)[number];

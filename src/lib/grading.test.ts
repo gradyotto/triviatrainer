@@ -75,12 +75,63 @@ describe("fill-in grading", () => {
     );
   });
 
-  it("allows a minor typo on longer answers only", () => {
+  it("allows one typo on 4–7 character answers and two on longer ones", () => {
     assert.equal(gradeResponse({ type: "fill_in", answer: "Helium" }, "Helum"), true);
     assert.equal(gradeResponse({ type: "fill_in", answer: "Helium" }, "Hlum"), false);
+    assert.equal(gradeResponse({ type: "fill_in", answer: "skin" }, "skins"), true);
+    assert.equal(gradeResponse({ type: "fill_in", answer: "KITT" }, "KIT"), true);
+    assert.equal(
+      gradeResponse(
+        { type: "fill_in", answer: "Constantinople" },
+        "Constantinopel",
+      ),
+      true,
+    );
+    assert.equal(gradeResponse({ type: "fill_in", answer: "cat" }, "car"), false);
+    assert.equal(gradeResponse({ type: "fill_in", answer: "USA" }, "USB"), false);
+  });
+
+  it("requires numbers and years to match exactly", () => {
     assert.equal(gradeResponse({ type: "fill_in", answer: "1900" }, "1901"), false);
-    assert.equal(gradeResponse({ type: "fill_in", answer: "skin" }, "skins"), false);
-    assert.equal(gradeResponse({ type: "fill_in", answer: "KITT" }, "KIT"), false);
+    assert.equal(gradeResponse({ type: "fill_in", answer: "1900" }, "1,900"), true);
+    assert.equal(gradeResponse({ type: "fill_in", answer: "1920s" }, "1920"), false);
+    assert.equal(
+      gradeResponse({ type: "fill_in", answer: "Apollo 11" }, "Apollo 12"),
+      false,
+    );
+    assert.equal(
+      gradeResponse({ type: "fill_in", answer: "Apollo 11" }, "Apolo 11"),
+      false,
+    );
+  });
+
+  it("accepts a listed last name for Nicolaus Copernicus", () => {
+    const question = {
+      type: "fill_in" as const,
+      answer: "Nicolaus Copernicus",
+      aliases: ["Copernicus"],
+    };
+    assert.equal(gradeResponse(question, "Copernicus"), true);
+    assert.equal(gradeResponse(question, "  copernicus "), true);
+    assert.equal(gradeResponse(question, "Nicolaus Copernicus"), true);
+    assert.equal(gradeResponse(question, "Galileo"), false);
+  });
+
+  it("strips leading articles and keeps articles in the middle", () => {
+    assert.equal(
+      gradeResponse(
+        { type: "fill_in", answer: "Battle of the Bulge" },
+        "battle of bulge",
+      ),
+      false,
+    );
+    assert.equal(
+      gradeResponse(
+        { type: "fill_in", answer: "Battle of the Bulge" },
+        "the battle of the bulge",
+      ),
+      true,
+    );
   });
 
   it("rejects extra words and empty responses", () => {

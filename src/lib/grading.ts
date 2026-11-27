@@ -15,15 +15,16 @@ export function normalizeFillIn(input: string): string {
   text = text.replace(/[/-]/g, " ");
   text = text.replace(/[^a-z0-9\s]/g, " ");
   text = text.replace(/\s+/g, " ").trim();
-  return text
-    .split(" ")
-    .filter((word) => word.length > 0 && !ARTICLES.has(word))
-    .join(" ");
+  const words = text.split(" ").filter((word) => word.length > 0);
+  let start = 0;
+  while (start < words.length && ARTICLES.has(words[start] ?? "")) start += 1;
+  return words.slice(start).join(" ");
 }
 
-function typoBudget(length: number): number {
-  if (length < 6) return 0;
-  if (length < 20) return 1;
+/** Edit budget for a normalized accepted answer. Under 4 characters must match exactly. */
+export function typoBudget(length: number): number {
+  if (length < 4) return 0;
+  if (length <= 7) return 1;
   return 2;
 }
 
@@ -55,7 +56,9 @@ function levenshtein(left: string, right: string, max: number): number {
 
 function closeEnough(given: string, expected: string): boolean {
   if (given === expected) return true;
-  const budget = typoBudget(Math.max(given.length, expected.length));
+  // Years and any answer that contains a number must match exactly after normalization.
+  if (/\d/.test(given) || /\d/.test(expected)) return false;
+  const budget = typoBudget(expected.length);
   if (budget === 0) return false;
   return levenshtein(given, expected, budget) <= budget;
 }

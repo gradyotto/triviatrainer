@@ -249,6 +249,7 @@ export function TrainSession({
             if (reviews.length === 0) reset();
             else setPhase("summary");
           }}
+          context={mode === "review" ? "review" : "train"}
         />
       </div>
     );

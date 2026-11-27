@@ -8,6 +8,7 @@ export type UserRecord = {
   id: string;
   clerkId: string;
   email: string | null;
+  username: string | null;
   plan: "free" | "pro";
   timeZone: string;
   timeZoneConfirmed: boolean;
@@ -20,6 +21,7 @@ function toRecord(row: typeof users.$inferSelect): UserRecord {
     id: row.id,
     clerkId: row.clerkId,
     email: row.email,
+    username: row.username,
     plan: row.plan,
     timeZone: row.timeZone,
     timeZoneConfirmed: row.timeZoneConfirmed,
@@ -65,7 +67,7 @@ export async function ensureUser(
         clerkId,
         userId: created.id,
         dedupeKey: `signup:${clerkId}`,
-        metadata: { source: "first_sign_in" },
+        metadata: { source: "first_sign_in", plan: created.plan },
       });
       return created;
     }
